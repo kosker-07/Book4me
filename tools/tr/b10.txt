@@ -1,0 +1,1 @@
+1742|.xlsx, .pdf, .jpg, .png · you can choose several files · scanned PDFs and photos are read by OCR|.xlsx، .pdf، .jpg، .png · يمكنك اختيار عدة ملفات · تُقرأ ملفات PDF الممسوحة والصور بـOCR|.xlsx, .pdf, .jpg, .png · можно выбрать несколько файлов · сканы PDF и фото распознаются OCR

@@ -1,0 +1,200 @@
+0|"Check required" rows|صفوف "تحتاج إلى مراجعة"|Строки «Требуется проверка»
+1|1% + 1% · invoiced at month end|1% + 1% · تُفوتر في نهاية الشهر|1% + 1% · выставляется в конце месяца
+2|(deleted product)|(منتج محذوف)|(удалённый продукт)
+3|(whole province)|(المحافظة كاملة)|(вся провинция)
+4|(tax office / no: to be defined)|(مكتب الضرائب / الرقم: سيُحدد)|(налоговая / номер: будет указан)
+5|Enter a value between -30 and 30 days.|أدخل قيمة بين -30 و30 يومًا.|Введите значение от -30 до 30 дней.
+6|Enter a rate between -50 and 200.|أدخل نسبة بين -50 و200.|Введите ставку от -50 до 200.
+7|Enter a rate between -50 and 200.|أدخل نسبة بين -50 و200.|Введите ставку от -50 до 200.
+8|Enter a percentage between -90 and 300.|أدخل نسبة مئوية بين -90 و300.|Введите процент от -90 до 300.
+9|Enter a rate between 0 and 10.|أدخل نسبة بين 0 و10.|Введите ставку от 0 до 10.
+10|Enter a percentage between 0 and 100.|أدخل نسبة مئوية بين 0 و100.|Введите процент от 0 до 100.
+11|Enter a rate between 0 and 200.|أدخل نسبة بين 0 و200.|Введите ставку от 0 до 200.
+12|Enter a rate between 0 and 200.|أدخل نسبة بين 0 و200.|Введите ставку от 0 до 200.
+13|1 File|1 الملف|1 Файл
+14|1 day|يوم واحد|1 день
+15|1 day before|قبل يوم واحد|за 1 день
+16|14 days before|قبل 14 يومًا|за 14 дней
+17|1–7 people, per vehicle|1–7 أشخاص، لكل مركبة|1–7 человек, за автомобиль
+18|2 Check and edit|2 المراجعة والتعديل|2 Проверка и правка
+19|2 days before|قبل يومين|за 2 дня
+20|21 days before|قبل 21 يومًا|за 21 день
+21|3 Save|3 الحفظ|3 Сохранение
+22|3 days before|قبل 3 أيام|за 3 дня
+23|30 days before|قبل 30 يومًا|за 30 дней
+24|3D Secure, instalments, pre-authorisation, refunds; card data is not stored in the system|3D Secure، تقسيط، تفويض مسبق، استرداد؛ لا تُخزن بيانات البطاقة في النظام|3D Secure, рассрочка, предавторизация, возвраты; данные карт в системе не хранятся
+25|4 hours|4 ساعات|4 часа
+26|5 days before|قبل 5 أيام|за 5 дней
+27|7 days before|قبل 7 أيام|за 7 дней
+28|FAIR USE: A look-to-book limit may be applied to connections that make many searches without generating sales.|الاستخدام العادل: يجوز تطبيق حد لنسبة البحث إلى الحجز على الاتصالات التي تُجري عمليات بحث كثيرة دون مبيعات.|ДОБРОСОВЕСТНОЕ ИСПОЛЬЗОВАНИЕ: для подключений с большим числом поисков без продаж может применяться лимит соотношения поиск/бронирование.
+29|SUB-ACCOUNT: {a} is a separate sub-account under {b}. Its scope is limited to the services and currencies in the parent company's contract; if the parent account is closed, the sub-account is closed too.|الحساب الفرعي: {a} حساب فرعي مستقل ضمن {b}. نطاقه محدود بالخدمات والعملات الواردة في عقد الشركة الأم؛ وإذا أُغلق حساب الشركة الأم يُغلق الحساب الفرعي أيضًا.|СУБСЧЁТ: {a} — отдельный субсчёт в составе {b}. Его охват ограничен услугами и валютами договора головной компании; при закрытии головного счёта закрывается и субсчёт.
+30|API Out|API Out|API Out
+31|API Out (outgoing)|API Out (صادر)|API Out (исходящий)
+32|API Out keys|مفاتيح API Out|Ключи API Out
+33|API Out is off: turn it on in the Connections tab.|API Out متوقف: شغّله من تبويب الاتصالات.|API Out выключен: включите его на вкладке «Подключения».
+34|API address must start with https://.|يجب أن يبدأ عنوان API بـ https://.|Адрес API должен начинаться с https://.
+35|Enter the API key.|أدخل مفتاح API.|Введите ключ API.
+36|API connection added; you can test and enable it.|تمت إضافة اتصال API؛ يمكنك اختباره وتفعيله.|Подключение API добавлено; его можно проверить и включить.
+37|API connection saved.|تم حفظ اتصال API.|Подключение API сохранено.
+38|API commission rates|نسب عمولة API|Ставки комиссии API
+39|API commission rates saved.|تم حفظ نسب عمولة API.|Ставки комиссии API сохранены.
+40|API commissions|عمولات API|Комиссии API
+41|API commission|عمولة API|Комиссия API
+42|API commission (1% + 1%)|عمولة API (1% + 1%)|Комиссия API (1% + 1%)
+43|API health, error queue, OCR queue|صحة API، قائمة الأخطاء، قائمة OCR|Состояние API, очередь ошибок, очередь OCR
+44|Enter the agency name.|أدخل اسم الوكالة.|Введите название агентства.
+45|Agency net price (per person)|السعر الصافي للوكالة (للشخص)|Нетто-цена агентства (за человека)
+46|Agency net price saved.|تم حفظ السعر الصافي للوكالة.|Нетто-цена агентства сохранена.
+47|Agency reference|مرجع الوكالة|Референс агентства
+48|Agency reopened.|أُعيد فتح الوكالة.|Агентство снова открыто.
+49|A product opened to agencies is listed as a tour on the sales screen (next 120 days, on operating days). Platform buyers see this net price plus the platform markup; your own agencies see it with your profit rate.|المنتج المفتوح للوكالات يُدرج كجولة في شاشة المبيعات (الـ120 يومًا القادمة، في أيام التشغيل). يرى مشترو المنصة هذا السعر الصافي مع هامش المنصة، وترى وكالاتك الخاصة السعر مع نسبة ربحك.|Продукт, открытый агентствам, показывается как тур на экране продаж (ближайшие 120 дней, в дни проведения). Покупатели платформы видят эту нетто-цену с наценкой платформы, ваши агентства — с вашей наценкой.
+50|Agency sales closed.|أُغلقت مبيعات الوكالة.|Продажи агентства закрыты.
+51|Full name|الاسم الكامل|Имя и фамилия
+52|Enter full name.|أدخل الاسم الكامل.|Введите имя и фамилию.
+53|Enter full name.|أدخل الاسم الكامل.|Введите имя и фамилию.
+54|The adapter converts the provider's messages into this standard structure.|يحوّل المحوّل رسائل المزوّد إلى هذا الهيكل القياسي.|Адаптер преобразует сообщения поставщика в эту стандартную структуру.
+55|Address not found|لم يُعثر على العنوان|Адрес не найден
+56|Address must start with https://.|يجب أن يبدأ العنوان بـ https://.|Адрес должен начинаться с https://.
+57|Addresses|العناوين|Адреса
+58|Addresses and brand|العناوين والعلامة التجارية|Адреса и бренд
+59|Agent|الوكيل الذكي|Агент
+60|Agent centre|مركز الوكلاء|Центр агентов
+61|The agent centre is not in your package.|مركز الوكلاء غير مشمول في باقتك.|Центр агентов не входит в ваш пакет.
+62|The agent centre is not in your package. Contact the platform to upgrade your package.|مركز الوكلاء غير مشمول في باقتك. تواصل مع المنصة لترقية الباقة.|Центр агентов не входит в ваш пакет. Для смены пакета свяжитесь с платформой.
+63|Agent: Operations|الوكيل: العمليات|Агент: Операции
+64|Agents|الوكلاء|Агенты
+65|Agents are installed ready and switched off. An enabled agent works by rules, prepares the work and leaves it in the approval queue without touching live data. Unanswered jobs are reminded once the next day; nothing goes live without approval.|يُثبَّت الوكلاء جاهزين ومتوقفين. يعمل الوكيل المفعّل وفق القواعد، ويُعدّ العمل ويتركه في قائمة الموافقات دون المساس بالبيانات الحية. يُذكَّر بالمهام غير المجاب عنها مرة واحدة في اليوم التالي؛ ولا يُنفَّذ شيء دون موافقة.|Агенты установлены готовыми и выключенными. Включённый агент работает по правилам, готовит задачу и оставляет её в очереди на одобрение, не трогая рабочие данные. О задачах без ответа напоминание приходит один раз на следующий день; без одобрения ничего не применяется.
+66|Agents and approval queue|الوكلاء وقائمة الموافقات|Агенты и очередь одобрений
+67|Transferred content|المحتوى المنقول|Переданное содержимое
+68|Rows not transferred and notes|الصفوف غير المنقولة والملاحظات|Непереданные строки и заметки
+69|No active user.|لا يوجد مستخدم نشط.|Нет активного пользователя.
+70|Active · in searches|نشط · ضمن البحث|Активно · в поиске
+71|Add domain|إضافة نطاق|Добавить домен
+72|Domain added. Add a single redirect record to your domain; once the record is seen, the security certificate is installed automatically.|تمت إضافة النطاق. أضف سجل توجيه واحدًا إلى نطاقك؛ وعند رصد السجل تُثبَّت شهادة الأمان تلقائيًا.|Домен добавлен. Добавьте в домен одну запись перенаправления; когда запись будет обнаружена, сертификат безопасности установится автоматически.
+73|Domain removed; your standard address keeps working.|أُزيل النطاق؛ ويستمر عنوانك القياسي في العمل.|Домен удалён; ваш стандартный адрес продолжает работать.
+74|Remove the domain? Your standard address will keep working.|هل تريد إزالة النطاق؟ سيستمر عنوانك القياسي في العمل.|Удалить домен? Ваш стандартный адрес продолжит работать.
+75|Remove domain|إزالة النطاق|Удалить домен
+76|Add this record to your domain's DNS settings:|أضف هذا السجل إلى إعدادات DNS لنطاقك:|Добавьте эту запись в настройки DNS вашего домена:
+77|Sub-DMCs and agencies|الشركات الفرعية والوكالات|Суб-DMC и агентства
+78|Your sub-DMCs work as separate accounts with their own contract and users. You draft and sign the contract; the sub-account reads and signs the terms and uploads its documents, and its panel opens once you approve. Scope is limited to the services and currencies in your contract.|تعمل شركاتك الفرعية كحسابات مستقلة بعقدها ومستخدميها. أنت تعدّ العقد وتوقّعه؛ ويقرأ الحساب الفرعي الشروط ويوقّعها ويرفع مستنداته، وتُفتح لوحته بعد موافقتك. النطاق محدود بالخدمات والعملات الواردة في عقدك.|Ваши суб-DMC работают как отдельные счета со своим договором и пользователями. Вы составляете и подписываете договор; субсчёт читает и подписывает условия, загружает документы, а панель открывается после вашего одобрения. Охват ограничен услугами и валютами вашего договора.
+79|The profit rate you apply to the sub-account was saved.|تم حفظ نسبة الربح التي تطبقها على الحساب الفرعي.|Наценка для субсчёта сохранена.
+80|Search sub-account name or e-mail|ابحث باسم الحساب الفرعي أو البريد|Поиск по названию субсчёта или e-mail
+81|A sub-account can only use the services and currencies in your contract.|يمكن للحساب الفرعي استخدام الخدمات والعملات الواردة في عقدك فقط.|Субсчёт может использовать только услуги и валюты из вашего договора.
+82|The sub-account administrator must log in, read and sign the terms and upload the four documents separately.|يجب على مسؤول الحساب الفرعي تسجيل الدخول وقراءة الشروط وتوقيعها ورفع المستندات الأربعة كلٌّ على حدة.|Администратор субсчёта должен войти, прочитать и подписать условия и загрузить четыре документа по отдельности.
+83|Sub-accounts|الحسابات الفرعية|Субсчета
+84|Buyer account|حساب المشتري|Счёт покупателя
+85|For purchases from the buyer account, sale details to your customer are required for the booking to be created (purchase and sale are recorded together).|في المشتريات من حساب المشتري، تلزم بيانات البيع لعميلك لإنشاء الحجز (يُسجَّل الشراء والبيع معًا).|При покупках со счёта покупателя для создания бронирования обязательны данные продажи вашему клиенту (покупка и продажа фиксируются вместе).
+86|Buyer accounts (per DMC)|حسابات المشترين (حسب الشركة)|Счета покупателей (по DMC)
+87|Buyer side (products opened to DMCs)|جهة المشتري (المنتجات المفتوحة للشركات)|Сторона покупателя (продукты, открытые DMC)
+88|Buyer-side markup: the rate this account pays when buying platform products. Default 5%.|هامش جهة المشتري: النسبة التي يدفعها هذا الحساب عند شراء منتجات المنصة. الافتراضي 5%.|Наценка стороны покупателя: ставка, которую этот счёт платит при покупке продуктов платформы. По умолчанию 5%.
+89|Buyers make the bank transfer to the account in the booking's currency.|يحوّل المشترون المبلغ إلى الحساب بعملة الحجز.|Покупатели переводят оплату на счёт в валюте бронирования.
+90|Buyer's last free cancellation date = DMC's last cancellation date − this many days. A positive value shortens the period, a negative value extends it.|آخر موعد إلغاء مجاني للمشتري = آخر موعد إلغاء لدى الشركة − هذا العدد من الأيام. القيمة الموجبة تقصّر المدة والسالبة تطيلها.|Последняя дата бесплатной отмены для покупателя = последняя дата отмены DMC − столько дней. Положительное значение сокращает срок, отрицательное — продлевает.
+91|All services purchased appear on this single invoice. Amounts are net prices; the buyer adds its own commission and issues a separate invoice to its customer.|تظهر جميع الخدمات المشتراة في هذه الفاتورة الواحدة. المبالغ أسعار صافية؛ ويضيف المشتري عمولته ويصدر فاتورة منفصلة لعميله.|Все купленные услуги указаны в этом одном счёте. Суммы — нетто-цены; покупатель добавляет свою комиссию и выставляет клиенту отдельный счёт.
+92|Purchase %|الشراء %|Покупка %
+93|Purchase 1%|الشراء 1%|Покупка 1%
+94|Purchase / vehicle|الشراء / مركبة|Покупка / автомобиль
+95|Purchase price recorded.|تم تسجيل سعر الشراء.|Цена покупки записана.
+96|No purchase price.|لا يوجد سعر شراء.|Нет цены покупки.
+97|Enter the purchase price.|أدخل سعر الشراء.|Введите цену покупки.
+98|Purchase currency|عملة الشراء|Валюта покупки
+99|Pick-up time|وقت الالتقاء|Время забора
+100|Pick-up time / place|وقت / مكان الالتقاء|Время / место забора
+101|Purchase amount|مبلغ الشراء|Сумма покупки
+102|Purchase and sale must be completed together. Recording the purchase price calculated with the DMC's purchase-sale margin is suggested.|يجب إتمام الشراء والبيع معًا. يُقترح تسجيل سعر الشراء المحسوب بفارق الشراء والبيع لدى الشركة.|Покупка и продажа должны быть оформлены вместе. Предлагается записать цену покупки, рассчитанную по марже DMC.
+103|Pick-up place|مكان الالتقاء|Место забора
+104|Purchase adult|شراء بالغ|Покупка взрослый
+105|Purchase child|شراء طفل|Покупка ребёнок
+106|Purchase-sale margin removed; this service is closed for sale.|أُزيل فارق الشراء والبيع؛ وأُغلقت هذه الخدمة للبيع.|Маржа удалена; услуга закрыта для продажи.
+107|Purchase-sale margin saved.|تم حفظ فارق الشراء والبيع.|Маржа сохранена.
+108|Purchase-sale margin: your profit within the price you upload; purchase cost = price ÷ (1 + rate). A service without it is not opened for sale, because no booking is created until purchase and sale are complete.|فارق الشراء والبيع: ربحك ضمن السعر الذي ترفعه؛ تكلفة الشراء = السعر ÷ (1 + النسبة). لا تُفتح الخدمة غير المعرّفة للبيع، لأن الحجز لا يُنشأ قبل اكتمال الشراء والبيع.|Маржа: ваша прибыль внутри загружаемой цены; себестоимость = цена ÷ (1 + ставка). Услуга без маржи не открывается для продажи, так как бронирование не создаётся без покупки и продажи.
+109|Save purchase|حفظ الشراء|Сохранить покупку
+110|Main colour|اللون الرئيسي|Основной цвет
+111|Key|المفتاح|Ключ
+112|Key / password|المفتاح / كلمة المرور|Ключ / пароль
+113|Key enabled.|تم تفعيل المفتاح.|Ключ включён.
+114|Key disabled.|تم تعطيل المفتاح.|Ключ отключён.
+115|Create key|إنشاء مفتاح|Создать ключ
+116|Agreement amount|مبلغ الاتفاق|Сумма соглашения
+117|Enter the agreement amount.|أدخل مبلغ الاتفاق.|Введите сумму соглашения.
+118|Antalya, Bosphorus, balloon…|أنطاليا، البوسفور، المنطاد…|Анталья, Босфор, воздушный шар…
+119|December|ديسمبر|Декабрь
+120|Search and sales|البحث والمبيعات|Поиск и продажи
+121|Search, price check, booking, cancellation, query, static content; test and live keys|بحث، تأكيد السعر، حجز، إلغاء، استعلام، محتوى ثابت؛ مفاتيح اختبار وتشغيل|Поиск, подтверждение цены, бронирование, отмена, запрос, статический контент; тестовые и боевые ключи
+122|Search: results come with platform prices, supplier names are not shown; the DMC's own products are listed at its own price as “Special offer”.|البحث: تظهر النتائج بأسعار المنصة ولا يُعرض اسم المورّد؛ وتُدرج منتجات الشركة الخاصة بسعرها كـ“Special offer”.|Поиск: результаты показываются по ценам платформы, имя поставщика скрыто; собственные продукты DMC показываются по её цене как «Special offer».
+123|In search|ضمن البحث|В поиске
+124|The guest's nationality is selected in search. This product is shown only to nationalities matching the rule and counts in lowest-price selection only for that nationality.|تُختار جنسية الضيف في البحث. يُعرض هذا المنتج فقط للجنسيات المطابقة للقاعدة، ولا يُحتسب في اختيار أقل سعر إلا لتلك الجنسية.|В поиске выбирается гражданство гостя. Продукт показывается только подходящим по правилу гражданствам и учитывается при выборе минимальной цены только для них.
+125|Search uses the price of the row matching the guest's number of adults and child ages; if no row matches, the room is not listed for that stay. Release and minimum stay apply per period.|يستخدم البحث سعر الصف المطابق لعدد البالغين وأعمار الأطفال؛ وإن لم يطابق أي صف لا تُدرج الغرفة لتلك الإقامة. يُطبّق الإصدار والحد الأدنى للإقامة حسب الفترة.|Поиск использует цену строки, соответствующей числу взрослых и возрасту детей; если такой строки нет, номер не показывается. Релиз и минимальное проживание применяются по периодам.
+126|No bookings match your search.|لا توجد حجوزات مطابقة لبحثك.|Нет бронирований по вашему запросу.
+127|Back to search|العودة إلى البحث|Назад к поиску
+128|Enable the connection first to add it to search.|فعّل الاتصال أولًا لإضافته إلى البحث.|Чтобы добавить в поиск, сначала включите подключение.
+129|Vehicle capacity|سعة المركبة|Вместимость автомобиля
+130|Suspended|معلّق|Приостановлено
+131|Suspend|تعليق|Приостановить
+132|Skipped: missing tour details|تم التخطي: بيانات الجولة ناقصة|Пропущено: нет данных тура
+133|Issue month-end commission invoice|إصدار فاتورة عمولة نهاية الشهر|Выставить счёт комиссии за месяц
+134|Settings|الإعدادات|Настройки
+135|Settings updated|تم تحديث الإعدادات|Настройки обновлены
+136|Settings saved.|تم حفظ الإعدادات.|Настройки сохранены.
+137|If a hotel with the same name exists, its details are updated, a season with the same name is rewritten and existing room types are kept. If you choose a season year, period dates are moved to that year keeping day and month.|إذا وُجد فندق بالاسم نفسه تُحدَّث بياناته، ويُعاد كتابة الموسم ذي الاسم نفسه، وتُحفظ أنواع الغرف الحالية. وإذا اخترت سنة الموسم تُنقل تواريخ الفترات إلى تلك السنة مع بقاء اليوم والشهر.|Если отель с таким названием существует, его данные обновляются, сезон с тем же названием перезаписывается, существующие типы номеров сохраняются. Если выбрать год сезона, даты периодов переносятся на этот год с сохранением дня и месяца.
+138|Details|التفاصيل|Подробнее
+139|Open API commission|عمولة API مفتوحة|Открытая комиссия API
+140|Full address|العنوان الكامل|Полный адрес
+141|Active agents|الوكلاء النشطون|Активные агенты
+142|Run enabled agents now|تشغيل الوكلاء المفعّلين الآن|Запустить включённых агентов сейчас
+143|Open purchases/sales, changes, cancellations, hotel confirmation|المشتريات/المبيعات المفتوحة، التعديلات، الإلغاءات، تأكيد الفندق|Открытые покупки/продажи, изменения, отмены, подтверждение отеля
+144|Open banking|الخدمات المصرفية المفتوحة|Открытый банкинг
+145|Open connections|الاتصالات المفعّلة|Активные подключения
+146|The queue is empty because there is no open connection.|القائمة فارغة لعدم وجود اتصال مفعّل.|Очередь пуста, так как нет активных подключений.
+147|Open commission|عمولة مفتوحة|Открытая комиссия
+148|Open question: company title and tax number are not final yet; documents use a placeholder.|سؤال مفتوح: اسم الشركة ورقمها الضريبي لم يُحسما بعد؛ وتُستخدم قيمة مؤقتة في المستندات.|Открытый вопрос: название компании и налоговый номер ещё не утверждены; в документах используется заглушка.
+149|Description (visible to guide)|الوصف (يراه المرشد)|Описание (видит гид)
+150|Description code|رمز الوصف|Код описания
+151|Aug|أغس|Авг
+152|August|أغسطس|Август
+153|The following booking has been cancelled.|تم إلغاء الحجز التالي.|Следующее бронирование отменено.
+154|We submit the following booking for your confirmation.|نعرض عليكم الحجز التالي للتأكيد.|Представляем следующее бронирование на ваше подтверждение.
+155|Below you can read and sign the terms and upload your documents.|يمكنك أدناه قراءة الشروط وتوقيعها ورفع مستنداتك.|Ниже вы можете прочитать и подписать условия и загрузить документы.
+156|I allow the Back Office support team to open my screen|أسمح لفريق دعم Back Office بفتح شاشتي|Я разрешаю команде поддержки Back Office открывать мой экран
+157|The Back Office can open your screen only with your permission; every access is logged.|لا يمكن لـBack Office فتح شاشتك إلا بإذنك؛ ويُسجَّل كل دخول.|Back Office может открыть ваш экран только с вашего разрешения; каждый вход фиксируется.
+158|Garden|حديقة|Сад
+159|Balance|الرصيد|Баланс
+160|Balance ({c})|الرصيد ({c})|Баланс ({c})
+161|Top up balance|شحن الرصيد|Пополнить баланс
+162|Balance top-up (credit card)|شحن الرصيد (بطاقة ائتمان)|Пополнение баланса (кредитная карта)
+163|Balance top-up notice rejected.|رُفض إشعار شحن الرصيد.|Уведомление о пополнении отклонено.
+164|Balance top-up approved.|تمت الموافقة على شحن الرصيد.|Пополнение баланса подтверждено.
+165|Balance is used to pay non-refundable bookings instantly and to settle other bookings quickly. Refunds from free cancellations are also added to your balance. Our accounts for bank transfer: {b}.|يُستخدم الرصيد لدفع الحجوزات غير القابلة للاسترداد فورًا وتسوية الحجوزات الأخرى بسرعة. وتُضاف مبالغ الاسترداد من الإلغاءات المجانية إلى رصيدك. حساباتنا للتحويل: {b}.|Баланс используется для мгновенной оплаты невозвратных бронирований и быстрого закрытия остальных. Возвраты по бесплатным отменам тоже зачисляются на баланс. Наши счета для перевода: {b}.
+166|Pay from balance ({a})|الدفع من الرصيد ({a})|Оплатить с баланса ({a})
+167|Insufficient balance ({a}).|الرصيد غير كافٍ ({a}).|Недостаточно средств ({a}).
+168|Your balance is {a}; as it is insufficient, payment will be by credit card.|رصيدك {a}؛ ولأنه غير كافٍ سيتم الدفع ببطاقة الائتمان.|Ваш баланс {a}; его недостаточно, оплата будет картой.
+169|Honeymoon|شهر العسل|Медовый месяц
+170|Bank API|API البنك|API банка
+171|Enter the bank name and a valid IBAN.|أدخل اسم البنك ورقم IBAN صالحًا.|Введите название банка и действительный IBAN.
+172|Bank statement|كشف الحساب البنكي|Банковская выписка
+173|Bank transaction matching, reminders, commission invoice|مطابقة الحركات البنكية، التذكيرات، فاتورة العمولة|Сверка банковских операций, напоминания, счёт комиссии
+174|Bank account added.|تمت إضافة الحساب البنكي.|Банковский счёт добавлен.
+175|Bank and statement|البنك والكشف|Банк и выписка
+176|Update combinations by coefficient when the base price changes|تحديث التركيبات بالمعامل عند تغيّر السعر الأساسي|Обновлять комбинации по коэффициенту при изменении базовой цены
+177|Connection opened (simulation mode)|تم فتح الاتصال (وضع المحاكاة)|Подключение открыто (режим симуляции)
+178|Connection closed|تم إغلاق الاتصال|Подключение закрыто
+179|Closing the connection|إغلاق الاتصال|Закрытие подключения
+180|Linked DMC|الشركة المرتبطة|Связанная DMC
+181|Start|البداية|Начало
+182|Select the start date.|اختر تاريخ البداية.|Выберите дату начала.
+183|Start|ابدأ|Начать
+184|Title|العنوان|Заголовок
+185|Enter a title.|أدخل عنوانًا.|Введите заголовок.
+186|Infant|رضيع|Младенец
+187|On hold: no e-mail address defined|معلّق: لا يوجد بريد إلكتروني محدد|Ожидание: e-mail не указан
+188|An unexpected error occurred: {e}|حدث خطأ غير متوقع: {e}|Произошла непредвиденная ошибка: {e}
+189|Document|المستند|Документ
+190|Document check, contract expiry|فحص المستندات، انتهاء العقد|Проверка документов, окончание договора
+191|Awaiting document approval|بانتظار الموافقة على المستند|Ожидает одобрения документов
+192|Document rejected; the other party will upload it again.|رُفض المستند؛ وسيعيد الطرف الآخر رفعه.|Документ отклонён; другая сторона загрузит его снова.
+193|Document preview|معاينة المستند|Предпросмотр документа
+194|Not specified|غير محدد|Не указано
+195|Notification|الإشعار|Уведомление
+196|Notification address saved.|تم حفظ عنوان الإشعار.|Адрес уведомлений сохранён.
+197|Buy ticket|شراء تذكرة|Купить билет
+198|Pay several bookings together; all purchased services appear on one invoice. Each booking keeps its own voucher.|ادفع عدة حجوزات معًا؛ تظهر جميع الخدمات المشتراة في فاتورة واحدة. ويبقى لكل حجز قسيمته.|Оплатите несколько бронирований вместе; все услуги будут в одном счёте. У каждого бронирования остаётся свой ваучер.
+199|Unit|الوحدة|Подразделение

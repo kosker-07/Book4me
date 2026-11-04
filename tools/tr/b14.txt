@@ -1,0 +1,237 @@
+2239|API|API|API
+2240|Enter a name.|أدخل اسمًا.|Введите название.
+2241|Copy address|نسخ العنوان|Копировать адрес
+2242|Receivables ageing · by company|أعمار الذمم المدينة · حسب الشركة|Старение дебиторской задолженности · по компаниям
+2243|The agreement is not active.|الاتفاقية غير نشطة.|Соглашение не активно.
+2244|Agreement ended.|تم إنهاء الاتفاقية.|Соглашение завершено.
+2245|Save agreement|حفظ الاتفاقية|Сохранить соглашение
+2246|No open receivables.|لا توجد ذمم مدينة مفتوحة.|Открытой дебиторской задолженности нет.
+2247|Back Office staff do not make bookings, so the contribution per person is the department's net contribution (department revenue − department costs) divided by the number of people in the department.|بما أن موظفي المكتب الخلفي لا يجرون الحجوزات، تُحسب المساهمة لكل شخص بقسمة صافي مساهمة القسم (إيرادات القسم − مصروفات القسم) على عدد الأشخاص في القسم.|Сотрудники Back Office не оформляют бронирования, поэтому вклад на человека — это чистый вклад отдела (доходы отдела − расходы отдела), делённый на число сотрудников отдела.
+2248|My tasks|مهامي|Мои задачи
+2249|The booking at this address was not found or you are not allowed to see it.|لم يتم العثور على الحجز في هذا العنوان أو ليست لديك صلاحية عرضه.|Бронирование по этому адресу не найдено или у вас нет прав на просмотр.
+2250|This record was changed in another window; the screen was refreshed, please repeat the action.|تم تغيير هذا السجل في نافذة أخرى؛ تم تحديث الشاشة، يرجى تكرار العملية.|Эта запись изменена в другом окне; экран обновлён, повторите действие.
+2251|This booking was cancelled with a penalty. If you remove the penalty, the amount is refunded to the buyer's account.|أُلغي هذا الحجز مع غرامة. إذا أزلت الغرامة يُعاد المبلغ إلى حساب المشتري.|Это бронирование отменено со штрафом. Если снять штраф, сумма будет возвращена на счёт покупателя.
+2252|You are not allowed to intervene in this booking.|ليست لديك صلاحية التدخل في هذا الحجز.|У вас нет прав вмешиваться в это бронирование.
+2253|This booking has no cancellation penalty.|لا توجد غرامة إلغاء على هذا الحجز.|У этого бронирования нет штрафа за отмену.
+2254|You are not allowed to see this booking.|ليست لديك صلاحية عرض هذا الحجز.|У вас нет прав на просмотр этого бронирования.
+2255|{n} has taken over this booking.|تولّى {n} هذا الحجز.|Это бронирование взял(а) на себя {n}.
+2256|{n} has taken over this booking. Do you want to take it over?|تولّى {n} هذا الحجز. هل تريد توليه بدلًا منه؟|Это бронирование взял(а) на себя {n}. Хотите забрать его?
+2257|You are not allowed to take over this booking.|ليست لديك صلاحية تولي هذا الحجز.|У вас нет прав взять на себя это бронирование.
+2258|Only the employee's manager can approve this request.|لا يوافق على هذا الطلب إلا مدير الموظف.|Этот запрос может одобрить только руководитель сотрудника.
+2259|Release|تخلَّ|Отпустить
+2260|Copy CSV|نسخ CSV|Копировать CSV
+2261|You are not allowed to remove penalties.|ليست لديك صلاحية إزالة الغرامات.|У вас нет прав снимать штрафы.
+2262|Change request|طلب تغيير|Запрос на изменение
+2263|Correction|تصحيح|Исправление
+2264|Apply correction|تطبيق التصحيح|Применить исправление
+2265|Additional indicators|مؤشرات إضافية|Дополнительные показатели
+2266|My team's salary requests|طلبات رواتب فريقي|Запросы зарплаты моей команды
+2267|Enter at least one guest name.|أدخل اسم ضيف واحد على الأقل.|Введите имя хотя бы одного гостя.
+2268|Select at least one column.|اختر عمودًا واحدًا على الأقل.|Выберите хотя бы один столбец.
+2269|Invoices|الفواتير|Счета
+2270|Filter|التصفية|Фильтр
+2271|Price corrected; the difference was posted to the account.|تم تصحيح السعر؛ وسُجّل الفرق في الحساب.|Цена исправлена; разница проведена по счёту.
+2272|You are not allowed to correct prices.|ليست لديك صلاحية تصحيح الأسعار.|У вас нет прав исправлять цены.
+2273|Price and penalty|السعر والغرامة|Цена и штраф
+2274|Correct price|تصحيح السعر|Исправить цену
+2275|When you change your price, the buyer price is updated keeping the markup rates.|عند تغيير سعرك يُحدَّث سعر المشتري مع الحفاظ على نسب الهامش.|При изменении вашей цены цена покупателя обновляется с сохранением наценок.
+2276|Overdue payment|دفعة متأخرة|Просроченный платёж
+2277|Reason (required)|السبب (إلزامي)|Причина (обязательно)
+2278|Write a reason (at least 10 characters).|اكتب سببًا (10 أحرف على الأقل).|Укажите причину (не менее 10 символов).
+2279|Enter a valid period.|أدخل فترة صالحة.|Введите корректный период.
+2280|Try the endpoints with the outgoing connection's key. No real booking is created in the test environment; live booking opens with the move to the server.|جرّب نقاط النهاية بمفتاح الاتصال الصادر. لا يُنشأ حجز حقيقي في بيئة الاختبار؛ يُفتح الحجز الحي عند الانتقال إلى الخادم.|Проверьте конечные точки с ключом исходящего подключения. В тестовой среде реальное бронирование не создаётся; живое бронирование откроется при переходе на сервер.
+2281|Visible columns|الأعمدة الظاهرة|Видимые столбцы
+2282|Current score|الدرجة الحالية|Текущий балл
+2283|H2H connection created and bound to the supplier API adapter ({n}). You can test and enable it under Integrations → Supplier API.|تم إنشاء اتصال H2H وربطه بمحوّل واجهة API للمورد ({n}). يمكنك اختباره وتفعيله من التكاملات → واجهة API للمورد.|H2H-подключение создано и привязано к адаптеру API поставщика ({n}). Проверить и включить его можно в разделе Интеграции → API поставщика.
+2284|H2H test console|وحدة اختبار H2H|Тестовая консоль H2H
+2285|Volume (90 days)|الحجم (90 يومًا)|Объём (90 дней)
+2286|No promotion agreements yet.|لا توجد اتفاقيات ترويج بعد.|Соглашений о продвижении пока нет.
+2287|Every intervention is written to the activity log with before and after; affected parties are notified.|يُسجَّل كل تدخل في سجل العمليات مع الحالة قبل وبعد؛ ويُرسل إشعار إلى الأطراف المعنية.|Каждое вмешательство записывается в журнал с состоянием до и после; затронутые стороны получают уведомление.
+2288|Calculated|المحسوبة|Расчётный
+2289|Calculated bonuses|المكافآت المحسوبة|Рассчитанные премии
+2290|Services and currencies stay in the contract; here the validity dates and extra terms are changed. The change is saved as a version and notified to the other party.|تبقى الخدمات والعملات في العقد؛ وهنا تُغيَّر تواريخ السريان والشروط الإضافية. يُحفظ التغيير كإصدار ويُبلَّغ الطرف الآخر.|Услуги и валюты остаются в договоре; здесь меняются сроки действия и дополнительные условия. Изменение сохраняется как версия, другая сторона получает уведомление.
+2291|Record details|تفاصيل السجل|Детали записи
+2292|My saved reports|تقاريري المحفوظة|Мои сохранённые отчёты
+2293|Department contribution per person|مساهمة القسم لكل شخص|Вклад отдела на человека
+2294|Add person|إضافة شخص|Добавить человека
+2295|Rule name|اسم القاعدة|Название правила
+2296|Your salary request goes to your manager first and to Accounting once approved.|يُرسل طلب راتبك أولًا إلى مديرك، وبعد الموافقة إلى المحاسبة.|Ваш запрос зарплаты сначала поступит руководителю, а после одобрения — в бухгалтерию.
+2297|Menu|القائمة|Меню
+2298|Intervention|التدخل|Вмешательство
+2299|Difference invoice required after intervention|فاتورة فرق مطلوبة بعد التدخل|После вмешательства требуется корректировочный счёт
+2300|The note cannot be empty.|لا يمكن أن تكون الملاحظة فارغة.|Заметка не может быть пустой.
+2301|Add note|إضافة ملاحظة|Добавить заметку
+2302|Note added.|تمت إضافة الملاحظة.|Заметка добавлена.
+2303|No notes.|لا توجد ملاحظات.|Заметок нет.
+2304|Save note|حفظ الملاحظة|Сохранить заметку
+2305|Creation date|تاريخ الإنشاء|Дата создания
+2306|The request you approve goes to Accounting; once Accounting approves, the new salary applies from next month.|يُرسل الطلب الذي توافق عليه إلى المحاسبة؛ وعند موافقة المحاسبة يسري الراتب الجديد من الشهر التالي.|Одобренный вами запрос поступит в бухгалтерию; после её одобрения новая зарплата действует со следующего месяца.
+2307|Hotel (supplier)|الفندق (المورد)|Отель (поставщик)
+2308|Select hotel and room.|اختر الفندق والغرفة.|Выберите отель и номер.
+2309|Promotion agreement with the hotel: period, amount and services to be delivered. The invoice is issued from the agreement with one click. It has no effect on ranking.|اتفاقية ترويج مع الفندق: الفترة والمبلغ والخدمات المقدمة. تُصدر الفاتورة من الاتفاقية بنقرة واحدة. لا تأثير لها على الترتيب.|Соглашение о продвижении с отелем: период, сумма и услуги. Счёт выставляется из соглашения одним нажатием. На ранжирование не влияет.
+2310|Automatic calculation is on.|الحساب التلقائي مفعّل.|Автоматический расчёт включён.
+2311|Automatic calculation is off.|الحساب التلقائي متوقف.|Автоматический расчёт выключен.
+2312|Automatic score|الدرجة التلقائية|Автоматический балл
+2313|Your session has expired; please log in again.|انتهت جلستك؛ يرجى تسجيل الدخول مرة أخرى.|Сеанс истёк; войдите снова.
+2314|Partner API address (incoming)|عنوان API للشريك (وارد)|Адрес API партнёра (входящее)
+2315|Promotion invoices issued by the platform to hotels and offset against payments are deducted from the amount the platform pays the DMC.|تُخصم فواتير الترويج التي يصدرها النظام للفنادق والمقاصّة من المدفوعات من المبلغ الذي يدفعه النظام لـ DMC.|Счета за продвижение, выставленные платформой отелям и зачтённые в счёт платежей, вычитаются из суммы, которую платформа платит DMC.
+2316|Score = base + delivery rate × weight − services not delivered − overdue payment + volume. A company without history starts with the new DMC score. Weights are under Accounting → Parameters.|الدرجة = الأساس + معدل التسليم × الوزن − الخدمات غير المقدمة − الدفعات المتأخرة + الحجم. تبدأ الشركة التي لا سجل لها بدرجة DMC الجديدة. الأوزان في المحاسبة → المعلمات.|Балл = база + доля выполнения × вес − невыполненные услуги − просроченные платежи + объём. Компания без истории начинает с балла нового DMC. Веса — в разделе Бухгалтерия → Параметры.
+2317|Calculate scores now|احسب الدرجات الآن|Рассчитать баллы сейчас
+2318|Report name (filters and columns are saved together):|اسم التقرير (تُحفظ عوامل التصفية والأعمدة معًا):|Название отчёта (фильтры и столбцы сохраняются вместе):
+2319|Report saved.|تم حفظ التقرير.|Отчёт сохранён.
+2320|Manage reports|إدارة التقارير|Управлять отчётами
+2321|Save report|حفظ التقرير|Сохранить отчёт
+2322|Manual rebooking: sale price, booking no and voucher no do not change; the purchase difference is posted to rebooking revenue and the old supplier receives a “free cancellation” notice.|إعادة الحجز يدويًا: لا يتغير سعر البيع ولا رقم الحجز ولا رقم القسيمة؛ يُسجَّل فرق الشراء في إيرادات إعادة الحجز ويتلقى المورد السابق إشعار «إلغاء مجاني».|Ручной ребукинг: цена продажи, номер бронирования и ваучера не меняются; разница в закупке относится на доход от ребукинга, прежний поставщик получает уведомление о «бесплатной отмене».
+2323|Booking released.|تم التخلي عن الحجز.|Бронирование отпущено.
+2324|Booking no, guest, hotel, account or voucher|رقم الحجز أو الضيف أو الفندق أو الحساب أو القسيمة|Номер бронирования, гость, отель, счёт или ваучер
+2325|Booking created|تم إنشاء الحجز|Бронирование создано
+2326|The booking was moved to {d}; sale price, booking no and voucher no did not change.|نُقل الحجز إلى {d}؛ لم يتغير سعر البيع ولا رقم الحجز ولا رقم القسيمة.|Бронирование перенесено к {d}; цена продажи, номер бронирования и ваучера не изменились.
+2327|Travel|السفر|Поездка
+2328|Travel date|تاريخ السفر|Дата поездки
+2329|No bookings were cancelled for non-payment in the selected period.|لا توجد حجوزات أُلغيت لعدم الدفع في الفترة المحددة.|В выбранном периоде нет бронирований, отменённых из-за неоплаты.
+2330|Last calculation|آخر حساب|Последний расчёт
+2331|End|إنهاء|Завершить
+2332|Columns|الأعمدة|Столбцы
+2333|The request is not awaiting manager approval.|الطلب ليس بانتظار موافقة المدير.|Запрос не ожидает одобрения руководителя.
+2334|Full screen|ملء الشاشة|Полный экран
+2335|Promotion agreements|اتفاقيات الترويج|Соглашения о продвижении
+2336|You are not allowed to manage promotion agreements.|ليست لديك صلاحية إدارة اتفاقيات الترويج.|У вас нет прав на соглашения о продвижении.
+2337|Promotion agreement saved.|تم حفظ اتفاقية الترويج.|Соглашение о продвижении сохранено.
+2338|Promotion invoice offsets|مقاصّة فواتير الترويج|Зачёты счетов за продвижение
+2339|The browser blocked the new window; the address was copied to the clipboard.|حظر المتصفح النافذة الجديدة؛ تم نسخ العنوان إلى الحافظة.|Браузер заблокировал новое окно; адрес скопирован в буфер обмена.
+2340|Date type|نوع التاريخ|Тип даты
+2341|Change supplier|تغيير المورد|Смена поставщика
+2342|Changing the supplier is done only in Back Office and with permission.|لا يتم تغيير المورد إلا في المكتب الخلفي وبصلاحية.|Смена поставщика выполняется только в Back Office и при наличии прав.
+2343|Applied without waiting for supplier approval, even after the cancellation deadline. If the price changes, the difference is posted to the account; without availability it is saved with a warning.|يُطبَّق دون انتظار موافقة المورد حتى بعد انتهاء مهلة الإلغاء. إذا تغير السعر يُسجَّل الفرق في الحساب؛ وعند عدم التوفر يُحفظ مع تحذير.|Применяется без ожидания подтверждения поставщика, даже после срока отмены. При изменении цены разница проводится по счёту; при отсутствии мест сохраняется с предупреждением.
+2344|Supplier free cancellation|الإلغاء المجاني للمورد|Бесплатная отмена поставщика
+2345|Change supplier|تغيير المورد|Сменить поставщика
+2346|Single click: summary · double click or Open: full details · Ctrl + click: new tab|نقرة واحدة: ملخص · نقرتان أو فتح: التفاصيل الكاملة · Ctrl + نقرة: علامة تبويب جديدة|Один щелчок: сводка · двойной щелчок или «Открыть»: все детали · Ctrl + щелчок: новая вкладка
+2347|Number of offers|عدد العروض|Количество предложений
+2348|Delivery rate|معدل التسليم|Доля выполнения
+2349|The amount was offset against what the platform pays {d}.|تمت مقاصة المبلغ مما يدفعه النظام إلى {d}.|Сумма зачтена в счёт выплат платформы компании {d}.
+2350|Apply|تطبيق|Применить
+2351|Endpoint|نقطة النهاية|Конечная точка
+2352|Default columns|الأعمدة الافتراضية|Столбцы по умолчанию
+2353|Not delivered (12 months)|غير المقدَّمة (12 شهرًا)|Не выполнено (12 мес.)
+2354|Only an active hotel booking can be moved.|لا يمكن نقل إلا حجز فندق نشط.|Перенести можно только активное бронирование отеля.
+2355|Corrections are made only on active bookings; for the cancellation penalty use the Price and penalty section.|تُجرى التصحيحات على الحجوزات النشطة فقط؛ لغرامة الإلغاء استخدم قسم السعر والغرامة.|Исправления вносятся только в активные бронирования; для штрафа за отмену используйте раздел «Цена и штраф».
+2356|Visible only to your company's users|يراها مستخدمو شركتك فقط|Видят только пользователи вашей компании
+2357|Response|الاستجابة|Ответ
+2358|On the published page a new tab opens with separate data; for dual screen open the file directly in the browser. The address was copied to the clipboard.|في الصفحة المنشورة تُفتح علامة التبويب الجديدة ببيانات منفصلة؛ للشاشة المزدوجة افتح الملف مباشرة في المتصفح. تم نسخ العنوان إلى الحافظة.|На опубликованной странице новая вкладка открывается с отдельными данными; для двух экранов откройте файл прямо в браузере. Адрес скопирован в буфер обмена.
+2359|New purchase amount|مبلغ الشراء الجديد|Новая сумма закупки
+2360|Enter the new purchase amount.|أدخل مبلغ الشراء الجديد.|Введите новую сумму закупки.
+2361|Open in new window|فتح في نافذة جديدة|Открыть в новом окне
+2362|You are not allowed.|ليست لديك صلاحية.|Нет прав.
+2363|today|اليوم|сегодня
+2364|open as of today|مفتوح حتى اليوم|открыто на сегодня
+2365|passed|انقضى|прошло
+2366|closing|الإغلاق|закрытие
+2367|request|طلب|запрос
+2368|new|جديد|новый
+2369|{no} is yours. Other users see your name as the person in charge.|{no} لديك الآن. يرى المستخدمون الآخرون اسمك كمسؤول.|{no} теперь у вас. Другие пользователи видят вас как ответственного.
+2370|{n} days left|متبقٍّ {n} يوم|осталось дней: {n}
+2371|Employee profitability · {m}|ربحية الموظفين · {m}|Рентабельность сотрудников · {m}
+2372|No employees.|لا يوجد موظفون.|Сотрудников нет.
+2373|Automatically cancelled for non-payment|أُلغيت تلقائيًا لعدم الدفع|Автоматически отменены из-за неоплаты
+2374|E.g. Sales team profit bonus|مثال: مكافأة أرباح فريق المبيعات|Напр. премия отдела продаж с прибыли
+2375|E.g. the hotel overbooked, guest moved to another hotel|مثال: الفندق قام بحجز زائد، ونُقل الضيف إلى فندق آخر|Напр. отель допустил овербукинг, гость переселён в другой отель
+2376|Taken over by|المسؤول|Ответственный
+2377|no data in previous period|لا بيانات في الفترة السابقة|нет данных за прошлый период
+2378|vs previous period|مقارنة بالفترة السابقة|к прошлому периоду
+2379|Showing first {n} records; narrow the filter.|يُعرض أول {n} سجل؛ ضيّق التصفية.|Показаны первые {n} записей; сузьте фильтр.
+2380|Cancellation penalty removed; the amount was posted to the account as a refund.|أُزيلت غرامة الإلغاء؛ وسُجّل المبلغ في الحساب كاسترداد.|Штраф за отмену снят; сумма проведена по счёту как возврат.
+2381|Remove cancellation penalty|إزالة غرامة الإلغاء|Снять штраф за отмену
+2382|Change terms|تغيير الشروط|Изменить условия
+2383|Bookings with arrival within 48 hours|حجوزات الوصول خلال 48 ساعة|Бронирования с заездом в течение 48 часов
+2384|Your purchases with payment deadline within 48 hours|مشترياتك التي يحين موعد دفعها خلال 48 ساعة|Ваши покупки со сроком оплаты в течение 48 часов
+2385|Orders with payment deadline within 48 hours|طلبات يحين موعد دفعها خلال 48 ساعة|Заказы со сроком оплаты в течение 48 часов
+2386|Supplier free cancellation ending within 48 hours|مهلة الإلغاء المجاني للمورد تنتهي خلال 48 ساعة|Бесплатная отмена поставщика истекает в течение 48 часов
+2387|Purchases whose free cancellation ends within 48 hours|مشتريات تنتهي مهلة إلغائها المجاني خلال 48 ساعة|Покупки, бесплатная отмена которых истекает в течение 48 часов
+2388|Sale to agency|البيع للوكالة|Продажа агентству
+2389|Agent approval queue|قائمة موافقات الوكلاء|Очередь одобрений агентов
+2390|Buyer price|سعر المشتري|Цена покупателя
+2391|Buyer account|حساب المشتري|Счёт покупателя
+2392|Buyer free cancellation|الإلغاء المجاني للمشتري|Бесплатная отмена покупателя
+2393|Sale to buyer|البيع للمشتري|Продажа покупателю
+2394|Purchase (entered by you)|الشراء (الذي أدخلته)|Закупка (введена вами)
+2395|Depreciation|الاستهلاك|Амортизация
+2396|In the same order|في الطلب نفسه|В том же заказе
+2397|Bank and accounts|البنك والحسابات|Банк и счета
+2398|Accounts|الحسابات الجارية|Расчёты
+2399|DMC purchase price|سعر الشراء من DMC|Цена закупки у DMC
+2400|DMCs and licences|DMC والتراخيص|DMC и лицензии
+2401|Purchase from DMC|الشراء من DMC|Закупка у DMC
+2402|Stamp duty|ضريبة الدمغة|Гербовый сбор
+2403|Take over|تولَّ|Забрать
+2404|Correction applied (warning: {w}). Parties notified.|تم تطبيق التصحيح (تحذير: {w}). تم إبلاغ الأطراف.|Исправление применено (предупреждение: {w}). Стороны уведомлены.
+2405|Correction applied and parties notified.|تم تطبيق التصحيح وإبلاغ الأطراف.|Исправление применено, стороны уведомлены.
+2406|Salary request from your team: {n}|طلب راتب من فريقك: {n}|Запрос зарплаты от вашей команды: {n}
+2407|Finance summary|ملخص مالي|Финансовая сводка
+2408|Price correction refund · {no}|استرداد تصحيح السعر · {no}|Возврат по исправлению цены · {no}
+2409|Price correction · {no}|تصحيح السعر · {no}|Исправление цены · {no}
+2410|Your price (supplier)|سعرك (المورد)|Ваша цена (поставщик)
+2411|Expenses and staff|المصروفات والموظفون|Расходы и персонал
+2412|Invalid JSON: {e}|JSON غير صالح: {e}|Недопустимый JSON: {e}
+2413|Back to list|العودة إلى القائمة|Назад к списку
+2414|Messages|الرسائل|Сообщения
+2415|Intervene|تدخّل|Вмешаться
+2416|Closed by intervention|أُغلق بالتدخل|Закрыто вмешательством
+2417|Close intervention|إغلاق التدخل|Закрыть вмешательство
+2418|Notes|ملاحظات|Заметки
+2419|Unread notifications|إشعارات غير مقروءة|Непрочитанные уведомления
+2420|Creation (old → new)|الإنشاء (من الأقدم إلى الأحدث)|Создание (старые → новые)
+2421|Creation (new → old)|الإنشاء (من الأحدث إلى الأقدم)|Создание (новые → старые)
+2422|By creation date|حسب تاريخ الإنشاء|По дате создания
+2423|Change requests awaiting approval|طلبات تغيير بانتظار الموافقة|Запросы на изменение, ожидающие одобрения
+2424|Bank transfers awaiting approval|تحويلات بنكية بانتظار الموافقة|Банковские переводы, ожидающие одобрения
+2425|Salary requests awaiting approval|طلبات رواتب بانتظار الموافقة|Запросы зарплаты, ожидающие одобрения
+2426|Platform profit|ربح النظام|Прибыль платформы
+2427|Score · overdue payment deduction|الدرجة · خصم الدفع المتأخر|Балл · снижение за просрочку оплаты
+2428|Score · volume cap|الدرجة · الحد الأعلى للحجم|Балл · предел за объём
+2429|Score · each service not delivered (12 months)|الدرجة · لكل خدمة غير مقدمة (12 شهرًا)|Балл · за каждую невыполненную услугу (12 мес.)
+2430|Score · base|الدرجة · الأساس|Балл · база
+2431|Score · delivery rate weight|الدرجة · وزن معدل التسليم|Балл · вес доли выполнения
+2432|Reports|التقارير|Отчёты
+2433|Rebooking status|حالة إعادة الحجز|Статус ребукинга
+2434|Booking · price and penalty|الحجز · السعر والغرامة|Бронирование · цена и штраф
+2435|Booking · change supplier|الحجز · تغيير المورد|Бронирование · смена поставщика
+2436|Intervene in bookings|التدخل في الحجوزات|Вмешательство в бронирования
+2437|Travel (far → near)|السفر (من الأبعد إلى الأقرب)|Поездка (дальние → ближние)
+2438|Travel (near → far)|السفر (من الأقرب إلى الأبعد)|Поездка (ближние → дальние)
+2439|By travel date|حسب تاريخ السفر|По дате поездки
+2440|Order total|إجمالي الطلب|Сумма заказа
+2441|Payable to you|المستحق لك|К выплате вам
+2442|Ended|انتهت|Завершено
+2443|Promotion invoice issued: {no} · {h} · {a}|أُصدرت فاتورة ترويج: {no} · {h} · {a}|Выставлен счёт за продвижение: {no} · {h} · {a}
+2444|Promotion invoice {no} ({h}) was offset against your platform payment: {a}|تمت مقاصة فاتورة الترويج {no} ({h}) من دفعة النظام لك: {a}|Счёт за продвижение {no} ({h}) зачтён в счёт выплаты платформы: {a}
+2445|Tourism share|حصة السياحة|Туристический сбор
+2446|Made by|أنشأه|Оформил
+2447|Awaiting manager approval|بانتظار موافقة المدير|Ожидает одобрения руководителя
+2448|deducted at most 4 times|يُخصم 4 مرات كحد أقصى|вычитается не более 4 раз
+2449|difference invoice required|فاتورة فرق مطلوبة|требуется корректировочный счёт
+2450|2 points per booking in the last 90 days|نقطتان لكل حجز في آخر 90 يومًا|2 балла за каждое бронирование за последние 90 дней
+2451|delivery rate × weight|معدل التسليم × الوزن|доля выполнения × вес
+2452|Intervention on booking {no}: {w}|تم التدخل في الحجز {no}: {w}|Вмешательство в бронирование {no}: {w}
+2453|{n} took over booking {no}|تولّى {n} الحجز {no}|{n} забрал(а) бронирование {no}
+2454|Your booking {no} was updated: {w}|تم تحديث حجزك {no}: {w}|Ваше бронирование {no} обновлено: {w}
+2455|{no}: difference invoice required after intervention ({w})|{no}: فاتورة فرق مطلوبة بعد التدخل ({w})|{no}: после вмешательства требуется корректировочный счёт ({w})
+2456|Score updated for {n} companies.|تم تحديث درجات {n} شركة.|Баллы обновлены для компаний: {n}.
+2457|Payment and deadline|الدفع والموعد النهائي|Оплата и срок оплаты
+2458|Payment method|طريقة الدفع|Способ оплаты
+2459|Payments|المدفوعات|Платежи
+2460|Payable|المستحق الدفع|К оплате
+2461|Paid|المدفوع|Оплачено
+2462|E.g. Arrivals this week|مثال: الوصول هذا الأسبوع|Напр. заезды на этой неделе
+2463|Free cancellation|الإلغاء المجاني|Бесплатная отмена
+2464|Take on|تولَّ|Взять на себя
+2465|Bookings I have taken on|الحجوزات التي توليتها|Бронирования, которые я взял(а) на себя
+2466|Cancellation penalty removed · {no} – amount refunded|أُزيلت غرامة الإلغاء · {no} – تم رد المبلغ|Штраф за отмену снят · {no} – сумма возвращена
+2467|Cancellation terms|شروط الإلغاء|Условия отмены
+2468|My team's salary requests (manager approval)|طلبات رواتب فريقي (موافقة المدير)|Запросы зарплаты моей команды (одобрение руководителя)
+2469|Payable (to DMCs, offsets deducted)|المستحق الدفع (لـ DMC، بعد خصم المقاصّة)|К оплате (DMC, за вычетом зачётов)
+2470|Payable (service suppliers and your purchases)|المستحق الدفع (موردو الخدمات ومشترياتك)|К оплате (поставщики услуг и ваши покупки)
+2471|Net revenue per booking|صافي الإيراد لكل حجز|Чистый доход на бронирование
+2472|Automatic rebooking score (1 = on, 0 = manual)|درجة إعادة الحجز التلقائية (1 = مفعّل، 0 = يدوي)|Автоматический балл ребукинга (1 = вкл., 0 = вручную)
+2473|When on, the score is calculated every night; a manually entered score applies until the next calculation.|عند التفعيل تُحسب الدرجة كل ليلة؛ وتسري الدرجة المدخلة يدويًا حتى الحساب التالي.|Если включено, балл рассчитывается каждую ночь; введённый вручную балл действует до следующего расчёта.
+2474|Search: booking no, guest, voucher, hotel, company, contract ( / )|بحث: رقم الحجز، الضيف، القسيمة، الفندق، الشركة، العقد ( / )|Поиск: номер бронирования, гость, ваучер, отель, компания, договор ( / )
+2475|Search: booking no, guest, voucher, hotel, agency ( / )|بحث: رقم الحجز، الضيف، القسيمة، الفندق، الوكالة ( / )|Поиск: номер бронирования, гость, ваучер, отель, агентство ( / )

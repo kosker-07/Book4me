@@ -1,0 +1,200 @@
+1200|Loaded {a} · blocked {b} · available {c}|المشحون {a} · المحجوز {b} · المتاح {c}|Внесено {a} · заблокировано {b} · доступно {c}
+1201|Not uploaded|لم يُرفع|Не загружено
+1202|High|مرتفع|Высокий
+1203|Stars|النجوم|Звёзды
+1204|agency|وكالة|агентство
+1205|no address|لا يوجد عنوان|нет адреса
+1206|events awaiting transfer|أحداث بانتظار النقل|событий ожидают передачи
+1207|sub-account, parent: {n}|حساب فرعي، الأم: {n}|субсчёт, головная: {n}
+1208|not received|لم يُستلم|не получено
+1209|purchase-sale margin|فارق الشراء والبيع|маржа
+1210|main|رئيسي|основной
+1211|lead guest|الضيف الرئيسي|главный гость
+1212|agreement amount covered|تمت تغطية مبلغ الاتفاق|сумма соглашения покрыта
+1213|agreement {a}|الاتفاق {a}|соглашение {a}
+1214|{a} short of agreement|ينقص {a} عن الاتفاق|до соглашения не хватает {a}
+1215|vehicle|مركبة|автомобиль
+1216|open|افتح|открыть
+1217|insufficient balance|الرصيد غير كافٍ|недостаточно средств
+1218|refund to your balance|استرداد إلى رصيدك|возврат на ваш баланс
+1219|start|البداية|начало
+1220|infant|رضيع|младенец
+1221|waiting|بالانتظار|ожидает
+1222|end|النهاية|конец
+1223|book4me ai A.Ş.|book4me ai A.Ş.|book4me ai A.Ş.
+1224|book4me ai API|book4me ai API|book4me ai API
+1225|powered by book4me ai|بتقنية book4me ai|на платформе book4me ai
+1226|book4me ai v41 is live|book4me ai v41 متاح الآن|book4me ai v41 уже доступен
+1227|zone|منطقة|зона
+1228|live adapter awaiting development|المحوّل الحي بانتظار التطوير|боевой адаптер ожидает разработки
+1229|cancellation with penalty|إلغاء بغرامة|отмена со штрафом
+1230|turnover {a}|حجم الأعمال {a}|оборот {a}
+1231|department|القسم|отдел
+1232|support|الدعم|поддержка
+1233|change|تعديل|изменение
+1234|can be saved directly|يمكن حفظه مباشرة|можно сохранить сразу
+1235|status|الحالة|статус
+1236|revised version {n}|النسخة المعدلة {n}|исправленная версия {n}
+1237|not saved without correction|لا يُحفظ دون تصحيح|не сохраняется без исправления
+1238|e-Invoice / e-Archive|الفاتورة الإلكترونية / الأرشيف الإلكتروني|э-Счёт / э-Архив
+1239|e-Invoice / e-Archive integrator is on: the document was converted to GİB format (UBL-TR) in simulation mode.|متكامل الفاتورة الإلكترونية مفعّل: حُوّل المستند إلى صيغة GİB (UBL-TR) بوضع المحاكاة.|Интегратор э-счетов включён: документ преобразован в формат GİB (UBL-TR) в режиме симуляции.
+1240|e-mail not defined|البريد غير محدد|e-mail не указан
+1241|no e-mail|لا يوجد بريد|нет e-mail
+1242|best value|الأنسب|лучший вариант
+1243|difference|الفرق|разница
+1244|price difference|فرق السعر|разница цены
+1245|photos|الصور|фото
+1246|night|ليلة|ночь
+1247|nightly room price|سعر الغرفة لليلة|цена номера за ночь
+1248|not entered|لم يُدخل|не введено
+1249|check-in|الوصول|заезд
+1250|sender|المرسل|отправитель
+1251|seen|تمت الرؤية|обнаружено
+1252|image could not be opened|تعذر فتح الصورة|не удалось открыть изображение
+1253|transaction|حركة|операция
+1254|departure 08:30|الانطلاق 08:30|отправление 08:30
+1255|departure 09:30|الانطلاق 09:30|отправление 09:30
+1256|reminder sent|تم إرسال التذكير|напоминание отправлено
+1257|reminded|تم التذكير|напомнено
+1258|airport|مطار|аэропорт
+1259|no balance yet|لا يوجد رصيد بعد|баланса пока нет
+1260|account|حساب|счёт
+1261|account balance|رصيد الحساب|баланс счёта
+1262|service|خدمة|услуга
+1263|refund adjustment|تسوية الاسترداد|корректировка возврата
+1264|non-refundable|غير قابل للاسترداد|невозвратный
+1265|non-refundable price|سعر غير قابل للاسترداد|невозвратная цена
+1266|there is a non-refundable service or one past its cancellation period|توجد خدمة غير قابلة للاسترداد أو تجاوزت مهلة الإلغاء|есть невозвратная услуга или услуга с истёкшим сроком отмены
+1267|refundable price|سعر قابل للاسترداد|возвратная цена
+1268|refundable · non-refundable|قابل للاسترداد · غير قابل للاسترداد|возвратный · невозвратный
+1269|district|حي|район
+1270|cancellation|إلغاء|отмена
+1271|cancellation penalty|غرامة الإلغاء|штраф за отмену
+1272|cancelled, void|ملغى، غير صالح|отменено, недействительно
+1273|closed|مغلق|закрыто
+1274|basis of the coefficients|أساس المعاملات|основа коэффициентов
+1275|participant|مشارك|участник
+1276|who did what and when|من فعل ماذا ومتى|кто, что и когда сделал
+1277|person|شخص|чел.
+1278|per person|للشخص|за человека
+1279|code|الرمز|код
+1280|seat|مقعد|место
+1281|within your stay dates|ضمن تواريخ إقامتك|в пределах дат проживания
+1282|quota|الحصة|квота
+1283|user|مستخدم|пользователь
+1284|section manager|مدير قسم|руководитель подразделения
+1285|awaiting offset or collection|بانتظار المقاصة أو التحصيل|ожидает зачёта или оплаты
+1286|margin {m}%|الهامش {m}%|маржа {m}%
+1287|existing|موجود|существующий
+1288|nationality|الجنسية|гражданство
+1289|customer price (commission {m}%)|سعر العميل (عمولة {m}%)|цена для клиента (комиссия {m}%)
+1290|net|صافٍ|нетто
+1291|room|غرفة|номер
+1292|rejected|مرفوض|отклонено
+1293|could not be read|تعذرت القراءة|не удалось прочитать
+1294|reader could not be loaded (check your internet connection)|تعذر تحميل القارئ (تحقق من اتصال الإنترنت)|не удалось загрузить модуль чтения (проверьте подключение к интернету)
+1295|created|الإنشاء|создание
+1296|avg.|متوسط|ср.
+1297|hotel|فندق|отель
+1298|package|باقة|пакет
+1299|period|فترة|период
+1300|from platform payable|من مستحقات المنصة|из долга платформы
+1301|platform prices; your own products “Special offer”|أسعار المنصة؛ ومنتجاتك الخاصة “Special offer”|цены платформы; ваши продукты — «Special offer»
+1302|prepayment agreement with the platform|اتفاق دفع مسبق مع المنصة|соглашение о предоплате с платформой
+1303|rejected|مرفوض|отклонено
+1304|colours|الألوان|цвета
+1305|booking|حجز|бронирование
+1306|risk|المخاطر|риск
+1307|sale|بيع|продажа
+1308|closed for sale|مغلق للبيع|закрыто для продажи
+1309|sheet|ورقة|лист
+1310|simulation|محاكاة|симуляция
+1311|last|آخر|последний
+1312|last login {d}|آخر دخول {d}|последний вход {d}
+1313|payment due|آخر موعد للدفع|срок оплаты
+1314|latest payment method|آخر طريقة دفع|последний способ оплаты
+1315|no issues|لا مشاكل|без проблем
+1316|contract|عقد|договор
+1317|contract currency|عملة العقد|валюта договора
+1318|no contract|لا يوجد عقد|нет договора
+1319|contract {no} · until {d}|العقد {no} · حتى {d}|договор {no} · до {d}
+1320|not in contract|ليس في العقد|нет в договоре
+1321|collected|تم التحصيل|получено
+1322|request awaiting supplier approval|الطلب بانتظار موافقة المورّد|запрос ожидает подтверждения поставщика
+1323|not defined|غير محدد|не задано
+1324|not recognised: write like SNG, DBL, 2 PAX + 1 chd (00-11,99)|غير معروف: اكتب مثل SNG وDBL و2 PAX + 1 chd (00-11,99)|не распознано: пишите как SNG, DBL, 2 PAX + 1 chd (00-11,99)
+1325|supplier|مورّد|поставщик
+1326|one way|اتجاه واحد|в одну сторону
+1327|not handed in|لم يُسلَّم|не сдано
+1328|total|الإجمالي|итого
+1329|transfer|نقل|трансфер
+1330|tour|جولة|тур
+1331|tourist zone|منطقة سياحية|туристическая зона
+1332|whole province|المحافظة كاملة|вся провинция
+1333|show all|عرض الكل|показать все
+1334|warning|تحذير|предупреждение
+1335|review the warnings|راجع التحذيرات|проверьте предупреждения
+1336|flight ticket|تذكرة طيران|авиабилет
+1337|names cannot be changed on a flight ticket|لا يمكن تغيير الاسم في تذكرة الطيران|в авиабилете нельзя менять имя
+1338|default {v}%|الافتراضي {v}%|по умолчанию {v}%
+1339|and {n} more options|و{n} خيارات أخرى|и ещё вариантов: {n}
+1340|or|أو|или
+1341|or airport|أو مطار|или аэропорт
+1342|only {d} products, at {d} prices|منتجات {d} فقط، بأسعار {d}|только продукты {d} по ценам {d}
+1343|by|المنفّذ|кем
+1344|for new bookings|للحجوزات الجديدة|для новых бронирований
+1345|will be retried|ستُعاد المحاولة|будет повторено
+1346|adult|بالغ|взрослый
+1347|none|لا يوجد|нет
+1348|passenger|راكب|пассажир
+1349|administrator · all sections|مسؤول · جميع الأقسام|администратор · все разделы
+1350|uploaded, awaiting admin approval|تم الرفع، بانتظار موافقة المسؤول|загружено, ожидает одобрения администратора
+1351|invalid timeout|مهلة غير صالحة|недопустимый тайм-аут
+1352|required|إلزامي|обязательно
+1353|{a} added to your balance (demo card payment).|أُضيف {a} إلى رصيدك (دفع تجريبي بالبطاقة).|{a} зачислено на баланс (демо-оплата картой).
+1354|Send {a} to the account below, writing {no} in the description.|أرسل {a} إلى الحساب أدناه واكتب {no} في الوصف.|Переведите {a} на счёт ниже, указав {no} в назначении платежа.
+1355|No bank account defined for {c}; pay by card.|لا يوجد حساب بنكي محدد لـ{c}؛ ادفع بالبطاقة.|Для {c} банковский счёт не задан; оплатите картой.
+1356|No airport match for {c}.|لا توجد مطابقة مطار لـ{c}.|Для {c} не найден аэропорт.
+1357|{c} is not among your contract currencies ({cs}); not saved.|{c} ليست ضمن عملات عقدك ({cs})؛ لم يُحفظ.|{c} нет среди валют вашего договора ({cs}); не сохранено.
+1358|{d} department assigned; suggested permissions applied.|تم تعيين قسم {d}؛ وطُبقت الصلاحيات المقترحة.|Назначен отдел {d}; применены рекомендуемые права.
+1359|{d} approved.|تمت الموافقة على {d}.|{d}: одобрено.
+1360|after {d}|بعد {d}|после {d}
+1361|Meeting at {z} zone on {d}.|الاستقبال في منطقة {z} بتاريخ {d}.|Встреча в зоне {z} {d}.
+1362|until {d}|حتى {d}|до {d}
+1363|free cancellation until {d}|إلغاء مجاني حتى {d}|бесплатная отмена до {d}
+1364|{d} uploaded. Awaiting admin approval.|تم رفع {d}. بانتظار موافقة المسؤول.|{d} загружен. Ожидается одобрение администратора.
+1365|Free change until {d}. The new price is calculated automatically; if available, the change is confirmed immediately; the difference is posted to your account.|تعديل مجاني حتى {d}. يُحسب السعر الجديد تلقائيًا، وإن توفر يُؤكد التعديل فورًا؛ ويُقيَّد الفرق في حسابك.|Бесплатное изменение до {d}. Новая цена рассчитывается автоматически; при наличии мест изменение подтверждается сразу; разница проводится по вашему счёту.
+1366|{e} key created: {k}|تم إنشاء مفتاح {e}: {k}|Ключ ({e}) создан: {k}
+1367|{f}: OCR starting…|{f}: بدء OCR…|{f}: запуск OCR…
+1368|{f}: scanned document, OCR starting…|{f}: مستند ممسوح، بدء OCR…|{f}: сканированный документ, запуск OCR…
+1369|{l} subtotal|المجموع الفرعي لـ{l}|Промежуточный итог: {l}
+1370|{m} payment · {no}|دفعة {m} · {no}|Оплата ({m}) · {no}
+1371|User opened for {n} ({d}). Temporary password: {pw}|تم فتح مستخدم لـ{n} ({d}). كلمة المرور المؤقتة: {pw}|Пользователь создан для {n} ({d}). Временный пароль: {pw}
+1372|{n} agent jobs are awaiting Approve / Reject.|{n} مهام وكلاء بانتظار الموافقة / الرفض.|Задач агентов, ожидающих одобрения: {n}.
+1373|{n} active|{n} نشط|активных: {n}
+1374|{n} sub-account opened. Sign the contract; the sub-account administrator will log in, sign and upload the documents.|تم فتح الحساب الفرعي {n}. وقّع العقد؛ وسيدخل مسؤول الحساب الفرعي ويوقّع ويرفع المستندات.|Субсчёт {n} открыт. Подпишите договор; администратор субсчёта войдёт, подпишет и загрузит документы.
+1375|{n} was opened as your sub-account; it logs in to the DMC panel with its own user and sells your products.|فُتح {n} كحساب فرعي لك؛ ويدخل لوحة الشركة بمستخدمه ويبيع منتجاتك.|{n} открыт как ваш субсчёт; входит в панель DMC под своим пользователем и продаёт ваши продукты.
+1376|incl. {n} sub-accounts|يشمل {n} حسابات فرعية|включая субсчета: {n}
+1377|{n} vehicle prices saved: {f} → {t}|تم حفظ {n} أسعار مركبات: {f} → {t}|Сохранено цен автомобилей: {n}: {f} → {t}
+1378|{n} values read with low confidence|قُرئت {n} قيم بثقة منخفضة|значений с низкой уверенностью: {n}
+1379|{n} values corrected automatically|صُححت {n} قيم تلقائيًا|автоматически исправлено значений: {n}
+1380|{n} invoices|{n} فواتير|счетов: {n}
+1381|{n} transactions read, {m} matched to bookings.|قُرئت {n} حركات، وطابقت {m} منها حجوزات.|Прочитано операций: {n}, сопоставлено с бронированиями: {m}.
+1382|{n} ready adapters|{n} محوّلات جاهزة|готовых адаптеров: {n}
+1383|{n} ready agents|{n} وكلاء جاهزون|готовых агентов: {n}
+1384|{n} account opened ({u}). The panel opens when the contract and documents are approved. Temporary password: {pw}|تم فتح حساب {n} ({u}). تُفتح اللوحة بعد الموافقة على العقد والمستندات. كلمة المرور المؤقتة: {pw}|Счёт {n} открыт ({u}). Панель откроется после одобрения договора и документов. Временный пароль: {pw}
+1385|{n} account opened. The panel opens when the contract and documents are approved.|تم فتح حساب {n}. تُفتح اللوحة بعد الموافقة على العقد والمستندات.|Счёт {n} открыт. Панель откроется после одобрения договора и документов.
+1386|{n} services starting|{n} خدمات تبدأ|начинается услуг: {n}
+1387|{n} signature (parent company)|توقيع {n} (الشركة الأم)|Подпись {n} (головная компания)
+1388|No e-mail address defined for {n}. Add one in Operations → Service suppliers or choose another supplier; approval is not possible without an address.|لا يوجد بريد محدد لـ{n}. أضفه من العمليات ← مورّدو الخدمات أو اختر مورّدًا آخر؛ لا يمكن الموافقة دون عنوان.|Для {n} не задан e-mail. Добавьте его в разделе «Операции → Поставщики услуг» или выберите другого поставщика; без адреса одобрение невозможно.
+1389|New temporary password for {n}: {pw}|كلمة مرور مؤقتة جديدة لـ{n}: {pw}|Новый временный пароль для {n}: {pw}
+1390|{n} records without purchase or sale entered|{n} سجلات دون إدخال شراء أو بيع|записей без покупки или продажи: {n}
+1391|{n} people|{n} أشخاص|{n} чел.
+1392|{n} people / date|{n} أشخاص / تاريخ|{n} чел. / дата
+1393|for {n} people|لـ{n} أشخاص|на {n} чел.
+1394|{n} quota available|{n} من الحصة متاح|доступно квоты: {n}
+1395|{n} rooms / night|{n} غرف / ليلة|{n} номеров / ночь
+1396|{n} rooms available|{n} غرف متاحة|свободно номеров: {n}
+1397|{n} rejected|{n} مرفوض|отклонено: {n}
+1398|{n} confirmed|{n} مؤكد|подтверждено: {n}
+1399|{n} confirmed sales|{n} مبيعات مؤكدة|подтверждённых продаж: {n}

@@ -1,0 +1,200 @@
+600|Check results|نتائج الفحص|Результаты проверки
+601|Location (search a province, district or tourist zone in Türkiye or Egypt)|الموقع (ابحث عن محافظة أو حي أو منطقة سياحية في تركيا أو مصر)|Локация (ищите провинцию, район или туристическую зону в Турции или Египте)
+602|Select the location from the list.|اختر الموقع من القائمة.|Выберите локацию из списка.
+603|Copy it|انسخه|Скопируйте
+604|No credit is given; payment is by credit card, bank transfer, balance or prepayment, in the booking's currency.|لا يُعمل بالائتمان؛ ويتم الدفع ببطاقة الائتمان أو التحويل أو الرصيد أو الدفع المسبق، بعملة الحجز.|Работа без кредита; оплата картой, переводом, с баланса или предоплатой в валюте бронирования.
+605|Immediate credit card payment required|مطلوب الدفع الفوري ببطاقة الائتمان|Требуется немедленная оплата картой
+606|Pay by credit card|الدفع ببطاقة الائتمان|Оплатить картой
+607|User active.|المستخدم نشط.|Пользователь активен.
+608|User invitation|دعوة مستخدم|Приглашение пользователя
+609|User made administrator.|أصبح المستخدم مسؤولًا.|Пользователь назначен администратором.
+610|Available|المتاح|Доступно
+611|Exchange rate updated.|تم تحديث سعر الصرف.|Курс обновлён.
+612|Rule: paid in the agreement currency on the first Friday after two weeks from the check-out date. Cancelled bookings are not listed.|القاعدة: يُدفع بعملة الاتفاق في أول جمعة بعد مرور أسبوعين على تاريخ المغادرة. لا تُدرج الحجوزات الملغاة.|Правило: оплата в валюте соглашения в первую пятницу после двух недель с даты выезда. Отменённые бронирования не учитываются.
+613|Exchange rates|أسعار الصرف|Курсы
+614|Exchange rates (1 unit = ? ₺)|أسعار الصرف (1 وحدة = ? ₺)|Курсы (1 единица = ? ₺)
+615|Exchange rates updated ({d}).|تم تحديث أسعار الصرف ({d}).|Курсы обновлены ({d}).
+616|Exchange rates are used to find the lowest price and convert to the buyer's chosen currency. The CBRT connection can be enabled from the Integration centre.|تُستخدم أسعار الصرف لإيجاد أقل سعر والتحويل إلى العملة التي يختارها المشتري. يمكن تفعيل اتصال البنك المركزي التركي من مركز التكامل.|Курсы используются для поиска минимальной цены и пересчёта в валюту покупателя. Подключение к ЦБ Турции включается в Центре интеграций.
+617|Fetch rates now|جلب الأسعار الآن|Загрузить курсы сейчас
+618|Enterprise|المؤسسية|Корпоративный
+619|In queue|في القائمة|В очереди
+620|Retrying the failed transfers in the queue is suggested.|يُقترح إعادة محاولة عمليات النقل الفاشلة في القائمة.|Предлагается повторить неудачные передачи в очереди.
+621|Go to queue|الذهاب إلى القائمة|Перейти к очереди
+622|Transfer queue now|نقل القائمة الآن|Передать очередь сейчас
+623|Profit|الربح|Прибыль
+624|Profit (adult)|الربح (بالغ)|Прибыль (взрослый)
+625|Profit rate saved; it applies to new queries.|تم حفظ نسبة الربح؛ وتُطبق على الاستعلامات الجديدة.|Наценка сохранена; применяется к новым запросам.
+626|Your profit: {s} %|ربحك: {s} %|Ваша прибыль: {s} %
+627|Cells with a red border are marked in the table below. The check re-runs as you correct them.|الخلايا ذات الإطار الأحمر مُعلّمة في الجدول أدناه. يُعاد الفحص كلما صحّحتها.|Ячейки с красной рамкой отмечены в таблице ниже. Проверка повторяется по мере исправления.
+628|Partial sea|بحر جزئي|Частичный вид на море
+629|Partially closed|مغلق جزئيًا|Частично закрыто
+630|Partially paid|مدفوع جزئيًا|Частично оплачено
+631|Winter|الشتاء|Зима
+632|Licence|الترخيص|Лицензия
+633|The licence will be suspended; all of the DMC's addresses will close. Reason:|سيُعلّق الترخيص؛ وستُغلق جميع عناوين الشركة. السبب:|Лицензия будет приостановлена; все адреса DMC закроются. Причина:
+634|When the licence is suspended, all of the DMC's addresses close at once; data stays on the platform.|عند تعليق الترخيص تُغلق جميع عناوين الشركة دفعة واحدة؛ وتبقى البيانات على المنصة.|При приостановке лицензии все адреса DMC закрываются одновременно; данные остаются на платформе.
+635|Licence not found.|لم يُعثر على الترخيص.|Лицензия не найдена.
+636|Licence period updated.|تم تحديث مدة الترخيص.|Срок лицензии обновлён.
+637|Licence management|إدارة الترخيص|Управление лицензией
+638|Suspend licence|تعليق الترخيص|Приостановить лицензию
+639|Activate licence|تفعيل الترخيص|Активировать лицензию
+640|Your licence is suspended|ترخيصك معلّق|Ваша лицензия приостановлена
+641|The list gives a round-trip price; as the system works with one-way prices, half was suggested for the one-way column.|تعطي القائمة سعر ذهاب وعودة؛ ولأن النظام يعمل بسعر الاتجاه الواحد اقتُرح نصفه لعمود الاتجاه الواحد.|В списке указана цена туда-обратно; так как система работает с ценой в одну сторону, для этого столбца предложена половина.
+642|Price in list|السعر في القائمة|Цена в списке
+643|Code in list|الرمز في القائمة|Код в списке
+644|Select all listed hotels|تحديد جميع الفنادق المدرجة|Выбрать все отели в списке
+645|Logo|الشعار|Логотип
+646|Logo (PNG, JPG or SVG)|الشعار (PNG أو JPG أو SVG)|Логотип (PNG, JPG или SVG)
+647|Your logo, colours and title appear on all screens, vouchers and customer invoices with a single setting.|يظهر شعارك وألوانك واسمك في جميع الشاشات والقسائم وفواتير العملاء بإعداد واحد.|Ваш логотип, цвета и название отображаются на всех экранах, ваучерах и счетах клиентам одной настройкой.
+648|Remove logo|إزالة الشعار|Удалить логотип
+649|Luca|Luca|Luca
+650|Neighbourhood, street, no|الحي، الشارع، الرقم|Район, улица, номер
+651|Offset|المقاصة|Зачёт
+652|An offset is a money movement. Are you sure?|المقاصة حركة مالية. هل أنت متأكد؟|Зачёт — это движение денег. Вы уверены?
+653|No platform payable to offset.|لا توجد مستحقات منصة للمقاصة.|Нет задолженности платформы для зачёта.
+654|View|الإطلالة|Вид
+655|Margin and price anomaly|الهامش وشذوذ الأسعار|Аномалии маржи и цен
+656|Brand settings|إعدادات العلامة التجارية|Настройки бренда
+657|Brand settings saved; applied to all screens.|تم حفظ إعدادات العلامة؛ وطُبقت على جميع الشاشات.|Настройки бренда сохранены и применены ко всем экранам.
+658|Brand and domain|العلامة والنطاق|Бренд и домен
+659|Markup %|الهامش %|Наценка %
+660|Markup change|تغيير الهامش|Изменение наценки
+661|Your markup income|دخلك من الهامش|Ваш доход от наценки
+662|May|مايو|Май
+663|Hello {ad}|مرحبًا {ad}|Здравствуйте, {ad}
+664|Text|النص|Текст
+665|Current password|كلمة المرور الحالية|Текущий пароль
+666|The current password is incorrect.|كلمة المرور الحالية غير صحيحة.|Текущий пароль неверен.
+667|Mikro|Mikro|Mikro
+668|Nationality|الجنسية|Гражданство
+669|Min. nights|الحد الأدنى للليالي|Мин. ночей
+670|Min. stay|الحد الأدنى للإقامة|Мин. проживание
+671|Minivan|ميني فان|Минивэн
+672|Guest full name|الاسم الكامل للضيف|Имя и фамилия гостя
+673|Enter the guest name.|أدخل اسم الضيف.|Введите имя гостя.
+674|Guest names cannot be empty.|لا يمكن أن تكون أسماء الضيوف فارغة.|Имена гостей не могут быть пустыми.
+675|The number of guests exceeds this room's capacity.|عدد الضيوف يتجاوز سعة هذه الغرفة.|Число гостей превышает вместимость номера.
+676|Guests|الضيوف|Гости
+677|Module|الوحدة|Модуль
+678|Fed by accounting events; UBL-TR|يتغذى من الأحداث المحاسبية؛ UBL-TR|Получает бухгалтерские события; UBL-TR
+679|No availability left; reject the request.|لم يتبقَّ توفر؛ ارفض الطلب.|Мест не осталось; отклоните запрос.
+680|Customer|العميل|Клиент
+681|Customer invoice|فاتورة العميل|Счёт клиенту
+682|Create customer invoice|إنشاء فاتورة العميل|Создать счёт клиенту
+683|Customer invoice · seller to customer (draft)|فاتورة العميل · من البائع إلى العميل (مسودة)|Счёт клиенту · от продавца клиенту (черновик)
+684|Customers|العملاء|Клиенты
+685|Customers and licences|العملاء والتراخيص|Клиенты и лицензии
+686|Sale to your customer|البيع لعميلك|Продажа вашему клиенту
+687|Enter the sale amount to the customer; no booking is created until purchase and sale are complete.|أدخل مبلغ البيع للعميل؛ لا يُنشأ الحجز قبل اكتمال الشراء والبيع.|Введите сумму продажи клиенту; бронирование не создаётся без покупки и продажи.
+688|Egypt|مصر|Египет
+689|Cash received|تم استلام النقد|Наличные получены
+690|Cash is closed by operations once handed in to the company cash desk.|يُقفل النقد من قبل العمليات بعد تسليمه إلى صندوق الشركة.|Наличные закрываются отделом операций после сдачи в кассу компании.
+691|Why are you rejecting? (the agent will correct and resubmit)|لماذا ترفض؟ (سيصحح الوكيل ويعيد الإرسال)|Почему вы отклоняете? (агент исправит и отправит снова)
+692|Negative quota|حصة سالبة|Отрицательная квота
+693|Where it works|مجال العمل|Где работает
+694|Select the from and to points from the list.|اختر نقطتي الانطلاق والوصول من القائمة.|Выберите пункты «откуда» и «куда» из списка.
+695|Net amount|المبلغ الصافي|Сумма нетто
+696|Net amount (invoiced to you)|المبلغ الصافي (يُفوتر لك)|Сумма нетто (выставляется вам)
+697|Netsis|Netsis|Netsis
+698|No|الرقم|№
+699|Note|ملاحظة|Примечание
+700|Note (opt.)|ملاحظة (اختياري)|Примечание (необяз.)
+701|Note and special request|ملاحظة وطلب خاص|Примечание и особый запрос
+702|OAuth 2.0 (client credentials)|OAuth 2.0 (client credentials)|OAuth 2.0 (client credentials)
+703|OCR: scanned PDFs and photos are read with an open-source engine running in the browser; no AI service is used. Hotels from OCR are always marked “check required”.|OCR: تُقرأ ملفات PDF الممسوحة والصور بمحرك مفتوح المصدر يعمل في المتصفح؛ ولا تُستخدم خدمة ذكاء اصطناعي. تُعلَّم الفنادق القادمة من OCR دائمًا بـ“يحتاج إلى مراجعة”.|OCR: сканированные PDF и фото распознаются движком с открытым кодом в браузере; ИИ-сервисы не используются. Отели из OCR всегда помечаются «требуется проверка».
+704|CONFIRMATION AND CANCELLATION: A routed booking is confirmed without waiting for approval. Customer cancellations are reflected in the DMC panel instantly and sent to the notified e-mail address.|التأكيد والإلغاء: يُؤكد الحجز الموجَّه دون انتظار الموافقة. وتنعكس إلغاءات العميل فورًا في لوحة الشركة وتُرسل إلى البريد المعتمد.|ПОДТВЕРЖДЕНИЕ И ОТМЕНА: направленное бронирование подтверждается без ожидания. Отмены клиента сразу отражаются в панели DMC и отправляются на указанный e-mail.
+705|OTA XML (OpenTravel)|OTA XML (OpenTravel)|OTA XML (OpenTravel)
+706|OTA_HotelAvailRQ / OTA_HotelResRQ messages|رسائل OTA_HotelAvailRQ / OTA_HotelResRQ|Сообщения OTA_HotelAvailRQ / OTA_HotelResRQ
+707|Room|الغرفة|Номер
+708|Room / combination|الغرفة / التركيبة|Номер / комбинация
+709|Room blocks: room name and board code, below them combination prices such as SNG, DBL, DBL+EXB, “2 PAX + 1 chd (00-11,99)”; about 140 different spellings are converted to number of adults and child age range.|كتل الغرف: اسم الغرفة ورمز الإقامة، وتحتها أسعار التركيبات مثل SNG وDBL وDBL+EXB و“2 PAX + 1 chd (00-11,99)”؛ ويُحوَّل نحو 140 صيغة مختلفة إلى عدد البالغين ونطاق أعمار الأطفال.|Блоки номеров: название номера и код питания, под ними цены комбинаций вроде SNG, DBL, DBL+EXB, «2 PAX + 1 chd (00-11,99)»; около 140 вариантов записи преобразуются в число взрослых и возраст детей.
+710|Room not found.|لم يُعثر على الغرفة.|Номер не найден.
+711|Room saved.|تم حفظ الغرفة.|Номер сохранён.
+712|Room no|رقم الغرفة|№ номера
+713|Room type name|اسم نوع الغرفة|Название типа номера
+714|Room type name cannot be empty.|لا يمكن أن يكون اسم نوع الغرفة فارغًا.|Название типа номера не может быть пустым.
+715|Enter room type name, price and quota.|أدخل اسم نوع الغرفة والسعر والحصة.|Введите название типа номера, цену и квоту.
+716|Room type added.|تمت إضافة نوع الغرفة.|Тип номера добавлен.
+717|Room type and price|نوع الغرفة والسعر|Тип номера и цена
+718|Room type and combination price not found.|لم يُعثر على نوع الغرفة وسعر التركيبة.|Тип номера и цена комбинации не найдены.
+719|Add room type|إضافة نوع غرفة|Добавить тип номера
+720|Room types|أنواع الغرف|Типы номеров
+721|Room types and combination prices|أنواع الغرف وأسعار التركيبات|Типы номеров и цены комбинаций
+722|Room and rate type|الغرفة ونوع السعر|Номер и тип тарифа
+723|Rooms|الغرف|Номера
+724|Save room|حفظ الغرفة|Сохранить номер
+725|Remove room|إزالة الغرفة|Убрать номер
+726|Approve|موافقة|Одобрить
+727|Reject|رفض|Отклонить
+728|Approved; the job went live. {r}|تمت الموافقة؛ ونُفذت المهمة. {r}|Одобрено; задача применена. {r}
+729|Approved|الموافَق عليها|Одобрено
+730|Rejected. The reason was recorded; the agent corrected and resubmitted.|تم الرفض. سُجل السبب؛ وصحح الوكيل وأعاد الإرسال.|Отклонено. Причина записана; агент исправил и отправил снова.
+731|Readable contract text|نص العقد المقروء|Читаемый текст договора
+732|Could not be read|تعذرت القراءة|Не удалось прочитать
+733|Unreadable files|ملفات غير مقروءة|Нечитаемые файлы
+734|Format read|التنسيق المقروء|Распознанный формат
+735|Readers|القرّاء|Прочитали
+736|Event queue|قائمة الأحداث|Очередь событий
+737|Approval|الموافقة|Одобрение
+738|Awaiting approval|بانتظار الموافقة|Ожидают одобрения
+739|No jobs awaiting approval.|لا توجد مهام بانتظار الموافقة.|Нет задач, ожидающих одобрения.
+740|Approval needed for|يتطلب موافقة|Требует одобрения
+741|Approval requires the “Sales approval” permission (given by the company administrator).|تتطلب الموافقة صلاحية “موافقة المبيعات” (يمنحها مسؤول الشركة).|Для одобрения нужны права «Одобрение продаж» (выдаёт администратор компании).
+742|Approval queue|قائمة الموافقات|Очередь одобрений
+743|Platform updates after approval|تحديثات المنصة بعد الموافقة|Обновления платформы после одобрения
+744|Changing the terms before approval is complete resets the signatures and the signed contract document.|تغيير الشروط قبل اكتمال الموافقة يعيد تعيين التوقيعات ومستند العقد الموقّع.|Изменение условий до завершения одобрения сбрасывает подписи и подписанный документ договора.
+745|Approve and open panel|الموافقة وفتح اللوحة|Одобрить и открыть панель
+746|Approve and send to supplier|الموافقة والإرسال إلى المورّد|Одобрить и отправить поставщику
+747|Approved guide sales are sent automatically to the e-mail address here. A supplier without an e-mail address cannot be approved.|تُرسل مبيعات المرشدين المعتمدة تلقائيًا إلى البريد هنا. ولا يمكن الموافقة لمورّد بلا بريد إلكتروني.|Одобренные продажи гидов автоматически отправляются на указанный здесь e-mail. Поставщика без e-mail одобрить нельзя.
+748|Approved {d} · approval code {c}. Later changes do not require a new signature.|تمت الموافقة {d} · رمز الموافقة {c}. لا تتطلب التعديلات اللاحقة توقيعًا جديدًا.|Одобрено {d} · код одобрения {c}. Последующие изменения не требуют новой подписи.
+749|Approved {d}. Later changes do not require a new signature.|تمت الموافقة {d}. لا تتطلب التعديلات اللاحقة توقيعًا جديدًا.|Одобрено {d}. Последующие изменения не требуют новой подписи.
+750|Approved, sent to supplier|تمت الموافقة، وأُرسل إلى المورّد|Одобрено, отправлено поставщику
+751|Approved; e-mail sent to {o}.|تمت الموافقة؛ وأُرسل بريد إلى {o}.|Одобрено; письмо отправлено {o}.
+752|Once approved, a booking e-mail with the purchase price is sent automatically to the selected supplier.|بعد الموافقة يُرسل تلقائيًا بريد حجز بسعر الشراء إلى المورّد المختار.|После одобрения выбранному поставщику автоматически уходит письмо с бронированием и ценой покупки.
+753|Purchase amounts of guide and agency sales approved and sent to suppliers.|مبالغ شراء مبيعات المرشدين والوكالات المعتمدة والمرسلة إلى المورّدين.|Суммы покупок по одобренным и отправленным поставщикам продажам гидов и агентств.
+754|Approved by|وافق عليه|Одобрил
+755|Operations arrangement|ترتيب العمليات|Организация (операции)
+756|Operations note|ملاحظة العمليات|Заметка операций
+757|Operations note (goes to supplier)|ملاحظة العمليات (تُرسل إلى المورّد)|Заметка операций (уходит поставщику)
+758|Operations and guides|العمليات والمرشدون|Операции и гиды
+759|Operations · Incoming notifications|العمليات · الإشعارات الواردة|Операции · Входящие уведомления
+760|Operations · Service suppliers and guides|العمليات · مورّدو الخدمات والمرشدون|Операции · Поставщики услуг и гиды
+761|Operations · Guide sales screen|العمليات · شاشة مبيعات المرشدين|Операции · Экран продаж гидов
+762|Operations · Guide products|العمليات · منتجات المرشدين|Операции · Продукты гидов
+763|Operations · Sales editing|العمليات · تعديل المبيعات|Операции · Редактирование продаж
+764|Operations · Sales approval|العمليات · موافقة المبيعات|Операции · Одобрение продаж
+765|Operations · Transfer prices and routes|العمليات · أسعار النقل والمسارات|Операции · Цены и маршруты трансферов
+766|Operations · Tour prices|العمليات · أسعار الجولات|Операции · Цены туров
+767|Operations · View tour, transfer and guide sales|العمليات · عرض مبيعات الجولات والنقل والمرشدين|Операции · Просмотр продаж туров, трансферов и гидов
+768|Operations · Flight details (API)|العمليات · تفاصيل الطيران (API)|Операции · Данные рейсов (API)
+769|A sale taken into operations can only be cancelled by operations.|لا يمكن إلغاء البيع المحال إلى العمليات إلا من قبل العمليات.|Продажу, принятую в работу, может отменить только отдел операций.
+770|Hotel name cannot be empty.|لا يمكن أن يكون اسم الفندق فارغًا.|Название отеля не может быть пустым.
+771|Enter the hotel name.|أدخل اسم الفندق.|Введите название отеля.
+772|Enter the hotel name.|أدخل اسم الفندق.|Введите название отеля.
+773|The hotel is no longer on sale.|لم يعد الفندق معروضًا للبيع.|Отель больше не продаётся.
+774|Hotel details|بيانات الفندق|Данные отеля
+775|Hotel details saved.|تم حفظ بيانات الفندق.|Данные отеля сохранены.
+776|Hotel details and address|بيانات الفندق والعنوان|Данные и адрес отеля
+777|Hotel prices are recorded in the contract currency; rows in another currency are skipped.|تُسجل أسعار الفنادق بعملة العقد؛ وتُتخطى الصفوف بعملة أخرى.|Цены отелей записываются в валюте договора; строки в другой валюте пропускаются.
+778|Hotel saved. You can add room types, prices, stops and SPOs from the related tabs.|تم حفظ الفندق. يمكنك إضافة أنواع الغرف والأسعار وإيقاف البيع والعروض الخاصة من التبويبات المعنية.|Отель сохранён. Типы номеров, цены, стопы и SPO добавляются на соответствующих вкладках.
+779|Hotel marked as checked.|تم تعليم الفندق كمراجَع.|Отель отмечен как проверенный.
+780|Hotel list|قائمة الفنادق|Список отелей
+781|Hotel bookings|حجوزات الفنادق|Бронирования отелей
+782|Hotel sheet|ورقة الفندق|Лист отеля
+783|Skipped because they are not hotel sheets|تم تخطيها لأنها ليست أوراق فنادق|Пропущены, так как это не листы отелей
+784|Search hotel, room, zone or DMC|ابحث بالفندق أو الغرفة أو المنطقة أو الشركة|Поиск по отелю, номеру, зоне или DMC
+785|Search hotel, sheet name, province or zone|ابحث بالفندق أو اسم الورقة أو المحافظة أو المنطقة|Поиск по отелю, листу, провинции или зоне
+786|Hotel, transfer, flight and tour; DMC panels and Back Office under one roof.|الفنادق والنقل والطيران والجولات؛ لوحات الشركات وBack Office تحت سقف واحد.|Отели, трансферы, авиабилеты и туры; панели DMC и Back Office в одной системе.
+787|Hotel, flight, transfer, tour: search, price check, booking, cancellation|فندق، طيران، نقل، جولة: بحث، تأكيد السعر، حجز، إلغاء|Отель, авиа, трансфер, тур: поиск, подтверждение цены, бронирование, отмена
+788|Save hotel|حفظ الفندق|Сохранить отель
+789|Go to my hotels|الذهاب إلى فنادقي|Перейти к моим отелям
+790|Automatic deduction|الخصم التلقائي|Автоматическое списание
+791|Automatic data integrity checks were run.|تم تشغيل فحوصات سلامة البيانات التلقائية.|Выполнены автоматические проверки целостности данных.
+792|P1 November–December|P1 نوفمبر–ديسمبر|P1 ноябрь–декабрь
+793|P1 April–May|P1 أبريل–مايو|P1 апрель–май
+794|P2 New Year|P2 رأس السنة|P2 Новый год
+795|P3 July–August|P3 يوليو–أغسطس|P3 июль–август
+796|P4 September–October|P4 سبتمبر–أكتوبر|P4 сентябрь–октябрь
+797|CURRENCIES: Prices can only be uploaded in these currencies: {c}. The agreement currency is the currency in which the price is uploaded.|العملات: لا يمكن رفع الأسعار إلا بهذه العملات: {c}. وعملة الاتفاق هي العملة التي يُرفع بها السعر.|ВАЛЮТЫ: цены загружаются только в валютах: {c}. Валюта соглашения — валюта, в которой загружена цена.
+798|PDF or image|PDF أو صورة|PDF или изображение
+799|PDF: in PDFs containing text, the table is rebuilt from the positions of the text. Documents whose columns shift along the page are marked “Could not be read”.|PDF: في ملفات PDF التي تحتوي نصًا يُعاد بناء الجدول من مواضع النص. وتُعلَّم المستندات التي تنزاح أعمدتها على طول الصفحة بـ“تعذرت القراءة”.|PDF: в PDF с текстом таблица восстанавливается по положению текста. Документы, у которых столбцы смещаются по странице, помечаются «Не удалось прочитать».

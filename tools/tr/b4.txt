@@ -1,0 +1,200 @@
+800|Package|الباقة|Пакет
+801|Package updated: {p}|تم تحديث الباقة: {p}|Пакет обновлён: {p}
+802|Package contents updated.|تم تحديث محتوى الباقة.|Состав пакета обновлён.
+803|Enter the names for the package first: {n}.|أدخل الأسماء للباقة أولًا: {n}.|Сначала введите имена для пакета: {n}.
+804|Create package|إنشاء باقة|Создать пакет
+805|Show package options|عرض خيارات الباقة|Показать варианты пакета
+806|Package summary|ملخص الباقة|Сводка пакета
+807|Remove package|إزالة الباقة|Удалить пакет
+808|Packages|الباقات|Пакеты
+809|Opening the panel requires two signatures and approval of four documents.|يتطلب فتح اللوحة توقيعين والموافقة على أربعة مستندات.|Для открытия панели нужны две подписи и одобрение четырёх документов.
+810|Opening the panel requires two signatures and approval of four documents.|يتطلب فتح اللوحة توقيعين والموافقة على أربعة مستندات.|Для открытия панели нужны две подписи и одобрение четырёх документов.
+811|The panel is not open yet|اللوحة لم تُفتح بعد|Панель ещё не открыта
+812|The panel opens after the contract is signed by both parties, the four required documents are uploaded separately and the admin approves.|تُفتح اللوحة بعد توقيع الطرفين على العقد ورفع المستندات الأربعة المطلوبة كلٌّ على حدة وموافقة المسؤول.|Панель открывается после подписания договора обеими сторонами, отдельной загрузки четырёх документов и одобрения администратором.
+813|The panel stays closed until the contract is signed and the four required documents are uploaded and approved.|تبقى اللوحة مغلقة حتى توقيع العقد ورفع المستندات الأربعة المطلوبة والموافقة عليها.|Панель закрыта, пока договор не подписан, а четыре документа не загружены и не одобрены.
+814|Your panel is not open yet|لوحتك لم تُفتح بعد|Ваша панель ещё не открыта
+815|Panels open after the contract is signed by both parties and four documents are uploaded separately and approved.|تُفتح اللوحات بعد توقيع الطرفين على العقد ورفع أربعة مستندات كلٌّ على حدة والموافقة عليها.|Панели открываются после подписания договора обеими сторонами и отдельной загрузки и одобрения четырёх документов.
+816|Copied to clipboard.|تم النسخ إلى الحافظة.|Скопировано в буфер обмена.
+817|Board code|رمز الإقامة|Код питания
+818|Paraşüt|Paraşüt|Paraşüt
+819|Market rule|قاعدة السوق|Правило рынка
+820|Market rule updated.|تم تحديث قاعدة السوق.|Правило рынка обновлено.
+821|Price difference by market (%)|فرق السعر حسب السوق (%)|Разница цены по рынку (%)
+822|You can also define a market-specific price difference.|يمكنك أيضًا تحديد فرق سعر خاص بالسوق.|Можно задать и разницу цены для отдельного рынка.
+823|Period|الفترة|Период
+824|Period name|اسم الفترة|Название периода
+825|Dates outside periods are closed for sale.|التواريخ خارج الفترات مغلقة للبيع.|Даты вне периодов закрыты для продажи.
+826|Add period|إضافة فترة|Добавить период
+827|Period added; enter its prices in the table.|تمت إضافة الفترة؛ أدخل أسعارها في الجدول.|Период добавлен; введите цены в таблицу.
+828|The period must be within the season range ({a} → {b}).|يجب أن تقع الفترة ضمن نطاق الموسم ({a} → {b}).|Период должен быть в пределах сезона ({a} → {b}).
+829|Period deleted.|تم حذف الفترة.|Период удалён.
+830|Period dates not found.|لم يُعثر على تواريخ الفترة.|Даты периода не найдены.
+831|Dates not covered by a period (closed for sale)|تواريخ غير مشمولة بفترة (مغلقة للبيع)|Даты без периода (закрыты для продажи)
+832|Dates not covered by a period stay closed for sale. Adding a gap period with the previous period's prices is suggested.|تبقى التواريخ غير المشمولة بفترة مغلقة للبيع. يُقترح إضافة فترة فجوة بأسعار الفترة السابقة.|Даты без периода закрыты для продажи. Предлагается добавить период-заполнитель с ценами предыдущего периода.
+833|Periods|الفترات|Периоды
+834|Periods as columns: start date in the top row, end date in the row below; period name if any.|الفترات كأعمدة: تاريخ البداية في الصف العلوي وتاريخ النهاية في الصف الذي يليه؛ واسم الفترة إن وجد.|Периоды столбцами: дата начала в верхней строке, дата окончания под ней; название периода, если есть.
+835|Platform|المنصة|Платформа
+836|Sign on behalf of the platform|التوقيع نيابة عن المنصة|Подписать от имени платформы
+837|Signed on behalf of the platform.|تم التوقيع نيابة عن المنصة.|Подписано от имени платформы.
+838|No platform payable.|لا توجد مستحقات على المنصة.|Задолженности платформы нет.
+839|Offset against platform payable|مقاصة من مستحقات المنصة|Зачёт против долга платформы
+840|To platform buyers|إلى مشتري المنصة|Покупателям платформы
+841|Services you sold to platform buyers. When the platform marks the payment, “Paid” appears here.|الخدمات التي بعتها لمشتري المنصة. عندما تعلّم المنصة الدفعة يظهر هنا “مدفوع”.|Услуги, проданные покупателям платформы. Когда платформа отметит оплату, здесь появится «Оплачено».
+842|Sales to platform buyers: the platform collects payment and pays you on the first Friday 14 days after check-out, in the contract currency.|المبيعات لمشتري المنصة: تحصّل المنصة الدفع وتدفع لك في أول جمعة بعد 14 يومًا من المغادرة بعملة العقد.|Продажи покупателям платформы: оплату получает платформа и платит вам в первую пятницу через 14 дней после выезда в валюте договора.
+843|The platform invoice and voucher are created after payment is collected.|تُنشأ فاتورة المنصة والقسيمة بعد تحصيل الدفعة.|Счёт платформы и ваучер создаются после получения оплаты.
+844|The platform invoice is created after payment is collected and opens from the Bookings screen.|تُنشأ فاتورة المنصة بعد تحصيل الدفعة وتُفتح من شاشة الحجوزات.|Счёт платформы создаётся после получения оплаты и открывается на экране «Бронирования».
+845|Platform login|دخول المنصة|Вход платформы
+846|The platform has closed your account. When reopened, your panel opens with the same contract, without a new signature or documents.|أغلقت المنصة حسابك. وعند إعادة فتحه تُفتح لوحتك بالعقد نفسه دون توقيع أو مستندات جديدة.|Платформа закрыла ваш счёт. При повторном открытии панель откроется по тому же договору без новой подписи и документов.
+847|The platform has suspended your licence; all your addresses are closed.|علّقت المنصة ترخيصك؛ وجميع عناوينك مغلقة.|Платформа приостановила вашу лицензию; все ваши адреса закрыты.
+848|Platform markup|هامش المنصة|Наценка платформы
+849|Platform markup rule|قاعدة هامش المنصة|Правило наценки платформы
+850|Platform markup rates|نسب هامش المنصة|Ставки наценки платформы
+851|Platform markup rate saved; applies to new queries.|تم حفظ نسبة هامش المنصة؛ وتُطبق على الاستعلامات الجديدة.|Ставка наценки платформы сохранена; применяется к новым запросам.
+852|Platform hotel|فندق المنصة|Отель платформы
+853|The platform invoices you at the net price. You issue your own invoice to your customer adding this commission and collect payment from the customer yourself.|تفوترك المنصة بالسعر الصافي. وتصدر أنت فاتورتك لعميلك بإضافة هذه العمولة وتحصّل منه بنفسك.|Платформа выставляет вам счёт по нетто-цене. Вы выставляете клиенту свой счёт с этой комиссией и сами получаете оплату.
+854|Platform signatory|مفوّض المنصة|Представитель платформы
+855|Enter the platform signatory's name.|أدخل اسم مفوّض المنصة.|Введите имя представителя платформы.
+856|The platform applies a default 5% markup on all products it opens to DMCs; the rate can be changed per DMC (buyer account) service by service. Price the buyer sees = DMC price × (1 + seller-side rate) × (1 + buyer-side rate). No platform markup applies to the DMC's own products or its sales to its own agencies. An empty rate uses the default.|تطبق المنصة هامشًا افتراضيًا 5% على جميع المنتجات التي تفتحها للشركات؛ ويمكن تغيير النسبة لكل شركة (حساب مشترٍ) خدمةً خدمة. السعر الذي يراه المشتري = سعر الشركة × (1 + نسبة البائع) × (1 + نسبة المشتري). لا يُطبق هامش المنصة على منتجات الشركة الخاصة ولا على مبيعاتها لوكالاتها. النسبة الفارغة تستخدم الافتراضي.|Платформа применяет наценку 5% по умолчанию ко всем продуктам, открытым DMC; ставку можно менять для каждой DMC (счёта покупателя) по каждой услуге. Цена для покупателя = цена DMC × (1 + ставка продавца) × (1 + ставка покупателя). К собственным продуктам DMC и её продажам своим агентствам наценка платформы не применяется. Пустая ставка = по умолчанию.
+857|For trade from the DMC's own API connection the platform takes a commission of {b}% of the purchase amount and {s}% of the sale amount. No API connection fee is charged. No commission on refunded amounts; on cancellation with penalty, only on the penalty amount.|في التجارة عبر اتصال API الخاص بالشركة تأخذ المنصة عمولة {b}% من مبلغ الشراء و{s}% من مبلغ البيع. لا رسوم على اتصال API. لا عمولة على المبالغ المستردة؛ وفي الإلغاء بغرامة تُحتسب على مبلغ الغرامة فقط.|За торговлю через собственное API DMC платформа берёт комиссию {b}% от покупки и {s}% от продажи. Плата за подключение API не взимается. С возвратов комиссия не берётся; при отмене со штрафом — только со штрафа.
+858|Postcode|الرمز البريدي|Почтовый индекс
+859|Product · Hotel upload|المنتج · رفع الفنادق|Продукт · Загрузка отелей
+860|Product · Sales channels|المنتج · قنوات البيع|Продукт · Каналы продаж
+861|Professional|الاحترافية|Профессиональный
+862|Profit currency|عملة الربح|Валюта наценки
+863|REST / JSON|REST / JSON|REST / JSON
+864|Reject|رفض|Отклонить
+865|Reference|المرجع|Референс
+866|Guide account opened. Temporary password: {pw}|تم فتح حساب المرشد. كلمة المرور المؤقتة: {pw}|Аккаунт гида создан. Временный пароль: {pw}
+867|Guide note|ملاحظة المرشد|Заметка гида
+868|Guide sales (all DMCs)|مبيعات المرشدين (جميع الشركات)|Продажи гидов (все DMC)
+869|Guide sales: cash is collected from the guide, card payments go directly to you.|مبيعات المرشدين: يُستلم النقد من المرشد، وتذهب مدفوعات البطاقة إليك مباشرة.|Продажи гидов: наличные принимаются у гида, оплаты картой поступают вам напрямую.
+870|Guide sale|بيع المرشد|Продажа гида
+871|The guide cancelled the sale|ألغى المرشد البيع|Гид отменил продажу
+872|A guide sale is awaiting operations. Assigning the supplier with the lowest purchase price is suggested.|بيع مرشد بانتظار العمليات. يُقترح تعيين المورّد الأقل سعر شراء.|Продажа гида ожидает операций. Предлагается назначить поставщика с самой низкой ценой покупки.
+873|Guide product|منتج المرشد|Продукт гида
+874|The guide is created as a user in the Guide department with only the “Guide sales screen” permission.|يُنشأ المرشد كمستخدم في قسم المرشدين بصلاحية “شاشة مبيعات المرشد” فقط.|Гид создаётся пользователем в отделе «Гид» только с правом «Экран продаж гида».
+875|Guides are users in your company's “Guide” department. They log in to the DMC panel with their own names and see only the phone sales screen.|المرشدون مستخدمون في قسم “المرشد” بشركتك. يدخلون لوحة الشركة بأسمائهم ولا يرون إلا شاشة البيع على الهاتف.|Гиды — пользователи отдела «Гид» вашей компании. Они входят в панель DMC под своими именами и видят только мобильный экран продаж.
+876|On the phone, guides see only the active products and sale prices here. Define one or more service suppliers and purchase prices for each product; operations chooses from these when a sale arrives.|يرى المرشدون على الهاتف المنتجات النشطة وأسعار البيع هنا فقط. حدد مورّدًا أو أكثر وسعر شراء لكل منتج؛ وتختار العمليات منها عند ورود البيع.|На телефоне гиды видят только активные продукты и цены продажи отсюда. Задайте для каждого продукта одного или нескольких поставщиков и цены покупки; при продаже операции выбирают из них.
+877|My guides (with sale price)|مرشدوني (بسعر البيع)|Мои гиды (с ценой продажи)
+878|Sales entered by guides and guide products bought by agencies from the sales screen go to operations first: operations sets the service supplier and purchase price, and once the approver approves, the booking goes automatically with the purchase price to the supplier's registered e-mail. The sale price is not sent to the supplier.|تذهب المبيعات التي يدخلها المرشدون ومنتجات المرشدين التي تشتريها الوكالات من شاشة البيع إلى العمليات أولًا: تحدد العمليات المورّد وسعر الشراء، وبعد موافقة المفوّض يُرسل الحجز تلقائيًا بسعر الشراء إلى بريد المورّد المسجل. لا يُرسل سعر البيع إلى المورّد.|Продажи гидов и продукты гидов, купленные агентствами на экране продаж, сначала попадают в операции: операции задают поставщика и цену покупки, после одобрения бронирование автоматически уходит с ценой покупки на e-mail поставщика. Цена продажи поставщику не отправляется.
+879|Cash and card payments collected by guides. Close cash with “Received” once it is handed in to the company cash desk.|المدفوعات النقدية وبالبطاقة التي حصّلها المرشدون. أقفل النقد بـ“تم الاستلام” عند تسليمه إلى صندوق الشركة.|Наличные и карточные оплаты, принятые гидами. Закройте наличные кнопкой «Получено» после сдачи в кассу.
+880|The screen guides see on their phones. Sales are recorded on behalf of {n}.|الشاشة التي يراها المرشدون على هواتفهم. تُسجل المبيعات باسم {n}.|Экран, который гиды видят на телефоне. Продажи записываются на {n}.
+881|Release (days)|الإصدار (أيام)|Релиз (дней)
+882|Colours must be in #RRGGBB format.|يجب أن تكون الألوان بصيغة #RRGGBB.|Цвета должны быть в формате #RRGGBB.
+883|Rejection reason|سبب الرفض|Причина отклонения
+884|Write the rejection reason.|اكتب سبب الرفض.|Укажите причину отклонения.
+885|Booking / service no|رقم الحجز / الخدمة|№ бронирования / услуги
+886|The booking is not active.|الحجز غير نشط.|Бронирование неактивно.
+887|The booking is no longer active.|لم يعد الحجز نشطًا.|Бронирование больше не активно.
+888|Booking details|تفاصيل الحجز|Детали бронирования
+889|Booking change|تعديل الحجز|Изменение бронирования
+890|The booking is sent to the lowest-priced supplier and confirmed immediately.|يُرسل الحجز إلى المورّد الأقل سعرًا ويُؤكد فورًا.|Бронирование отправляется поставщику с самой низкой ценой и сразу подтверждается.
+891|Back to booking form|العودة إلى نموذج الحجز|Назад к форме бронирования
+892|Booking cancellation (not paid)|إلغاء الحجز (لم يُدفع)|Отмена бронирования (не оплачено)
+893|Select a service for the booking.|اختر خدمة للحجز.|Выберите услугу для бронирования.
+894|Search booking no, account, guest, hotel, invoice or voucher no|ابحث برقم الحجز أو الحساب أو الضيف أو الفندق أو رقم الفاتورة أو القسيمة|Поиск по № бронирования, счёту, гостю, отелю, № счёта или ваучера
+895|Booking no, guest name, hotel, voucher or sub-DMC|رقم الحجز، اسم الضيف، الفندق، القسيمة أو الشركة الفرعية|№ бронирования, имя гостя, отель, ваучер или суб-DMC
+896|Search booking no, guest, account, hotel or voucher|ابحث برقم الحجز أو الضيف أو الحساب أو الفندق أو القسيمة|Поиск по № бронирования, гостю, счёту, отелю или ваучеру
+897|Transactions are listed here when there is a booking or payment.|تُدرج الحركات هنا عند وجود حجز أو دفعة.|Операции появятся здесь при бронировании или оплате.
+898|When you book, the amount is blocked in your prepayment and the voucher is issued immediately.|عند الحجز يُحجز المبلغ في دفعك المسبق وتصدر القسيمة فورًا.|При бронировании сумма блокируется в предоплате, ваучер выдаётся сразу.
+899|Booking {no} – {l}|الحجز {no} – {l}|Бронирование {no} – {l}
+900|Booking · My agencies|الحجز · وكالاتي|Бронирование · Мои агентства
+901|Booking · Booking search, list and purchase / sale report|الحجز · بحث الحجوزات وقائمتها وتقرير الشراء / البيع|Бронирование · Поиск, список и отчёт покупок / продаж
+902|Booking · Sales screen|الحجز · شاشة البيع|Бронирование · Экран продаж
+903|Booking summary|ملخص الحجز|Сводка бронирования
+904|The booking will be cancelled free of charge. Continue?|سيُلغى الحجز مجانًا. هل تريد المتابعة؟|Бронирование будет отменено бесплатно. Продолжить?
+905|Booking, supplier and contract notifications|إشعارات الحجز والمورّد والعقد|Уведомления о бронированиях, поставщиках и договорах
+906|Booking: no booking is created until purchase and sale are completed together.|الحجز: لا يُنشأ حجز قبل اكتمال الشراء والبيع معًا.|Бронирование: создаётся только после совместного оформления покупки и продажи.
+907|Role|الدور|Роль
+908|SAP|SAP|SAP
+909|SMTP / e-mail service|SMTP / خدمة البريد|SMTP / почтовый сервис
+910|SOAP / XML|SOAP / XML|SOAP / XML
+911|LIABILITY: The platform's only commercial counterparty is the DMC. All liability arising from the DMC's agreements with its sub-agencies, suppliers and customers belongs to the DMC; the platform provides a technology service.|المسؤولية: الطرف التجاري الوحيد للمنصة هو الشركة. وكل مسؤولية تنشأ عن اتفاقات الشركة مع وكالاتها الفرعية ومورّديها وعملائها تقع على الشركة؛ وتقدم المنصة خدمة تقنية.|ОТВЕТСТВЕННОСТЬ: единственный коммерческий контрагент платформы — DMC. Вся ответственность по соглашениям DMC с субагентствами, поставщиками и клиентами лежит на DMC; платформа оказывает технологическую услугу.
+912|SPO / special offer|SPO / عرض خاص|SPO / спецпредложение
+913|Add SPO / special offer|إضافة SPO / عرض خاص|Добавить SPO / спецпредложение
+914|Morning|صباحًا|Утро
+915|Sabiha Gökçen (SAW)|صبيحة غوكشن (SAW)|Сабиха Гёкчен (SAW)
+916|Only|فقط|Только
+917|Only to selected nationalities|للجنسيات المختارة فقط|Только выбранным гражданствам
+918|Virtual POS|نقاط البيع الافتراضية|Виртуальный POS
+919|Virtual POS (3D Secure)|نقاط البيع الافتراضية (3D Secure)|Виртуальный POS (3D Secure)
+920|Seller DMCs|الشركات البائعة|DMC-продавцы
+921|Seller side|جهة البائع|Сторона продавца
+922|Seller-side markup (default 0%).|هامش جهة البائع (الافتراضي 0%).|Наценка стороны продавца (по умолчанию 0%).
+923|Company / customer sold to|الشركة / العميل المبيع له|Компания / клиент-покупатель
+924|Enter the company / customer sold to; no booking is created until purchase and sale are complete.|أدخل الشركة / العميل المبيع له؛ لا يُنشأ الحجز قبل اكتمال الشراء والبيع.|Укажите компанию / клиента-покупателя; бронирование не создаётся без покупки и продажи.
+925|Purchase|الشراء|Покупка
+926|Delete row|حذف الصف|Удалить строку
+927|Sale %|البيع %|Продажа %
+928|Sale 1%|البيع 1%|Продажа 1%
+929|Sale / vehicle|البيع / مركبة|Продажа / автомобиль
+930|The sale was forwarded to DMC operations; supplier and purchase setup is done there.|أُحيل البيع إلى عمليات الشركة؛ ويتم ضبط المورّد والشراء هناك.|Продажа передана в отдел операций DMC; поставщик и покупка настраиваются там.
+931|Sales start|بداية البيع|Начало продаж
+932|Sale details|بيانات البيع|Данные продажи
+933|Sales end|نهاية البيع|Конец продаж
+934|Sales invoice, collection, customer|فاتورة البيع، التحصيل، العميل|Счёт продажи, поступление, клиент
+935|Sale price updated; guides see the new price immediately.|تم تحديث سعر البيع؛ ويرى المرشدون السعر الجديد فورًا.|Цена продажи обновлена; гиды сразу видят новую цену.
+936|Enter the sale price.|أدخل سعر البيع.|Введите цену продажи.
+937|Sales account|حساب المبيعات|Счёт продаж
+938|Sales accounts use the search, price check, booking, cancellation, query and static content endpoints from their own systems. A test key does not create bookings.|تستخدم حسابات المبيعات نقاط البحث وتأكيد السعر والحجز والإلغاء والاستعلام والمحتوى الثابت من أنظمتها. مفتاح الاختبار لا يُنشئ حجوزات.|Счета продаж используют из своих систем эндпоинты поиска, подтверждения цены, бронирования, отмены, запроса и статического контента. Тестовый ключ не создаёт бронирований.
+939|Sale cancelled.|تم إلغاء البيع.|Продажа отменена.
+940|Cancel the sale?|هل تريد إلغاء البيع؟|Отменить продажу?
+941|Sales channel updated.|تم تحديث قناة البيع.|Канал продаж обновлён.
+942|Sale closed: {f} → {t} · {n} room types|أُغلق البيع: {f} → {t} · {n} أنواع غرف|Продажа закрыта: {f} → {t} · типов номеров: {n}
+943|Sale saved|تم حفظ البيع|Продажа сохранена
+944|My sales commission|عمولة مبيعاتي|Моя комиссия с продаж
+945|Your sales commission was saved.|تم حفظ عمولة مبيعاتك.|Ваша комиссия с продаж сохранена.
+946|Sale currency|عملة البيع|Валюта продажи
+947|Sales period ended|انتهت مدة البيع|Срок продаж истёк
+948|Sale amount|مبلغ البيع|Сумма продажи
+949|Sale adult|بيع بالغ|Продажа взрослый
+950|Open for sale|فتح للبيع|Открыть для продажи
+951|Closed for sale (contract)|مغلق للبيع (العقد)|Закрыто для продажи (договор)
+952|Cancel sale|إلغاء البيع|Отменить продажу
+953|Close sale|إغلاق البيع|Закрыть продажу
+954|Save sale|حفظ البيع|Сохранить продажу
+955|Reading page {i}/{n}|جارٍ قراءة الصفحة {i}/{n}|Чтение страницы {i}/{n}
+956|Notes on the sheet|ملاحظات الورقة|Заметки на листе
+957|Provider|المزوّد|Поставщик
+958|Enter the provider name.|أدخل اسم المزوّد.|Введите название поставщика.
+959|Provider code|رمز المزوّد|Код поставщика
+960|Map the provider's hotel code to the hotel on the platform; the same hotel is listed as a single record.|طابِق رمز فندق المزوّد مع الفندق على المنصة؛ ويُدرج الفندق نفسه كسجل واحد.|Сопоставьте код отеля поставщика с отелем на платформе; один и тот же отель отображается одной записью.
+961|Sedan|سيدان|Седан
+962|Season|الموسم|Сезон
+963|Season name|اسم الموسم|Название сезона
+964|Enter the season name.|أدخل اسم الموسم.|Введите название сезона.
+965|Add season|إضافة موسم|Добавить сезон
+966|Season added. Now define the periods.|تمت إضافة الموسم. حدد الفترات الآن.|Сезон добавлен. Теперь задайте периоды.
+967|A season can be at most 400 days.|يمكن أن يكون الموسم 400 يوم كحد أقصى.|Сезон может длиться не более 400 дней.
+968|Season contracts|عقود المواسم|Сезонные контракты
+969|Season deleted.|تم حذف الموسم.|Сезон удалён.
+970|If you define no season, the fixed prices below apply.|إذا لم تحدد موسمًا تسري الأسعار الثابتة أدناه.|Если сезон не задан, действуют фиксированные цены ниже.
+971|Season year|سنة الموسم|Год сезона
+972|Delete season|حذف الموسم|Удалить сезон
+973|All dates of the season are covered by periods.|جميع تواريخ الموسم مشمولة بالفترات.|Все даты сезона покрыты периодами.
+974|Select|اختر|Выбрать
+975|Selected|المحدد|Выбрано
+976|No availability in this room on the selected dates.|لا يوجد توفر في هذه الغرفة في التواريخ المحددة.|В этом номере нет мест на выбранные даты.
+977|Everyone except the selected|الجميع باستثناء المحددين|Всем, кроме выбранных
+978|Selected|محدد|Выбрано
+979|Select|اختر|Выберите
+980|Deleted.|تم الحذف.|Удалено.
+981|Simulation|محاكاة|Симуляция
+982|Simulation test passed; fields missing for live|نجح اختبار المحاكاة؛ الحقول الناقصة للتشغيل الحي|Тест симуляции пройден; для боевого режима не хватает полей
+983|Simulation: DNS record added|محاكاة: تمت إضافة سجل DNS|Симуляция: запись DNS добавлена
+984|The system produces a standard event for each transaction; open connections translate the event into their own language and transfer it. Failed transfers are retried in the nightly job and from here.|ينتج النظام حدثًا قياسيًا لكل عملية؛ وتترجم الاتصالات المفعّلة الحدث إلى لغتها وتنقله. وتُعاد محاولة عمليات النقل الفاشلة في المهمة الليلية ومن هنا.|Система создаёт стандартное событие по каждой операции; активные подключения переводят его на свой формат и передают. Неудачные передачи повторяются в ночной задаче и отсюда.
+985|In system|في النظام|В системе
+986|Counterpart in system|المقابل في النظام|Соответствие в системе
+987|You have no valid contract.|ليس لديك عقد صالح.|У вас нет действующего договора.
+988|Every booking and cancellation routed to you is sent automatically to this address.|يُرسل كل حجز وإلغاء موجَّه إليك تلقائيًا إلى هذا العنوان.|Каждое бронирование и отмена, направленные вам, автоматически отправляются на этот адрес.
+989|Payment date to you: {d} · amount {a}|تاريخ الدفع لك: {d} · المبلغ {a}|Дата оплаты вам: {d} · сумма {a}
+990|Most recent transfers failed. Closing the connection is suggested.|فشلت معظم عمليات النقل الأخيرة. يُقترح إغلاق الاتصال.|Большинство последних передач завершились ошибкой. Предлагается закрыть подключение.
+991|Last login|آخر دخول|Последний вход
+992|Last cancellation {d}|آخر إلغاء {d}|Последняя отмена {d}
+993|Recent bookings|أحدث الحجوزات|Последние бронирования
+994|Last test {d}: response received (simulation)|آخر اختبار {d}: تم تلقي الرد (محاكاة)|Последний тест {d}: ответ получен (симуляция)
+995|Last run|آخر تشغيل|Последний запуск
+996|Payment due date {d}; can be paid by credit card, bank transfer or balance.|آخر موعد للدفع {d}؛ ويمكن الدفع بالبطاقة أو التحويل أو الرصيد.|Срок оплаты {d}; оплата картой, переводом или с баланса.
+997|Last free cancellation (days before check-in)|آخر إلغاء مجاني (أيام قبل الوصول)|Последняя бесплатная отмена (дней до заезда)
+998|Next|التالي|Далее
+999|Result / reason|النتيجة / السبب|Результат / причина

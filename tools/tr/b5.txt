@@ -1,0 +1,200 @@
+1000|No results|لا نتائج|Нет результатов
+1001|Ask|اسأل|Спросить
+1002|Question|السؤال|Вопрос
+1003|Your question was forwarded to the relevant department; you will receive a reply as soon as possible.|أُحيل سؤالك إلى القسم المعني؛ وسيُرد عليك في أقرب وقت.|Ваш вопрос передан в соответствующий отдел; ответ поступит в ближайшее время.
+1004|Standard REST/JSON|REST/JSON قياسي|Стандартный REST/JSON
+1005|Standard address|العنوان القياسي|Стандартный адрес
+1006|Your standard address {h} is ready as soon as the DMC is opened. For testing, add #{s} to this page's address to open the branded login screen.|عنوانك القياسي {h} جاهز فور فتح الشركة. وللاختبار أضف #{s} إلى عنوان هذه الصفحة لفتح شاشة الدخول بعلامتك.|Ваш стандартный адрес {h} готов сразу после открытия DMC. Для проверки добавьте #{s} к адресу этой страницы — откроется брендированный экран входа.
+1007|Standard request / response schema|مخطط الطلب / الرد القياسي|Стандартная схема запроса / ответа
+1008|Stop|إيقاف|Стоп
+1009|Stop removed, sale reopened.|أُزيل الإيقاف وأُعيد فتح البيع.|Стоп снят, продажа снова открыта.
+1010|Stop records|سجلات الإيقاف|Записи стопов
+1011|Stop sale (close for sale)|إيقاف البيع (إغلاق للبيع)|Стоп-продажа (закрыть продажу)
+1012|CONTRACT NO|رقم العقد|№ ДОГОВОРА
+1013|TERM: The contract is valid between {a} and {b}.|المدة: العقد سارٍ بين {a} و{b}.|СРОК: договор действует с {a} по {b}.
+1014|Contract reminder sent.|تم إرسال تذكير العقد.|Напоминание о договоре отправлено.
+1015|Contract signed. Upload your documents; your panel opens after admin approval.|تم توقيع العقد. ارفع مستنداتك؛ وتُفتح لوحتك بعد موافقة المسؤول.|Договор подписан. Загрузите документы; панель откроется после одобрения администратором.
+1016|Create contract|إنشاء عقد|Создать договор
+1017|Contract approved: changes apply immediately, no new signature or documents required.|العقد معتمد: تُطبق التعديلات فورًا دون توقيع أو مستندات جديدة.|Договор одобрен: изменения применяются сразу, без новой подписи и документов.
+1018|The contract does not cover flights|العقد لا يشمل الطيران|Договор не охватывает авиабилеты
+1019|No contract|لا يوجد عقد|Нет договора
+1020|No contract.|لا يوجد عقد.|Нет договора.
+1021|Contract signed on behalf of the parent company.|تم توقيع العقد نيابة عن الشركة الأم.|Договор подписан от имени головной компании.
+1022|I have read and accept the contract terms.|قرأت شروط العقد وأوافق عليها.|Я прочитал(а) и принимаю условия договора.
+1023|Back to contracts|العودة إلى العقود|Назад к договорам
+1024|Your contract is not active.|عقدك غير نشط.|Ваш договор неактивен.
+1025|Sign contract|توقيع العقد|Подписать договор
+1026|Sign the contract on behalf of {n}|وقّع العقد نيابة عن {n}|Подписать договор от имени {n}
+1027|The panel closes when the term expires. Sending a reminder to the other party is suggested.|تُغلق اللوحة عند انتهاء المدة. يُقترح إرسال تذكير إلى الطرف الآخر.|По истечении срока панель закроется. Предлагается отправить напоминание другой стороне.
+1028|A booking not paid on time is cancelled by the system.|يُلغي النظام الحجز غير المدفوع في موعده.|Неоплаченное вовремя бронирование отменяется системой.
+1029|Columns were matched by text position; review the prices before saving.|طوبقت الأعمدة حسب موضع النص؛ راجع الأسعار قبل الحفظ.|Столбцы сопоставлены по положению текста; проверьте цены перед сохранением.
+1030|Reset|إعادة تعيين|Сбросить
+1031|Limit / min|الحد / دقيقة|Лимит / мин
+1032|PARTIES: book4me ai (www.book4me-ai.com) and {b} ({r})|الأطراف: book4me ai (www.book4me-ai.com) و{b} ({r})|СТОРОНЫ: book4me ai (www.book4me-ai.com) и {b} ({r})
+1033|PARTIES: {a} (parent company) and {b} (sub-account); subject to the book4me ai (www.book4me-ai.com) platform rules|الأطراف: {a} (الشركة الأم) و{b} (حساب فرعي)؛ خاضع لقواعد منصة book4me ai (www.book4me-ai.com)|СТОРОНЫ: {a} (головная компания) и {b} (субсчёт); действуют правила платформы book4me ai (www.book4me-ai.com)
+1034|CBRT daily rate|السعر اليومي للبنك المركزي التركي|Дневной курс ЦБ Турции
+1035|From the TRANSFER sheet|من ورقة TRANSFER|С листа TRANSFER
+1036|TRY → TRY|TRY → TRY|TRY → TRY
+1037|Collected|تم التحصيل|Получено
+1038|Collection processed.|تمت معالجة التحصيل.|Поступление проведено.
+1039|No collections.|لا توجد تحصيلات.|Поступлений нет.
+1040|Collections|التحصيلات|Поступления
+1041|Instalment options|خيارات التقسيط|Варианты рассрочки
+1042|Your request has been received; it will be answered after approval by an authorised person.|تم استلام طلبك؛ وسيُرد عليه بعد موافقة المفوّض.|Ваш запрос получен; ответ будет дан после одобрения уполномоченным.
+1043|Request|الطلب|Запрос
+1044|The request requires human approval. A draft reply was prepared.|يتطلب الطلب موافقة بشرية. تم إعداد مسودة رد.|Запрос требует одобрения человеком. Черновик ответа подготовлен.
+1045|Request rejected; the agency sees it in its booking.|رُفض الطلب؛ وتراه الوكالة في حجزها.|Запрос отклонён; агентство увидит это в бронировании.
+1046|Not defined|غير محدد|Не задано
+1047|No recognised row found.|لم يُعثر على صف معروف.|Распознанных строк не найдено.
+1048|Browser storage is full; try again with less data.|امتلأت مساحة تخزين المتصفح؛ حاول مجددًا ببيانات أقل.|Хранилище браузера заполнено; попробуйте с меньшим объёмом данных.
+1049|Close sales by choosing a date range and room type; if you choose no room, all rooms close. On closed days the room does not appear in search.|أغلق البيع باختيار نطاق تاريخ ونوع غرفة؛ وإن لم تختر غرفة تُغلق جميع الغرف. لا تظهر الغرفة في البحث في الأيام المغلقة.|Закройте продажи, выбрав период и тип номера; если номер не выбран, закрываются все. В закрытые дни номер не показывается в поиске.
+1050|Select date|اختر التاريخ|Выбрать дату
+1051|In the draft stage the terms can be edited freely.|في مرحلة المسودة يمكن تعديل الشروط بحرية.|На этапе черновика условия можно свободно редактировать.
+1052|Draft contract created.|تم إنشاء مسودة العقد.|Черновик договора создан.
+1053|The draft opens with the default terms in the Rules tab and can be edited afterwards.|تُفتح المسودة بالشروط الافتراضية في تبويب القواعد ويمكن تعديلها لاحقًا.|Черновик открывается с условиями по умолчанию из вкладки «Правила», затем их можно изменить.
+1054|Supplier API (incoming)|API المورّد (وارد)|API поставщика (входящий)
+1055|Supplier APIs|واجهات API للمورّدين|API поставщиков
+1056|Supplier assignment, pickup list|تعيين المورّد، قائمة الالتقاط|Назначение поставщика, список трансферов
+1057|Supplier not assigned|لم يُعيَّن مورّد|Поставщик не назначен
+1058|Supplier change|تغيير المورّد|Смена поставщика
+1059|Add supplier|إضافة مورّد|Добавить поставщика
+1060|Supplier added.|تمت إضافة المورّد.|Поставщик добавлен.
+1061|Send for supplier approval|إرسال لموافقة المورّد|Отправить на подтверждение поставщику
+1062|Select a supplier.|اختر مورّدًا.|Выберите поставщика.
+1063|Suppliers and purchase prices|المورّدون وأسعار الشراء|Поставщики и цены покупки
+1064|The supplier's e-mail address is not defined in the system. Add it in Operations → Service suppliers.|عنوان بريد المورّد غير محدد في النظام. أضفه من العمليات ← مورّدو الخدمات.|E-mail поставщика не задан. Добавьте его в разделе «Операции → Поставщики услуг».
+1065|One platform, many customers: all DMCs work on the platform; each one's data is separate from the others. The platform's only commercial counterparty is the DMC.|منصة واحدة وعملاء كثيرون: تعمل جميع الشركات على المنصة؛ وبيانات كل منها منفصلة عن الأخرى. الطرف التجاري الوحيد للمنصة هو الشركة.|Одна платформа, много клиентов: все DMC работают на платформе, данные каждой отделены от других. Единственный коммерческий контрагент платформы — DMC.
+1066|One way|اتجاه واحد|В одну сторону
+1067|One-way price|سعر الاتجاه الواحد|Цена в одну сторону
+1068|Offer|العرض|Предложение
+1069|Offer name|اسم العرض|Название предложения
+1070|Offer started.|بدأ العرض.|Предложение запущено.
+1071|Offer deleted.|تم حذف العرض.|Предложение удалено.
+1072|The offer is applied to the price automatically if the check-in date is in the stay range, the booking is made in the sales range and the minimum nights are met. If several offers match, the highest discount applies; it also applies to the non-refundable price.|يُطبق العرض على السعر تلقائيًا إذا كان تاريخ الوصول ضمن نطاق الإقامة والحجز ضمن نطاق البيع واستوفى الحد الأدنى للليالي. وإذا انطبقت عدة عروض يسري الخصم الأعلى؛ ويُطبق أيضًا على السعر غير القابل للاسترداد.|Предложение применяется автоматически, если дата заезда в периоде проживания, бронирование сделано в периоде продаж и соблюдено минимальное число ночей. При нескольких подходящих действует наибольшая скидка; применяется и к невозвратной цене.
+1073|Add offer|إضافة عرض|Добавить предложение
+1074|Offers|العروض|Предложения
+1075|Received ({n})|تم الاستلام ({n})|Получено ({n})
+1076|Test successful (simulation).|نجح الاختبار (محاكاة).|Тест успешен (симуляция).
+1077|Test successful (simulation): {n} flights returned on the sample route.|نجح الاختبار (محاكاة): أُعيدت {n} رحلات على المسار النموذجي.|Тест успешен (симуляция): по примерному маршруту найдено рейсов: {n}.
+1078|Test failed: {e}|فشل الاختبار: {e}|Тест не пройден: {e}
+1079|Test|اختبار|Проверить
+1080|Test login|دخول تجريبي|Тестовый вход
+1081|Test console|وحدة الاختبار|Тестовая консоль
+1082|Test run|تم تشغيل الاختبار|Тест выполнен
+1083|Commercial model: default 5% markup on platform products; 1% on purchase + 1% on sale commission on the DMC's own API trade; no API connection fee.|النموذج التجاري: هامش افتراضي 5% على منتجات المنصة؛ وعمولة 1% على الشراء + 1% على البيع في تجارة API الخاصة بالشركة؛ دون رسوم اتصال API.|Коммерческая модель: наценка 5% по умолчанию на продукты платформы; комиссия 1% с покупки + 1% с продажи по собственной API-торговле DMC; без платы за подключение API.
+1084|Total (EUR)|الإجمالي (EUR)|Итого (EUR)
+1085|Total people|إجمالي الأشخاص|Всего человек
+1086|Total people cannot be fewer than adults.|لا يمكن أن يقل إجمالي الأشخاص عن عدد البالغين.|Общее число не может быть меньше числа взрослых.
+1087|Bulk payment · single invoice|دفع جماعي · فاتورة واحدة|Групповая оплата · один счёт
+1088|Toros Rafting & Safari|Toros Rafting & Safari|Toros Rafting & Safari
+1089|Search transfers|البحث عن نقل|Найти трансфер
+1090|Reserve transfer|حجز النقل|Забронировать трансфер
+1091|Transfer prices|أسعار النقل|Цены трансферов
+1092|I don't want a transfer|لا أريد نقلًا|Трансфер не нужен
+1093|Transfer row|صف النقل|Строка трансфера
+1094|Transfer date|تاريخ النقل|Дата трансфера
+1095|Transfer products are exclusive to your guides; to sell transfers to agencies use Operations → Transfer.|منتجات النقل خاصة بمرشديك؛ ولبيع النقل للوكالات استخدم العمليات ← النقل.|Продукты-трансферы только для ваших гидов; для продажи трансферов агентствам используйте «Операции → Трансферы».
+1096|Search tours|البحث عن جولة|Найти тур
+1097|Tour, transfer and guide sales|مبيعات الجولات والنقل والمرشدين|Продажи туров, трансферов и гидов
+1098|Tour, transfer and guide sales are visible to the Operations department and people it authorises.|يرى قسم العمليات ومن يفوّضهم مبيعات الجولات والنقل والمرشدين.|Продажи туров, трансферов и гидов видят отдел операций и уполномоченные им лица.
+1099|Search tour, city or DMC|ابحث بالجولة أو المدينة أو الشركة|Поиск по туру, городу или DMC
+1100|Reserve tour|حجز الجولة|Забронировать тур
+1101|The amount will be deducted from your balance ({a}).|سيُخصم المبلغ من رصيدك ({a}).|Сумма будет списана с вашего баланса ({a}).
+1102|The amount was deducted from your balance.|تم خصم المبلغ من رصيدك.|Сумма списана с вашего баланса.
+1103|Amount differs|المبلغ مختلف|Сумма отличается
+1104|The amount was deducted from the prepayment; invoice created.|تم خصم المبلغ من الدفع المسبق؛ وأُنشئت الفاتورة.|Сумма списана с предоплаты; счёт создан.
+1105|The amount is deducted automatically and the invoice issued when the free cancellation period under the cancellation terms ends. If you cancel before it ends, the block is released.|يُخصم المبلغ تلقائيًا وتصدر الفاتورة عند انتهاء مهلة الإلغاء المجاني وفق الشروط. وإذا ألغيت قبل انتهائها يُرفع الحجز.|Сумма списывается автоматически и выставляется счёт по окончании срока бесплатной отмены. Если отменить раньше, блокировка снимается.
+1106|All DMCs|جميع الشركات|Все DMC
+1107|All connections are installed ready and switched off; they open with one click. An opened connection runs in simulation mode and goes live when real connection details are entered.|تُثبَّت جميع الاتصالات جاهزة ومتوقفة؛ وتُفتح بنقرة واحدة. يعمل الاتصال المفتوح بوضع المحاكاة ويصبح حيًا عند إدخال بيانات الاتصال الحقيقية.|Все подключения установлены готовыми и выключенными; включаются одним щелчком. Включённое подключение работает в режиме симуляции и переходит в боевой режим после ввода реальных данных.
+1108|All demo data will be deleted and set up again. Are you sure?|ستُحذف جميع البيانات التجريبية وتُعاد تهيئتها. هل أنت متأكد؟|Все демо-данные будут удалены и созданы заново. Вы уверены?
+1109|All checks passed; the hotel is ready to be saved.|اجتازت جميع الفحوصات؛ والفندق جاهز للحفظ.|Все проверки пройдены; отель готов к сохранению.
+1110|To all nationalities|لجميع الجنسيات|Всем гражданствам
+1111|Select all|تحديد الكل|Выбрать все
+1112|Turkish Airlines|الخطوط الجوية التركية|Turkish Airlines
+1113|Türkçe|Türkçe|Türkçe
+1114|COMMERCIAL MODEL: The platform applies a default 5% markup on all products it opens to the DMC (changeable per DMC). On trade from the DMC's own API connection, 1% of the purchase amount and 1% of the sale amount is the platform commission; no API/XML connection fee is charged. No commission on refunded amounts; on cancellation with penalty, only on the penalty amount.|النموذج التجاري: تطبق المنصة هامشًا افتراضيًا 5% على جميع المنتجات التي تفتحها للشركة (قابل للتغيير لكل شركة). وفي التجارة عبر اتصال API الخاص بالشركة تكون عمولة المنصة 1% من مبلغ الشراء و1% من مبلغ البيع؛ دون رسوم اتصال API/XML. لا عمولة على المبالغ المستردة؛ وفي الإلغاء بغرامة تُحتسب على الغرامة فقط.|КОММЕРЧЕСКАЯ МОДЕЛЬ: платформа применяет наценку 5% по умолчанию ко всем продуктам, открытым DMC (меняется для каждой DMC). По торговле через собственное API DMC комиссия платформы — 1% от покупки и 1% от продажи; плата за подключение API/XML не взимается. С возвратов комиссия не берётся; при отмене со штрафом — только со штрафа.
+1115|USD → EUR|USD → EUR|USD → EUR
+1116|USD → USD|USD → USD|USD → USD
+1117|Title|الاسم التجاري|Название
+1118|Rooms to apply (all if none selected)|الغرف المطبق عليها (الكل إن لم تُحدد)|Номера для применения (все, если не выбрано)
+1119|No suitable flight.|لا توجد رحلة مناسبة.|Подходящих рейсов нет.
+1120|Endpoint|نقطة النهاية|Эндпоинт
+1121|Flight ticket|تذكرة طيران|Авиабилет
+1122|Flight tickets work only via API; flights are not uploaded manually or by file. When a search is made, the system queries this connection live and shows the lowest price among all DMCs. For sales from your own API through your own buyer account or agencies, the platform takes a 1% + 1% commission.|تعمل تذاكر الطيران عبر API فقط؛ ولا تُرفع الرحلات يدويًا أو بملف. عند البحث يستعلم النظام هذا الاتصال مباشرة ويعرض أقل سعر بين جميع الشركات. وفي المبيعات من API الخاص بك عبر حساب المشتري أو وكالاتك تأخذ المنصة عمولة 1% + 1%.|Авиабилеты работают только через API; рейсы не загружаются вручную или файлом. При поиске система опрашивает это подключение в реальном времени и показывает минимальную цену среди всех DMC. С продаж через ваше API на свой счёт покупателя или агентствам платформа берёт комиссию 1% + 1%.
+1123|Names cannot be changed on flight tickets; only the note can be updated.|لا يمكن تغيير الأسماء في تذاكر الطيران؛ ويمكن تحديث الملاحظة فقط.|В авиабилетах нельзя менять имена; можно обновить только примечание.
+1124|Flight|الرحلة|Рейс
+1125|Flight API|API الطيران|API авиабилетов
+1126|Search flights|البحث عن رحلات|Найти рейсы
+1127|The flight is no longer available.|لم تعد الرحلة متاحة.|Рейс больше недоступен.
+1128|Flight details|بيانات الرحلة|Данные рейса
+1129|I don't want a flight|لا أريد رحلة|Рейс не нужен
+1130|Flight no and time|رقم الرحلة ووقتها|№ и время рейса
+1131|Flights are queried live from the API connections of {n} suppliers; the lowest price for the same flight is shown. Prices are per person.|يُستعلم عن الرحلات مباشرة من اتصالات API لـ{n} مورّدين؛ ويُعرض أقل سعر للرحلة نفسها. الأسعار للشخص.|Рейсы запрашиваются в реальном времени через API {n} поставщиков; показывается минимальная цена на один и тот же рейс. Цены за человека.
+1132|VIP|VIP|VIP
+1133|Default language|اللغة الافتراضية|Язык по умолчанию
+1134|Default rate saved.|تم حفظ النسبة الافتراضية.|Ставка по умолчанию сохранена.
+1135|Defaults saved. New contracts open with these terms.|تم حفظ الإعدادات الافتراضية. تُفتح العقود الجديدة بهذه الشروط.|Значения по умолчанию сохранены. Новые договоры открываются с этими условиями.
+1136|Arrival {d} · prices come live from supplier APIs|الوصول {d} · الأسعار مباشرة من API المورّدين|Прибытие {d} · цены в реальном времени из API поставщиков
+1137|Tax office / no|مكتب الضرائب / الرقم|Налоговая / номер
+1138|Voucher and invoice created.|تم إنشاء القسيمة والفاتورة.|Ваучер и счёт созданы.
+1139|The voucher is issued after payment or prepayment block.|تصدر القسيمة بعد الدفع أو حجز الدفع المسبق.|Ваучер выдаётся после оплаты или блокировки предоплаты.
+1140|Accent colour|لون التمييز|Акцентный цвет
+1141|You can only upload a PDF or image.|يمكنك رفع PDF أو صورة فقط.|Можно загрузить только PDF или изображение.
+1142|You can only upload an image.|يمكنك رفع صورة فقط.|Можно загрузить только изображение.
+1143|Non-refundable price only|السعر غير القابل للاسترداد فقط|Только невозвратная цена
+1144|Reply sent.|تم إرسال الرد.|Ответ отправлен.
+1145|Configuration valid|الإعداد صالح|Конфигурация корректна
+1146|Configuration valid. The live connection activates when the adapter is developed.|الإعداد صالح. يتفعّل الاتصال الحي عند تطوير المحوّل.|Конфигурация корректна. Боевое подключение заработает после разработки адаптера.
+1147|Configuration valid; simulation response received|الإعداد صالح؛ وتم تلقي رد المحاكاة|Конфигурация корректна; получен ответ симуляции
+1148|Operating days|أيام التشغيل|Дни проведения
+1149|Bed|السرير|Кровать
+1150|Release record created: {v}|تم إنشاء سجل الإصدار: {v}|Запись о релизе создана: {v}
+1151|Live|منشور|Опубликовано
+1152|Publish|نشر|Опубликовать
+1153|Define your summer and winter contracts as seasons, split each season into date-based periods and enter each period's price per room. Each night of the stay is calculated at the price of the period that night falls in.|عرّف عقودك الصيفية والشتوية كمواسم، وقسّم كل موسم إلى فترات حسب التاريخ وأدخل سعر كل فترة لكل غرفة. تُحتسب كل ليلة من الإقامة بسعر الفترة التي تقع فيها.|Задайте летние и зимние контракты как сезоны, разделите каждый сезон на периоды по датам и введите цену каждого периода по номерам. Каждая ночь проживания считается по цене периода, в который она попадает.
+1154|Print / save as PDF|طباعة / حفظ كـPDF|Печать / сохранить как PDF
+1155|Printing may be blocked in this view; you can save the document as PDF from your browser's print menu.|قد تكون الطباعة محظورة في هذا العرض؛ ويمكنك حفظ المستند كـPDF من قائمة الطباعة في متصفحك.|Печать в этом окне может быть заблокирована; сохраните документ в PDF через меню печати браузера.
+1156|Start typing: province, district, zone|ابدأ الكتابة: المحافظة، الحي، المنطقة|Начните вводить: провинция, район, зона
+1157|Software|البرمجيات|Разработка
+1158|New DMC|شركة جديدة|Новая DMC
+1159|Open new DMC (customer)|فتح شركة جديدة (عميل)|Открыть новую DMC (клиента)
+1160|New DMC contract defaults|الإعدادات الافتراضية لعقد الشركة الجديدة|Условия по умолчанию для договора DMC
+1161|New DMCs are opened with their package from the Customers and licences tab.|تُفتح الشركات الجديدة مع باقتها من تبويب العملاء والتراخيص.|Новые DMC открываются вместе с пакетом на вкладке «Клиенты и лицензии».
+1162|New sub-DMC|شركة فرعية جديدة|Новая суб-DMC
+1163|New file|ملف جديد|Новый файл
+1164|New room type|نوع غرفة جديد|Новый тип номера
+1165|New sale|بيع جديد|Новая продажа
+1166|New sales account|حساب مبيعات جديد|Новый счёт продаж
+1167|New sales account contract defaults|الإعدادات الافتراضية لعقد حساب المبيعات الجديد|Условия по умолчанию для договора счёта продаж
+1168|New season name|اسم الموسم الجديد|Название нового сезона
+1169|New supplier API connection|اتصال API مورّد جديد|Новое подключение API поставщика
+1170|New amount|المبلغ الجديد|Новая сумма
+1171|New password|كلمة المرور الجديدة|Новый пароль
+1172|The new password must be at least 6 characters.|يجب ألا تقل كلمة المرور الجديدة عن 6 أحرف.|Новый пароль должен содержать не менее 6 символов.
+1173|Reopened|أُعيد فتحه|Снова открыто
+1174|Reload|إعادة التحميل|Загрузить заново
+1175|Not enough quota left.|لم يتبقَّ ما يكفي من الحصة.|Недостаточно квоты.
+1176|Orphan booking|حجز يتيم|Бронирование без заказа
+1177|Adults (max)|البالغون (الحد الأقصى)|Взрослых (макс.)
+1178|Adult / child / total|بالغ / طفل / إجمالي|Взрослые / дети / всего
+1179|Permission updated.|تم تحديث الصلاحية.|Права обновлены.
+1180|Authorised person's full name|الاسم الكامل للمفوّض|Имя и фамилия уполномоченного
+1181|Enter the authorised person's full name.|أدخل الاسم الكامل للمفوّض.|Введите имя и фамилию уполномоченного.
+1182|None|لا يوجد|Нет
+1183|Passenger|الراكب|Пассажир
+1184|EFFECTIVENESS: This contract enters into force once signed by both parties and the four required documents (signed contract, company details, tax certificate, bank account details) are uploaded and approved. After approval the platform may update the service scope, currencies, term and the account's open/closed status without a new signature.|السريان: يسري هذا العقد بعد توقيع الطرفين ورفع المستندات الأربعة المطلوبة (العقد الموقع، بيانات الشركة، الشهادة الضريبية، بيانات الحساب البنكي) والموافقة عليها. وبعد الموافقة يجوز للمنصة تحديث نطاق الخدمات والعملات والمدة وحالة فتح الحساب أو إغلاقه دون توقيع جديد.|ВСТУПЛЕНИЕ В СИЛУ: договор вступает в силу после подписания обеими сторонами, загрузки и одобрения четырёх документов (подписанный договор, данные компании, налоговое свидетельство, банковские реквизиты). После одобрения платформа может менять охват услуг, валюты, срок и статус счёта без повторной подписи.
+1185|Direction|الاتجاه|Направление
+1186|Administrator e-mail|بريد المسؤول|E-mail администратора
+1187|The administrator accesses every section and manages users. Other users see and use only the sections given by the administrator. A user marked as section manager sees only their section's data on the dashboard; for all data give the “Dashboard · full access” permission. Choosing a department ticks the suggested permissions.|يصل المسؤول إلى كل الأقسام ويدير المستخدمين. ولا يرى المستخدمون الآخرون إلا الأقسام التي يمنحها المسؤول. ويرى المستخدم المعلّم كمدير قسم بيانات قسمه فقط في لوحة التحكم؛ وللبيانات كاملة امنحه صلاحية “لوحة التحكم · وصول كامل”. اختيار القسم يحدد الصلاحيات المقترحة.|Администратор имеет доступ ко всем разделам и управляет пользователями. Остальные видят только выданные им разделы. Руководитель подразделения видит на дашборде только данные своего подразделения; для всех данных выдайте право «Дашборд · полный доступ». При выборе отдела отмечаются рекомендуемые права.
+1188|Administrator role removed.|أُزيل دور المسؤول.|Права администратора сняты.
+1189|Management settings|إعدادات الإدارة|Настройки управления
+1190|Management · Agents and approval queue|الإدارة · الوكلاء وقائمة الموافقات|Управление · Агенты и очередь одобрений
+1191|Management · Sub-DMCs|الإدارة · الشركات الفرعية|Управление · Суб-DMC
+1192|Management · Integrations|الإدارة · التكاملات|Управление · Интеграции
+1193|Management · Brand and domain|الإدارة · العلامة والنطاق|Управление · Бренд и домен
+1194|Management · Contract|الإدارة · العقد|Управление · Договор
+1195|Management · Activity log|الإدارة · سجل العمليات|Управление · Журнал действий
+1196|Redirect record not found; the address is closed. Your standard address keeps working.|لم يُعثر على سجل التوجيه؛ والعنوان مغلق. ويستمر عنوانك القياسي في العمل.|Запись перенаправления не найдена; адрес закрыт. Стандартный адрес продолжает работать.
+1197|Write what you want to upload in plain sentences; each line is read separately. CSV can also be uploaded. Currencies you can use under your contract: {c}.|اكتب ما تريد رفعه بجمل بسيطة؛ ويُقرأ كل سطر على حدة. يمكن رفع CSV أيضًا. العملات المتاحة لك وفق عقدك: {c}.|Опишите загружаемое простыми предложениями; каждая строка читается отдельно. Можно загрузить и CSV. Валюты по вашему договору: {c}.
+1198|Uploaded|المرفوع|Загружено
+1199|Uploaded documents|المستندات المرفوعة|Загруженные документы

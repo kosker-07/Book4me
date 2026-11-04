@@ -1,0 +1,35 @@
+/* Yama 2b · müdahale ekranı: tek rezervasyon ekranında "Üstlen / Bırak" ve "Müdahale et" düğmeleri; müdahale paneli aynı ekranda açılır
+   (düzeltme, fiyat ve ceza, tedarikçi değiştirme). Yalnızca yetkisi olan düğme ve bölümler görünür. */
+const UI = B4M.ui, A = UI.A, S = UI.S, db = () => B4M.db, IV = B4M.iv, VR = B4M.vRez, P = B4M.parties, B4 = B4M;
+VR.acts.push((b, side) => { if (!IV.side(b) || !IV.can(b, "mud") && !IV.can(b, "mudf") && !IV.can(b, "mudt")) return ""; const me = B4M.ctx.uid, mine = b.owner && b.owner.uid == me;
+  return [IV.can(b, "mud") && (mine ? UI.btn(t("Bırak"), "ivRel", b.id) : UI.btn(t(b.owner ? "Devral" : "Üstlen"), "ivClaim", b.id)), UI.btn(t(S.iv == b.id ? "Müdahaleyi kapat" : "Müdahale et"), "ivOpen", b.id, S.iv == b.id ? "g" : "b danger")].filter(Boolean).join(" "); });
+A.ivClaim = id => { const b = db().get("bookings", id), u = B4M.app.user(); if (b.owner && b.owner.uid != u.id) { UI.ask(t("Bu rezervasyonu {n} üstlenmiş. Devralmak istiyor musunuz?", { n: b.owner.name }), () => { UI.res(IV.claim(id, true)); B4M.db.commit(); UI.render(); return false; }, { yes: "Devral" }); return false; } return IV.claim(id); };
+A.ivRel = id => IV.release(id);
+A.ivOpen = id => { if (S.iv == id) { S.iv = 0; return; } const b = db().get("bookings", id); S.iv = id; S.ivS = { names: [...(b.guests || [])], note: b.note || "", a: b.a, b: b.b || "", rid: b.room, rt: b.cxd < 0 ? "n" : "r" }; S.ivH = b.hid || 0; S.md = null; };
+A.ivN = (i, el) => { S.ivS.names[i] = el.value; return { noRender: true }; };
+A.ivAddG = () => { S.ivS.names.push(""); };
+A.ivDelG = i => { if (S.ivS.names.length > 1) S.ivS.names.splice(i, 1); };
+A.ivSet = (k, el) => { S.ivS[k] = el.value; return { noRender: k == "note" }; };
+A.ivRoom = (a, el) => { const [r, rt] = el.value.split("|"); S.ivS.rid = +r; S.ivS.rt = rt; };
+const R = () => UI.val("iv_r");
+A.ivFix = id => { const r = IV.fix(id, S.ivS, R()); if (r.ok) S.iv = 0; return r; };
+A.ivPrice = id => { const r = IV.price(id, { total: UI.val("iv_tot"), cost: UI.val("iv_cost") }, R()); if (r.ok) S.iv = 0; return r; };
+A.ivWaive = id => { const r = IV.waive(id, R()); if (r.ok) S.iv = 0; return r; };
+A.ivHotel = (a, el) => { S.ivH = +el.value; };
+A.ivMove = id => { const r = IV.move(id, { hid: S.ivH, rid: UI.val("iv_mr"), amt: UI.val("iv_ma"), cur: UI.val("iv_mc"), sdl: UI.val("iv_ms") }, R()); if (r.ok) S.iv = 0; return r; };
+VR.extraSecs.unshift((b, side) => b.ivInv && side != "buy" ? ["ivw", "Fatura", `<p class="bad" style="margin:0">${t("Müdahale sonrası fark faturası gerekli")} · ${U.esc(b.ivInv.what)}</p>`] : null);
+VR.extraSecs.unshift((b, side) => { if (S.iv != b.id || !IV.side(b)) return null;
+  const s = S.ivS, hotel = b.kind == "h", h = hotel && B4M.prod.H(b.hid), side2 = IV.side(b);
+  const fix = IV.can(b, "mud") && b.status == "Onaylı" ? `<h4>${t("Düzeltme")}</h4><p class="mu" style="margin-top:0">${t("Tedarikçi onayı beklenmeden ve iptal süresi geçmiş olsa da uygulanır. Fiyat değişirse fark cariye işlenir; müsaitlik yoksa uyarıyla kaydedilir.")}</p>
+    <div class="row">${s.names.map((n, i) => UI.fld(t("{n}. misafir", { n: i + 1 }), `<div style="display:flex;gap:4px"><input value="${U.esc(n)}" ${b.kind == "f" ? "disabled" : ""} ${UI.i("ivN", i)}>${s.names.length > 1 && b.kind != "f" ? UI.btn("×", "ivDelG", i, "g", `aria-label="${t("Kaldır")}"`) : ""}</div>`)).join("")}${b.kind != "f" ? UI.btn(t("Kişi ekle"), "ivAddG") : ""}</div>
+    <div class="row">${UI.fld(t(hotel ? "Giriş" : "Tarih"), `<input type="date" value="${s.a}" ${UI.c("ivSet", "a")}>`, 180)}${hotel || b.b ? UI.fld(t("Çıkış"), `<input type="date" value="${s.b}" ${UI.c("ivSet", "b")}>`, 180) : ""}${hotel && h ? UI.fld(t("Oda ve fiyat tipi"), `<select ${UI.c("ivRoom")}>${h.rooms.flatMap(r => [["r", "iadeli"], ["n", "iade edilemez"]].map(([rt, l]) => [`${r.id}|${rt}`, `${r.type} · ${t(l)}`])).map(([v, l]) => `<option value="${v}" ${v == s.rid + "|" + s.rt ? "selected" : ""}>${U.esc(l)}</option>`).join("")}</select>`) : ""}</div>
+    <label>${t("Not ve özel istek")}<textarea rows="2" ${UI.i("ivSet", "note")}>${U.esc(s.note)}</textarea></label><div class="row" style="margin:8px 0 0">${UI.btn(t("Düzeltmeyi uygula"), "ivFix", b.id, "b")}</div>` : "";
+  const own = side2 == "sup" && b.own;
+  const price = IV.can(b, "mudf") ? `<h4>${t("Fiyat ve ceza")}</h4>${b.status == "Onaylı" ? `<div class="row">${side2 == "h" || own ? UI.fld(t(own ? "Acenteye satış" : "Alıcı fiyatı"), UI.in("iv_tot", b.total, 'min="0" step="0.01"', "number") + `<span class="mu">${b.cur}</span>`, 200) : ""}${UI.fld(t(side2 == "h" ? "DMC alış fiyatı" : "Fiyatınız (tedarikçi)"), UI.in("iv_cost", b.cost, 'min="0" step="0.01"', "number") + `<span class="mu">${b.costCur}</span>`, 200)}${UI.btn(t("Fiyatı düzelt"), "ivPrice", b.id, "b")}</div>${side2 == "sup" && !own ? `<p class="mu" style="margin:0">${t("Fiyatınızı değiştirdiğinizde alıcı fiyatı markup oranları korunarak güncellenir.")}</p>` : ""}` : ""}${b.status == "İptal (cezalı)" ? `<p>${t("Bu rezervasyon cezalı iptal edildi. Cezayı kaldırırsanız tutar alıcının carisine iade edilir.")}</p>${UI.btn(t("İptal cezasını kaldır"), "ivWaive", b.id, "b")}` : ""}` : "";
+  let move = ""; if (IV.can(b, "mudt") && hotel && b.status == "Onaylı") { const H = IV.targets(b), hx = H.find(x => x.id == S.ivH) || H[0];
+    move = `<h4>${t("Tedarikçi değiştirme")}</h4><p class="mu" style="margin-top:0">${t("Rebooking'in elle hali: satış fiyatı, rezervasyon no ve voucher no değişmez; alış farkı rebooking gelirine yazılır, eski tedarikçiye “ücretsiz iptal” bildirimi gider.")}</p>
+    <div class="row">${UI.fld(t("Otel (tedarikçi)"), `<select ${UI.c("ivHotel")}>${H.map(x => `<option value="${x.id}" ${hx && x.id == hx.id ? "selected" : ""}>${U.esc(x.name)} · ${U.esc(x.city || "")} · ${U.esc(P.dmcName(x.sup))}</option>`).join("")}</select>`, 380)}${hx ? UI.fld(t("Oda"), `<select id="iv_mr">${hx.rooms.map(r => `<option value="${r.id}" ${hx.id == b.hid && r.id == b.room ? "selected" : ""}>${U.esc(r.type)}</option>`).join("")}</select>`, 200) : ""}</div>
+    <div class="row">${UI.fld(t("Yeni alış tutarı"), UI.in("iv_ma", "", 'min="0" step="0.01"', "number"), 160)}${UI.fld(t("Para birimi"), UI.sel("iv_mc", U.CUR, (hx && hx.cur) || b.costCur, "", false), 110)}${UI.fld(t("Tedarikçinin ücretsiz iptali"), UI.in("iv_ms", b.sdl || "", "", "date"), 190)}${UI.btn(t("Tedarikçiyi değiştir"), "ivMove", b.id, "b")}</div>`; }
+  const body = `<div class="box warn" style="margin:0"><label>${t("Gerekçe (zorunlu)")}<textarea id="iv_r" rows="2" placeholder="${U.esc(t("Ör. otel overbooking yaptı, misafir başka otele taşındı"))}"></textarea></label><p class="mu" style="margin:4px 0 0">${t("Her müdahale öncesi ve sonrasıyla işlem kaydına yazılır; etkilenen taraflara bildirim gider.")}</p></div>${fix}${price}${move}` ;
+  return ["iv", "Müdahale", body]; });
+if (typeof document != "undefined") { const st = document.createElement("style"); st.textContent = `.bxb h4{margin:14px 0 6px;font-size:14px}`; (document.head || document.documentElement).appendChild(st); }

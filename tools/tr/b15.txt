@@ -1,0 +1,10 @@
+2476|{s}: {n} early booking periods read; they are added to the hotels as SPOs on save.|{s}: تمت قراءة {n} فترات حجز مبكر؛ تُضاف إلى الفنادق كعروض خاصة عند الحفظ.|{s}: прочитано периодов раннего бронирования: {n}; при сохранении они добавляются к отелям как SPO.
+2477|Market definition|تعريف السوق|Определение рынка
+2478|{s}: market and country definition added to the hotels as a note.|{s}: أُضيف تعريف السوق والدول إلى الفنادق كملاحظة.|{s}: определение рынков и стран добавлено к отелям как заметка.
+2479|Economy room|غرفة اقتصادية|Эконом-номер
+2480|{s}: economy room information added to the related hotels as a note.|{s}: أُضيفت معلومات الغرفة الاقتصادية إلى الفنادق المعنية كملاحظة.|{s}: информация об эконом-номерах добавлена к соответствующим отелям как заметка.
+2481|{r}: “{l}” price in period {p} is suspiciously low ({v}; other periods ~{m}). Check before saving.|{r}: سعر “{l}” في الفترة {p} منخفض بشكل مريب ({v}؛ الفترات الأخرى ~{m}). تحقق قبل الحفظ.|{r}: цена «{l}» в периоде {p} подозрительно низкая ({v}; в других периодах ~{m}). Проверьте перед сохранением.
+2482|prepayment|دفعة مقدمة|предоплата
+2483|Early booking discounts were not added because you have no SPO permission ({n} hotels).|لم تُضف خصومات الحجز المبكر لعدم امتلاكك صلاحية العروض الخاصة ({n} فندق).|Скидки раннего бронирования не добавлены: нет прав на SPO (отелей: {n}).
+2484|{n} hotels saved; {s} early booking SPOs added.|تم حفظ {n} فندق؛ وأُضيف {s} عرض حجز مبكر.|Сохранено отелей: {n}; добавлено SPO раннего бронирования: {s}.
+2485|Additional sheets|أوراق إضافية|Дополнительные листы

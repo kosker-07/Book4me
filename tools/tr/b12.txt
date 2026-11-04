@@ -1,0 +1,475 @@
+1748|(markup + API + rebooking) / TTV|(الهامش + API + إعادة الحجز) / TTV|(наценка + API + ребукинг) / TTV
+1749|Enter a rate between 0 and 50.|أدخل نسبة بين 0 و50.|Введите ставку от 0 до 50.
+1750|Name|الاسم|Название
+1751|Active stops|إيقافات نشطة|Активные стопы
+1752|Receivables ageing|أعمار الذمم المدينة|Старение дебиторской задолженности
+1753|Analyse|تحليل|Анализировать
+1754|The auction is still open.|المزاد لا يزال مفتوحًا.|Аукцион ещё открыт.
+1755|Auction closed; the booking moved to the new supplier as confirmed. Rebooking income {g}.|أُغلق المزاد؛ انتقل الحجز إلى المورد الجديد مؤكدًا. دخل إعادة الحجز {g}.|Аукцион закрыт; бронирование перешло к новому поставщику как подтверждённое. Доход от ребукинга {g}.
+1756|The auction time has expired.|انتهت مدة المزاد.|Время аукциона истекло.
+1757|None of your bookings is in an auction.|لا يوجد أي من حجوزاتك في مزاد.|Ваших бронирований на аукционе нет.
+1758|Can be auctioned|قابل للمزاد|Может выставляться на аукцион
+1759|Compare the same hotel's prices on the platform date by date. Other DMCs' names never appear; offers are listed as “Offer 1, 2…”. Prices are DMC prices (before markup), in EUR.|قارن أسعار الفندق نفسه على المنصة يومًا بيوم. لا تظهر أسماء شركات DMC الأخرى أبدًا؛ تُعرض العروض باسم “عرض 1، 2…”. الأسعار هي أسعار DMC (قبل الهامش) بما يعادلها باليورو.|Сравнивайте цены одного и того же отеля на платформе по датам. Названия других DMC никогда не показываются; предложения отображаются как «Предложение 1, 2…». Цены — цены DMC (до наценки) в эквиваленте EUR.
+1760|Same-product rule: room type, board, dates, number of guests and cancellation terms must match and availability must exist.|قاعدة المنتج نفسه: يجب أن تتطابق نوعية الغرفة والإقامة والتواريخ وعدد الأشخاص وشروط الإلغاء وأن يتوفر التوافر.|Правило того же продукта: тип номера, питание, даты, число гостей и условия отмены должны совпадать, и должно быть наличие.
+1761|Open auction|مزاد مفتوح|Открытый аукцион
+1762|No open auctions.|لا توجد مزادات مفتوحة.|Открытых аукционов нет.
+1763|Open auctions|المزادات المفتوحة|Открытые аукционы
+1764|Open amount|المبلغ المفتوح|Открытая сумма
+1765|Create connection|إنشاء اتصال|Создать подключение
+1766|Start month|شهر البدء|Месяц начала
+1767|No notifications.|لا توجد إشعارات.|Уведомлений нет.
+1768|Notifications|الإشعارات|Уведомления
+1769|Gross|الإجمالي|Брутто
+1770|Gross salary|الراتب الإجمالي|Оклад (брутто)
+1771|Enter the gross salary.|أدخل الراتب الإجمالي.|Введите оклад брутто.
+1772|Gross margin|الهامش الإجمالي|Валовая маржа
+1773|This auction is closed.|هذا المزاد مغلق.|Этот аукцион закрыт.
+1774|This month|هذا الشهر|Этот месяц
+1775|No expenses this month.|لا توجد مصروفات هذا الشهر.|В этом месяце расходов нет.
+1776|No employee has a bonus rule this month.|لا يوجد موظف لديه قاعدة مكافأة هذا الشهر.|В этом месяце ни у одного сотрудника нет правила премии.
+1777|These settings can only be changed in the Back Office.|لا يمكن تغيير هذه الإعدادات إلا في المكتب الخلفي.|Эти настройки меняются только в Back Office.
+1778|These settings are visible only in the Back Office. A deposit is required to bid. Score: A ≥ {a}, B ≥ {b}, below that C (cannot bid). Bid ceiling: A three times the deposit, B up to the deposit. Each service not delivered lowers the score by 20.|هذه الإعدادات مرئية في المكتب الخلفي فقط. الضمان إلزامي لتقديم العروض. النقاط: A ≥ {a}، B ≥ {b}، وما دون ذلك C (لا يمكنه تقديم عرض). سقف العرض: A ثلاثة أضعاف الضمان، B حتى قيمة الضمان. كل خدمة لم تُقدَّم تخفض النقاط 20.|Эти настройки видны только в Back Office. Для ставок обязателен депозит. Баллы: A ≥ {a}, B ≥ {b}, ниже — C (ставки запрещены). Потолок ставки: A — трёхкратный депозит, B — до суммы депозита. Каждая неоказанная услуга снижает балл на 20.
+1779|You are not authorised for this section.|ليست لديك صلاحية لهذا القسم.|У вас нет доступа к этому разделу.
+1780|This period|هذه الفترة|Этот период
+1781|This action is done in the Back Office.|يتم هذا الإجراء في المكتب الخلفي.|Это действие выполняется в Back Office.
+1782|This action requires Legal authorisation.|يتطلب هذا الإجراء صلاحية القسم القانوني.|Для этого действия нужны права Legal.
+1783|You are not authorised for this action.|ليست لديك صلاحية لهذا الإجراء.|У вас нет прав на это действие.
+1784|This booking has not been changed by rebooking.|لم يتغير هذا الحجز بإعادة الحجز.|Это бронирование не менялось через ребукинг.
+1785|You have no access to this company's records.|ليس لديك وصول إلى سجلات هذه الشركة.|У вас нет доступа к записям этой компании.
+1786|Newsletter, social media, trade-fair stand…|نشرة إخبارية، وسائل التواصل، جناح معرض…|Рассылка, соцсети, стенд на выставке…
+1787|Budget|الميزانية|Бюджет
+1788|A finance authorisation is required for the budget.|تتطلب الميزانية صلاحية مالية.|Для бюджета нужны финансовые права.
+1789|Budget saved.|تم حفظ الميزانية.|Бюджет сохранён.
+1790|Budget vs. actual · {m}|الميزانية مقابل الفعلي · {m}|Бюджет и факт · {m}
+1791|Copy as CSV|نسخ بتنسيق CSV|Копировать как CSV
+1792|Go to account|الانتقال إلى الحساب الجاري|К расчётам
+1793|No penalties.|لا توجد غرامات.|Штрафов нет.
+1794|Penalty|الشرط الجزائي|Штраф
+1795|Penalty {p} + difference {d} = {t} charged to the DMC; score {s}.|الشرط الجزائي {p} + الفرق {d} = {t} سُجّل دينًا على DMC؛ النقاط {s}.|Штраф {p} + разница {d} = {t} отнесены на DMC; балл {s}.
+1796|Per-minute limit|الحد في الدقيقة|Лимит в минуту
+1797|Department profitability|ربحية الأقسام|Рентабельность отделов
+1798|Supported: .xlsx, .xls, .csv, PDF and photos|المدعوم: .xlsx و.xls و.csv وPDF والصور|Поддерживаются: .xlsx, .xls, .csv, PDF и фото
+1799|Value|القيمة|Значение
+1800|Value (EUR)|القيمة (EUR)|Значение (EUR)
+1801|Changed bookings|الحجوزات المتغيرة|Изменённые бронирования
+1802|No changed bookings.|لا توجد حجوزات متغيرة.|Изменённых бронирований нет.
+1803|EUR|EUR|EUR
+1804|Added by|أضافه|Добавил
+1805|Lowest bid|أدنى عرض|Минимальная ставка
+1806|Best bid|أفضل عرض|Лучшая ставка
+1807|Days you are cheapest|الأيام التي تكون فيها الأرخص|Дни, когда вы дешевле всех
+1808|Average gap to cheapest|متوسط الفرق عن الأرخص|Средняя разница с самой низкой ценой
+1809|Highest|الأعلى|Максимум
+1810|Previous supplier|المورد السابق|Прежний поставщик
+1811|EBITDA|EBITDA|EBITDA
+1812|Difference|الفرق|Разница
+1813|Issue invoice|إصدار فاتورة|Выставить счёт
+1814|Invoice no.|رقم الفاتورة|Номер счёта
+1815|Companies and risk groups|الشركات ومجموعات المخاطر|Компании и группы риска
+1816|Price analysis|تحليل الأسعار|Анализ цен
+1817|You are not authorised for price tracking.|ليست لديك صلاحية لتتبع الأسعار.|У вас нет прав на отслеживание цен.
+1818|Bookings won through price tracking|الحجوزات الواردة عبر تتبع الأسعار|Бронирования, полученные через отслеживание цен
+1819|Priced days|الأيام المسعّرة|Дни с ценой
+1820|Delay (days)|التأخير (أيام)|Просрочка (дни)
+1821|Overdue companies|الشركات المتأخرة|Компании с просрочкой
+1822|No overdue payments.|لا توجد مدفوعات متأخرة.|Просроченных платежей нет.
+1823|Revenue|الإيراد|Доход
+1824|Income statement · {m}|قائمة الدخل · {m}|Отчёт о прибылях и убытках · {m}
+1825|Actual|الفعلي|Факт
+1826|Same month last year|الشهر نفسه من العام الماضي|Тот же месяц прошлого года
+1827|Enter a valid value.|أدخل قيمة صالحة.|Введите корректное значение.
+1828|Enter a valid deposit amount.|أدخل مبلغ ضمان صالحًا.|Введите корректную сумму депозита.
+1829|Valid from (month)|ساري من (الشهر)|Действует с (месяц)
+1830|Expense|المصروف|Расход
+1831|Add expense|إضافة مصروف|Добавить расход
+1832|You are not authorised to enter expenses.|ليست لديك صلاحية لإدخال المصروفات.|У вас нет прав вводить расходы.
+1833|Expense deleted.|تم حذف المصروف.|Расход удалён.
+1834|Delete the expense? For recurring expenses past months are kept.|هل تريد حذف المصروف؟ في المصروفات المتكررة تبقى الأشهر السابقة محفوظة.|Удалить расход? Для повторяющихся расходов прошлые месяцы сохраняются.
+1835|You are not authorised to delete expenses.|ليست لديك صلاحية لحذف المصروفات.|У вас нет прав удалять расходы.
+1836|Expenses · {m}|المصروفات · {m}|Расходы · {m}
+1837|Group|المجموعة|Группа
+1838|Indicator|المؤشر|Показатель
+1839|H2H connections (partner companies)|اتصالات H2H (الشركات الشريكة)|Подключения H2H (партнёры)
+1840|Except: {l}|باستثناء: {l}|Кроме: {l}
+1841|Send reminder|إرسال تذكير|Отправить напоминание
+1842|No H2H connection yet.|لا يوجد اتصال H2H بعد.|Подключений H2H пока нет.
+1843|No changes yet.|لا توجد تغييرات بعد.|Изменений пока нет.
+1844|No automatic bids yet.|لا توجد عروض تلقائية بعد.|Автоматических ставок пока нет.
+1845|No results yet.|لا توجد نتائج بعد.|Результатов пока нет.
+1846|No promotion invoice yet.|لا توجد فاتورة ترويج بعد.|Рекламных счетов пока нет.
+1847|No bids yet; the booking is already yours.|لا توجد عروض بعد؛ الحجز لديك بالفعل.|Ставок пока нет; бронирование и так у вас.
+1848|None yet.|لا شيء بعد.|Пока нет.
+1849|Repeats every month|يتكرر كل شهر|Повторяется ежемесячно
+1850|Everyone|الجميع|Все
+1851|Everyone's counterparty is book4me ai: DMCs do not see each other and the buyer sees none of them. The sale price, booking number and voucher do not change; the difference is rebooking income.|الطرف المقابل للجميع هو book4me ai: لا ترى شركات DMC بعضها، ولا يرى المشتري أيًّا منها. لا يتغير سعر البيع ولا رقم الحجز ولا القسيمة؛ والفرق هو دخل إعادة الحجز.|Контрагент для всех — book4me ai: DMC не видят друг друга, покупатель не видит ни одного из них. Цена продажи, номер бронирования и ваучер не меняются; разница — доход от ребукинга.
+1852|Calculation base|أساس الحساب|База расчёта
+1853|Rates and thresholds used in calculations. Changes apply to new calculations.|النسب والحدود المستخدمة في الحسابات. تُطبق التغييرات على الحسابات الجديدة.|Ставки и пороги для расчётов. Изменения применяются к новым расчётам.
+1854|Calculated bonuses · {m}|المكافآت المحسوبة · {m}|Рассчитанные премии · {m}
+1855|Service description|وصف الخدمة|Описание услуги
+1856|Service not delivered|لم تُقدَّم الخدمة|Услуга не оказана
+1857|Mark as service not delivered? The penalty and difference are charged to the DMC and its score drops.|هل تريد وضع علامة "لم تُقدَّم الخدمة"؟ يُسجَّل الشرط الجزائي والفرق دينًا على DMC وتنخفض نقاطه.|Отметить как «услуга не оказана»? Штраф и разница будут отнесены на DMC, его балл снизится.
+1858|Item|البند|Статья
+1859|Closes|الإغلاق|Закрытие
+1860|Capacity|السعة|Вместимость
+1861|No hotels to compare.|لا توجد فنادق للمقارنة.|Нет отелей для сравнения.
+1862|Contribution|المساهمة|Вклад
+1863|Saved by|حفظه|Сохранил
+1864|If the winning DMC cannot deliver: a {p}% penalty on our purchase price plus the replacement difference are collected from the DMC.|إذا لم تتمكن DMC الفائزة من تقديم الخدمة: يُحصَّل منها شرط جزائي بنسبة {p}% من سعر شرائنا بالإضافة إلى فرق الاستبدال.|Если победивший DMC не сможет оказать услугу: с DMC взыскиваются штраф {p}% от нашей цены закупки и разница на замену.
+1865|Your earnings are the platform markup income from bookings of that company and its sub-accounts.|أرباحك هي دخل هامش المنصة من حجوزات تلك الشركة وحساباتها الفرعية.|Ваш заработок — доход от наценки платформы с бронирований этой компании и её субаккаунтов.
+1866|Won|الفائزة|Выиграно
+1867|Issued|المُصدَر|Выставлено
+1868|Contract period|فترة العقد|Период контракта
+1869|No contracts.|لا توجد عقود.|Контрактов нет.
+1870|Copy|نسخ|Копировать
+1871|Rule|القاعدة|Правило
+1872|No rules.|لا توجد قواعد.|Правил нет.
+1873|No profit was made, so no profit-based bonus arises.|لم يتحقق ربح، لذا لا تنشأ مكافأة مرتبطة بالربح.|Прибыли нет, поэтому премия от прибыли не начисляется.
+1874|Legal|القانونية|Legal
+1875|Legal can change terms and add special clauses in approved contracts. Every change is saved as a version and notified to the counterparty; by default no re-signing is required.|يمكن للقسم القانوني تعديل الشروط وإضافة بنود خاصة في العقود المعتمدة. يُحفظ كل تغيير كإصدار ويُبلَّغ به الطرف المقابل؛ ولا يلزم توقيع جديد افتراضيًا.|Legal может менять условия и добавлять особые пункты в утверждённые договоры. Каждое изменение сохраняется как версия и сообщается контрагенту; по умолчанию повторная подпись не нужна.
+1876|Legal: company contract|القانونية: عقد الشركة|Legal: договор компании
+1877|Limit|الحد|Лимит
+1878|A salary change cannot be applied to a past month.|لا يمكن تطبيق تغيير الراتب على شهر سابق.|Изменение оклада нельзя применить к прошедшему месяцу.
+1879|Salary saved; it is posted as an expense from {m}.|تم حفظ الراتب؛ يُسجَّل كمصروف اعتبارًا من {m}.|Оклад сохранён; учитывается в расходах с {m}.
+1880|You are not authorised to record salaries.|ليست لديك صلاحية لتسجيل الرواتب.|У вас нет прав вводить оклады.
+1881|No salary records.|لا توجد سجلات رواتب.|Записей об окладах нет.
+1882|Salary request|طلب راتب|Запрос на оклад
+1883|Your salary request has been sent.|تم إرسال طلب راتبك.|Ваш запрос на оклад отправлен.
+1884|Salary requests|طلبات الرواتب|Запросы на оклад
+1885|Only an authorised person approves salary requests.|لا يوافق على طلبات الرواتب إلا شخص مخوَّل.|Запросы на оклад утверждает только уполномоченное лицо.
+1886|Salary and staff (employer cost)|الرواتب والموظفون (تكلفة صاحب العمل)|Оклады и персонал (затраты работодателя)
+1887|Salaries · {m}|الرواتب · {m}|Оклады · {m}
+1888|Offset|المُقاصّ|Зачтено
+1889|Marketing income comes only from promotion invoices issued to hotels. There is no featured or sponsored ranking: the best price always comes first in search. The amount is collected or offset against payments to the hotel.|يأتي دخل التسويق فقط من فواتير الترويج المُصدرة للفنادق. لا يوجد إبراز أو ترتيب مموَّل: أفضل سعر يأتي أولًا دائمًا في البحث. يُحصَّل المبلغ أو يُقاصّ من المدفوعات للفندق.|Маркетинговый доход поступает только от рекламных счетов, выставленных отелям. Продвижения или спонсорской сортировки нет: в поиске всегда первой идёт лучшая цена. Сумма взыскивается или зачитывается в счёт платежей отелю.
+1890|Current purchase|الشراء الحالي|Текущая закупка
+1891|As the current supplier you have the right to retain: match the lowest bid and keep the booking.|بصفتك المورد الحالي لديك حق الاحتفاظ: طابق أدنى عرض واحتفظ بالحجز.|Как текущий поставщик вы имеете право удержания: сравняйтесь с минимальной ставкой и сохраните бронирование.
+1892|The current supplier cannot bid; it can use the right to retain.|لا يمكن للمورد الحالي تقديم عرض؛ يمكنه استخدام حق الاحتفاظ.|Текущий поставщик не может делать ставку; он может воспользоваться правом удержания.
+1893|The current supplier used the right to retain; the purchase price dropped. Gain {g}.|استخدم المورد الحالي حق الاحتفاظ؛ انخفض سعر الشراء. المكسب {g}.|Текущий поставщик воспользовался правом удержания; цена закупки снизилась. Выгода {g}.
+1894|Customer DMCs|عملاء DMC|DMC-клиенты
+1895|Customer advances (prepaid balance)|سلف العملاء (رصيد الدفع المسبق)|Авансы клиентов (баланс предоплаты)
+1896|Cash, advances and receivables|النقد والسلف والذمم المدينة|Денежные средства, авансы и дебиторка
+1897|Net revenue|صافي الإيراد|Чистый доход
+1898|Net profit|صافي الربح|Чистая прибыль
+1899|Rooms, allotment and price|الغرف والحصة والسعر|Номера, квота и цена
+1900|Rate|النسبة|Ставка
+1901|Rate %|النسبة %|Ставка %
+1902|Average|المتوسط|Среднее
+1903|Hotel / room|الفندق / الغرفة|Отель / номер
+1904|Hotel not found.|لم يُعثر على الفندق.|Отель не найден.
+1905|Hotel contract management: seasons, prices, allotment, cancellation, market rules, stop sale and SPO. Company contracts are managed separately (Commercial → Contract tracking and Legal).|إدارة عقود الفنادق: المواسم والأسعار والحصص والإلغاء وقواعد الأسواق وإيقاف البيع وSPO. تُدار عقود الشركات بشكل منفصل (Commercial ← متابعة العقود والقانونية).|Управление контрактами отелей: сезоны, цены, квота, отмена, правила рынков, стоп-сейл и SPO. Договоры компаний ведутся отдельно (Commercial → Контроль договоров и Legal).
+1906|Hotel contracts|عقود الفنادق|Контракты отелей
+1907|Select the hotel.|اختر الفندق.|Выберите отель.
+1908|Automatic price tracking|تتبع الأسعار التلقائي|Автоматическое отслеживание цен
+1909|Automatic price tracking on|تتبع الأسعار التلقائي مفعّل|Автоматическое отслеживание цен включено
+1910|Automatic bids|العروض التلقائية|Автоматические ставки
+1911|Parameter|المعامل|Параметр
+1912|Parameters|المعاملات|Параметры
+1913|Partner|الشريك|Партнёр
+1914|Partner company|الشركة الشريكة|Компания-партнёр
+1915|Enter the partner company name.|أدخل اسم الشركة الشريكة.|Введите название компании-партнёра.
+1916|Direct API connection with partner companies. Outgoing: the partner searches and books your products from its own system (only your products, at your price). Incoming: you connect the partner's products as a Supplier API.|اتصال API مباشر مع الشركات الشريكة. صادر: يبحث الشريك عن منتجاتك ويحجزها من نظامه (منتجاتك فقط وبسعرك). وارد: تربط منتجات الشريك كواجهة API للمورد.|Прямое API-подключение с партнёрами. Исходящее: партнёр ищет и бронирует ваши продукты из своей системы (только ваши продукты, по вашей цене). Входящее: вы подключаете продукты партнёра как API поставщика.
+1917|Market rules|قواعد الأسواق|Правила рынков
+1918|Offers on the platform|العروض على المنصة|Предложения на платформе
+1919|Bid better prices on free-cancellable hotel bookings on the platform. Your counterparty is book4me ai; guest and other company names are not shown. The lowest valid bid wins; the winning bid counts as confirmed and a penalty applies if the service is not delivered. Same-product rule: same hotel, room type, board, dates, number of guests and equal or better cancellation terms.|قدّم أسعارًا أفضل على حجوزات الفنادق القابلة للإلغاء مجانًا على المنصة. الطرف المقابل لك هو book4me ai؛ لا تظهر أسماء الضيوف والشركات الأخرى. يفوز أدنى عرض صالح؛ ويُعد العرض الفائز مؤكدًا ويُطبق شرط جزائي إذا لم تُقدَّم الخدمة. قاعدة المنتج نفسه: الفندق نفسه ونوع الغرفة والإقامة والتواريخ وعدد الأشخاص وشروط إلغاء مساوية أو أفضل.|Предлагайте лучшие цены по бронированиям отелей с бесплатной отменой на платформе. Ваш контрагент — book4me ai; имена гостей и других компаний не показываются. Побеждает минимальная действительная ставка; выигравшая ставка считается подтверждённой, при неоказании услуги применяется штраф. Правило того же продукта: тот же отель, тип номера, питание, даты, число гостей и равные или лучшие условия отмены.
+1920|Portfolio summary|ملخص المحفظة|Сводка по портфелю
+1921|Bonus|المكافأة|Премия
+1922|Bonuses are calculated automatically every month and each employee sees theirs in their account. Example: 1% of profit after all expenses. Rule changes apply only going forward; past months are not recalculated.|تُحسب المكافآت تلقائيًا كل شهر ويراها كل موظف في حسابه. مثال: 1% من الربح بعد خصم جميع المصروفات. تُطبق تغييرات القواعد للمستقبل فقط؛ ولا يُعاد حساب الأشهر السابقة.|Премии рассчитываются автоматически каждый месяц, и каждый сотрудник видит свою в личном кабинете. Пример: 1% прибыли после всех расходов. Изменения правил действуют только на будущее; прошлые месяцы не пересчитываются.
+1923|Bonuses are calculated automatically every month; this month's amount can change until month end.|تُحسب المكافآت تلقائيًا كل شهر؛ وقد يتغير مبلغ هذا الشهر حتى نهايته.|Премии рассчитываются автоматически каждый месяц; сумма за текущий месяц может меняться до его конца.
+1924|Bonus rules|قواعد المكافآت|Правила премий
+1925|A bonus rule cannot be applied to a past month; changes apply only going forward.|لا يمكن تطبيق قاعدة مكافأة على شهر سابق؛ التغييرات للمستقبل فقط.|Правило премии нельзя применить к прошедшему месяцу; изменения действуют только на будущее.
+1926|You are not authorised for bonus rules.|ليست لديك صلاحية لقواعد المكافآت.|У вас нет прав на правила премий.
+1927|Bonus rule saved; it applies from {m}.|تم حفظ قاعدة المكافأة؛ تُطبق اعتبارًا من {m}.|Правило премии сохранено; действует с {m}.
+1928|Profit before bonuses|الربح قبل المكافآت|Прибыль до премий
+1929|My bonus|مكافأتي|Моя премия
+1930|Score|النقاط|Балл
+1931|The score must be between 0 and 100.|يجب أن تكون النقاط بين 0 و100.|Балл должен быть от 0 до 100.
+1932|Rebooking|إعادة الحجز|Ребукинг
+1933|Rebooking settings saved.|تم حفظ إعدادات إعادة الحجز.|Настройки ребукинга сохранены.
+1934|Rebooking income|دخل إعادة الحجز|Доход от ребукинга
+1935|Rebooking income (this month)|دخل إعادة الحجز (هذا الشهر)|Доход от ребукинга (этот месяц)
+1936|Rebooking income (total)|دخل إعادة الحجز (الإجمالي)|Доход от ребукинга (всего)
+1937|Bookings changed by rebooking|الحجوزات المتغيرة بإعادة الحجز|Бронирования, изменённые ребукингом
+1938|You are not authorised for rebooking bids.|ليست لديك صلاحية لعروض إعادة الحجز.|У вас нет прав на ставки ребукинга.
+1939|Rebooking bids|عروض إعادة الحجز|Ставки ребукинга
+1940|The auction closed because the booking was cancelled.|أُغلق المزاد لأن الحجز أُلغي.|Аукцион закрыт, так как бронирование отменено.
+1941|Bookings can be auctioned|يمكن طرح الحجوزات في المزاد|Бронирования можно выставлять на аукцион
+1942|Risk group|مجموعة المخاطر|Группа риска
+1943|SPO|SPO|SPO
+1944|No SPO.|لا يوجد SPO.|SPO нет.
+1945|For sales account and DMC operations:|لعمليات حسابات المبيعات وDMC:|Для операций со счетами продаж и DMC:
+1946|Sold by|البائع|Продавец
+1947|Seasons and periods|المواسم والفترات|Сезоны и периоды
+1948|Orders|الطلبات|Заказы
+1949|The system tracks your contract and API prices. While an auction is open it bids automatically on your behalf at your contract price; after the auction, if your price is better (at least {p}% and {e} EUR), the booking moves to you directly. When you update your price, tracking continues with the new price.|يتتبع النظام أسعار عقودك وAPI. أثناء فتح المزاد يقدم عروضًا تلقائية نيابةً عنك بسعر عقدك؛ وبعد انتهاء المزاد، إذا كان سعرك أفضل (بنسبة {p}% و{e} EUR على الأقل) ينتقل الحجز إليك مباشرة. عند تحديث سعرك يستمر التتبع بالسعر الجديد.|Система отслеживает ваши контрактные и API-цены. Пока аукцион открыт, она автоматически делает ставки от вашего имени по контрактной цене; после аукциона, если ваша цена лучше (минимум на {p}% и {e} EUR), бронирование переходит к вам напрямую. При обновлении цены отслеживание продолжается по новой цене.
+1950|You|أنت|Вы
+1951|Your bookings in auction|حجوزاتك في المزاد|Ваши бронирования на аукционе
+1952|Your price|سعرك|Ваша цена
+1953|Your bid|عرضك|Ваша ставка
+1954|Net revenue, last 12 months|صافي الإيراد لآخر 12 شهرًا|Чистый доход за 12 месяцев
+1955|Recently opened accounts|الحسابات المفتوحة مؤخرًا|Недавно открытые счета
+1956|Payment due|آخر موعد للدفع|Срок оплаты
+1957|Result|النتيجة|Результат
+1958|Completed|المنتهية|Завершённые
+1959|No stops.|لا توجد إيقافات.|Стопов нет.
+1960|Contract text (current)|نص العقد (الحالي)|Текст договора (текущий)
+1961|Version|الإصدار|Версия
+1962|Versions|الإصدارات|Версии
+1963|Your rank|ترتيبك|Ваше место
+1964|SUPPLY: book4me ai may provide the service from an equivalent supplier for the same hotel, room type, board and dates, with equal or better cancellation terms. In that case the sale price, booking number and terms do not change.|التوريد: يجوز لـ book4me ai تقديم الخدمة من مورد مكافئ للفندق نفسه ونوع الغرفة والإقامة والتواريخ، بشروط إلغاء مساوية أو أفضل. وفي هذه الحالة لا يتغير سعر البيع ولا رقم الحجز ولا الشروط.|ПОСТАВКА: book4me ai может предоставить услугу через эквивалентного поставщика для того же отеля, типа номера, питания и дат, с равными или лучшими условиями отмены. В этом случае цена продажи, номер бронирования и условия не меняются.
+1965|Base|الأساس|База
+1966|Base price|السعر الأساسي|Базовая цена
+1967|Penalties to collect|الغرامات المستحقة التحصيل|Штрафы к взысканию
+1968|Collected|المُحصَّل|Взыскано
+1969|Take rate|معدل الاستحواذ|Take rate
+1970|Requested gross salary|الراتب الإجمالي المطلوب|Запрашиваемый оклад брутто
+1971|Enter the requested amount.|أدخل المبلغ المطلوب.|Введите запрашиваемую сумму.
+1972|Send request|إرسال الطلب|Отправить запрос
+1973|No requests.|لا توجد طلبات.|Запросов нет.
+1974|Promotion (marketing) invoices|فواتير الترويج (التسويق)|Рекламные (маркетинговые) счета
+1975|You are not authorised for promotion invoices.|ليست لديك صلاحية لفواتير الترويج.|У вас нет прав на рекламные счета.
+1976|Promotion invoice {no} issued. It has no effect on ranking.|صدرت فاتورة الترويج {no}. ليس لها أي تأثير على الترتيب.|Рекламный счёт {no} выставлен. На сортировку он не влияет.
+1977|Promotion service|خدمة الترويج|Рекламная услуга
+1978|By date|حسب التاريخ|По датам
+1979|Enter the date.|أدخل التاريخ.|Введите дату.
+1980|No bids received; the booking stayed with the current supplier.|لم ترد عروض؛ بقي الحجز لدى المورد الحالي.|Ставок не поступило; бронирование осталось у текущего поставщика.
+1981|Bid ceiling|سقف العرض|Потолок ставки
+1982|Bid amount|مبلغ العرض|Сумма ставки
+1983|Enter the bid amount.|أدخل مبلغ العرض.|Введите сумму ставки.
+1984|Bid|قدّم عرضًا|Сделать ставку
+1985|Can bid|يمكنه تقديم عرض|Может делать ставки
+1986|Offer {n}|عرض {n}|Предложение {n}
+1987|The bid must be lower than the current best price ({b}).|يجب أن يكون العرض أقل من أفضل سعر حالي ({b}).|Ставка должна быть ниже текущей лучшей цены ({b}).
+1988|Your bid was saved. The best bid is now yours.|تم حفظ عرضك. أفضل عرض الآن هو عرضك.|Ваша ставка сохранена. Сейчас лучшая ставка — ваша.
+1989|The recurring expense was stopped from this month; past months are kept.|أُوقف المصروف المتكرر اعتبارًا من هذا الشهر؛ وتبقى الأشهر السابقة محفوظة.|Повторяющийся расход остановлен с этого месяца; прошлые месяцы сохранены.
+1990|Deposit|الضمان|Депозит
+1991|Deposit (EUR)|الضمان (EUR)|Депозит (EUR)
+1992|Amount (EUR)|المبلغ (EUR)|Сумма (EUR)
+1993|Amounts are EUR equivalents at current rates. Salaries are posted at employer cost (employer social security {a}% + unemployment {b}%). Tax and tourism contribution are calculated separately with the accountant's approval.|المبالغ بما يعادلها باليورو بالأسعار الحالية. تُسجل الرواتب بتكلفة صاحب العمل (حصة صاحب العمل في الضمان الاجتماعي {a}% + البطالة {b}%). تُحسب الضريبة ورسم السياحة بشكل منفصل بموافقة المحاسب.|Суммы — эквивалент в EUR по текущему курсу. Оклады учитываются по затратам работодателя (взносы работодателя в соцстрах {a}% + по безработице {b}%). Налог и туристический сбор рассчитываются отдельно с одобрения бухгалтера.
+1994|Enter the amount.|أدخل المبلغ.|Введите сумму.
+1995|Retain|الاحتفاظ|Удержание
+1996|Right to retain used: the booking stays with you at {a} (unless a lower bid arrives).|تم استخدام حق الاحتفاظ: يبقى الحجز لديك بسعر {a} (ما لم يرد عرض أقل).|Право удержания использовано: бронирование остаётся у вас за {a} (если не поступит более низкая ставка).
+1997|Only the current supplier has the right to retain.|حق الاحتفاظ للمورد الحالي فقط.|Право удержания есть только у текущего поставщика.
+1998|Use right to retain|استخدام حق الاحتفاظ|Воспользоваться правом удержания
+1999|Open to all markets|مفتوح لجميع الأسواق|Открыто для всех рынков
+2000|All marked as read.|تم وضع علامة مقروء على الكل.|Все отмечены как прочитанные.
+2001|Mark all as read|وضع علامة مقروء على الكل|Отметить все как прочитанные
+2002|Endpoints: content.hotels, search.hotels, book, cancel. Live booking opens with the move to a server; the test environment works now.|نقاط النهاية: content.hotels وsearch.hotels وbook وcancel. يُفتح الحجز الحي عند الانتقال إلى الخادم؛ وبيئة الاختبار تعمل الآن.|Эндпоинты: content.hotels, search.hotels, book, cancel. Боевое бронирование откроется при переходе на сервер; тестовая среда работает уже сейчас.
+2003|Not delivered|غير المُقدَّمة|Не оказано
+2004|Only: {l}|فقط: {l}|Только: {l}
+2005|Print / PDF|طباعة / PDF|Печать / PDF
+2006|No new accounts.|لا توجد حسابات جديدة.|Новых счетов нет.
+2007|New special clause|بند خاص جديد|Новый особый пункт
+2008|Replacement purchase price|سعر شراء البديل|Цена закупки замены
+2009|Upload|رفع|Загрузить
+2010|from sub-DMC products|من منتجات DMC الفرعية|с продуктов суб-DMC
+2011|from sub-account sales|من مبيعات الحسابات الفرعية|с продаж субаккаунтов
+2012|buyer price unchanged|دون تغيير سعر المشتري|цена покупателя не меняется
+2013|margin / sales|الهامش / المبيعات|маржа / продажи
+2014|auction + price tracking|المزاد + تتبع الأسعار|аукцион + отслеживание цен
+2015|same hotel, different supplier|الفندق نفسه، مورد مختلف|тот же отель, другой поставщик
+2016|details|التفاصيل|подробно
+2017|best|الأفضل|лучшая
+2018|before interest, depreciation and tax|قبل الفوائد والاستهلاك والضرائب|до процентов, амортизации и налогов
+2019|outbid|تم تجاوزه|перебита
+2020|monthly|شهريًا|ежемесячно
+2021|contract price|سعر العقد|контрактная цена
+2022|used|مستخدم|использовано
+2023|no rule|لا توجد قاعدة|нет правила
+2024|incl. salaries|شاملة الرواتب|включая оклады
+2025|auto|تلقائي|авто
+2026|after bonuses, before tax|بعد المكافآت، قبل الضريبة|после премий, до налогов
+2027|score {s}|النقاط {s}|балл {s}
+2028|selected period|الفترة المحددة|выбранный период
+2029|your price − lowest|سعرك − الأدنى|ваша цена − минимальная
+2030|expired|انتهت المدة|время истекло
+2031|estimate|تقديري|оценка
+2032|bid ceiling {c}|سقف العرض {c}|потолок ставки {c}
+2033|no bids|لا توجد عروض|ставок нет
+2034|right to retain used|تم استخدام حق الاحتفاظ|право удержания использовано
+2035|all confirmed bookings|جميع الحجوزات المؤكدة|все подтверждённые бронирования
+2036|not delivered {n}|غير المُقدَّمة {n}|не оказано {n}
+2037|{a} adults|{a} بالغين|взрослых: {a}
+2038|{c} children|{c} أطفال|детей: {c}
+2039|free until {d} days before|مجاني حتى {d} يومًا قبل الوصول|бесплатно до {d} дн. до заезда
+2040|{d} days {h} hours|{d} يوم {h} ساعة|{d} дн. {h} ч
+2041|{h} hours|{h} ساعة|{h} ч
+2042|{n} active contracts|{n} عقود نشطة|активных договоров: {n}
+2043|within {n} days|خلال {n} يومًا|за {n} дн.
+2044|{n} accounts|{n} حسابات|счетов: {n}
+2045|{n} services|{n} خدمات|услуг: {n}
+2046|{n} transactions|{n} عمليات|операций: {n}
+2047|The payment due date of {n} bookings has passed. Total {a}. Please complete the payment.|انقضى موعد الدفع لعدد {n} من الحجوزات. الإجمالي {a}. يرجى إتمام الدفع.|Срок оплаты бронирований ({n}) истёк. Итого {a}. Пожалуйста, завершите оплату.
+2048|{n} orders|{n} طلبات|заказов: {n}
+2049|{n} employees · from the Salaries tab|{n} موظفين · من تبويب الرواتب|сотрудников: {n} · из вкладки «Оклады»
+2050|Employee|الموظف|Сотрудник
+2051|Sales profit by employee|ربح المبيعات حسب الموظف|Прибыль от продаж по сотрудникам
+2052|Select the employee.|اختر الموظف.|Выберите сотрудника.
+2053|Calls|الاستدعاءات|Вызовы
+2054|SPECIAL CLAUSE|بند خاص|ОСОБЫЙ ПУНКТ
+2055|Offset against payment|مقاصة من الدفعة|Зачесть в счёт платежа
+2056|Previous month|الشهر السابق|Предыдущий месяц
+2057|Previous period|الفترة السابقة|Предыдущий период
+2058|Comparison with previous period|المقارنة مع الفترة السابقة|Сравнение с предыдущим периодом
+2059|Special clauses|البنود الخاصة|Особые пункты
+2060|Special clause added|أُضيف بند خاص|Особый пункт добавлен
+2061|Special clause added; version {v} saved and the counterparty notified.|أُضيف بند خاص؛ حُفظ الإصدار {v} وأُبلغ الطرف المقابل.|Особый пункт добавлен; версия {v} сохранена, контрагент уведомлён.
+2062|Special clause removed|أُزيل بند خاص|Особый пункт удалён
+2063|Special clause removed; version {v} saved.|أُزيل البند الخاص؛ حُفظ الإصدار {v}.|Особый пункт удалён; версия {v} сохранена.
+2064|Remove the special clause? The change is saved as a version.|هل تريد إزالة البند الخاص؟ يُحفظ التغيير كإصدار.|Удалить особый пункт? Изменение сохранится как версия.
+2065|Enter the special clause text.|أدخل نص البند الخاص.|Введите текст особого пункта.
+2066|No special clauses.|لا توجد بنود خاصة.|Особых пунктов нет.
+2067|Special clauses|البنود الخاصة|Особые пункты
+2068|Add special clause|إضافة بند خاص|Добавить особый пункт
+2069|previous month|الشهر السابق|предыдущий месяц
+2070|previous period|الفترة السابقة|предыдущий период
+2071|hotel bookings within the free cancellation period|حجوزات فنادق ضمن فترة الإلغاء المجاني|бронирования отелей в период бесплатной отмены
+2072|Signed contract|العقد الموقّع|Подписанный контракт
+2073|Signed hotel contract uploaded.|تم رفع عقد الفندق الموقّع.|Подписанный контракт отеля загружен.
+2074|Transaction volume (TTV)|حجم المعاملات (TTV)|Объём транзакций (TTV)
+2075|Employer cost|تكلفة صاحب العمل|Затраты работодателя
+2076|Employer cost = gross × (1 + employer social security {a}% + employer unemployment {b}%). Rates can be changed in Parameters. Changes apply only to this month and later.|تكلفة صاحب العمل = الإجمالي × (1 + حصة صاحب العمل في الضمان الاجتماعي {a}% + حصة صاحب العمل في البطالة {b}%). يمكن تغيير النسب من المعاملات. تُطبق التغييرات على هذا الشهر وما بعده فقط.|Затраты работодателя = брутто × (1 + соцвзносы работодателя {a}% + взносы работодателя по безработице {b}%). Ставки меняются в «Параметрах». Изменения действуют только с этого месяца.
+2077|Terms changed|تم تغيير الشروط|Условия изменены
+2078|Close now|أغلق الآن|Закрыть сейчас
+2079|Scan now|افحص الآن|Сканировать сейчас
+2080|Company contracts|عقود الشركات|Договоры компаний
+2081|There is no auction you can bid on right now.|لا يوجد مزاد يمكنك تقديم عرض فيه حاليًا.|Сейчас нет аукционов, где вы можете сделать ставку.
+2082|Current best price|أفضل سعر حالي|Текущая лучшая цена
+2083|No comparison while “All” is selected.|لا تتم المقارنة عند اختيار “الكل”.|При выборе «Все» сравнение не выполняется.
+2084|“Close now” is for testing; normally the auction closes itself at the last second of the free cancellation period.|“أغلق الآن” للاختبار؛ عادةً يُغلق المزاد تلقائيًا في آخر ثانية من فترة الإلغاء المجاني.|«Закрыть сейчас» — для проверки; обычно аукцион закрывается сам в последнюю секунду периода бесплатной отмены.
+2085|0–7 days overdue|متأخر 0–7 أيام|просрочка 0–7 дн.
+2086|Ends within 30 days|ينتهي خلال 30 يومًا|Истекает в течение 30 дней
+2087|30+ days overdue|متأخر أكثر من 30 يومًا|просрочка 30+ дн.
+2088|8–30 days overdue|متأخر 8–30 يومًا|просрочка 8–30 дн.
+2089|Agency presentation and e-newsletter|عرض للوكالات ونشرة إلكترونية|Презентация для агентств и e-рассылка
+2090|Auction|المزاد|Аукцион
+2091|Bank, POS and exchange differences|البنك ونقاط البيع وفروق الصرف|Банк, POS и курсовые разницы
+2092|Connection opened.|تم فتح الاتصال.|Подключение открыто.
+2093|Connection closed.|تم إغلاق الاتصال.|Подключение закрыто.
+2094|The end date cannot be before the start date.|لا يمكن أن يكون تاريخ الانتهاء قبل تاريخ البدء.|Дата окончания не может быть раньше даты начала.
+2095|Gross profit (net revenue)|الربح الإجمالي (صافي الإيراد)|Валовая прибыль (чистый доход)
+2096|Newsletter and homepage promotion package|حزمة ترويج في النشرة والصفحة الرئيسية|Пакет продвижения в рассылке и на главной странице
+2097|Live H2H booking opens with the move to a server.|يُفتح حجز H2H الحي عند الانتقال إلى الخادم.|Боевое бронирование H2H откроется при переходе на сервер.
+2098|Commercial · Legal (contract changes, special clauses)|Commercial · القانونية (تغيير العقود، البنود الخاصة)|Commercial · Legal (изменения договоров, особые пункты)
+2099|Commercial · Marketing and promotion invoices|Commercial · التسويق وفواتير الترويج|Commercial · Маркетинг и рекламные счета
+2100|Commercial · Sales|Commercial · المبيعات|Commercial · Продажи
+2101|Commercial · Contract tracking|Commercial · متابعة العقود|Commercial · Контроль договоров
+2102|Commercial · Approve promotion invoices|Commercial · الموافقة على فواتير الترويج|Commercial · Утверждение рекламных счетов
+2103|Unchanged|لم يتغير|Без изменений
+2104|Changed|تغيّر|Изменено
+2105|Digital advertising (brand awareness)|إعلانات رقمية (الوعي بالعلامة)|Цифровая реклама (узнаваемость бренда)
+2106|The file must be smaller than 4 MB.|يجب أن يكون الملف أصغر من 4 ميغابايت.|Файл должен быть меньше 4 МБ.
+2107|To verify: rate and base with the accountant.|للتحقق: النسبة والوعاء مع المحاسب.|Проверить: ставку и базу с бухгалтером.
+2108|You can upload Excel (.xlsx, .xls), CSV, PDF or photos (.jpg, .png).|يمكنك رفع Excel (.xlsx، .xls) أو CSV أو PDF أو صور (.jpg، .png).|Можно загрузить Excel (.xlsx, .xls), CSV, PDF или фото (.jpg, .png).
+2109|Your company's permission to place rebooking bids is off.|إذن شركتك لتقديم عروض إعادة الحجز مغلق.|Разрешение вашей компании на ставки ребукинга выключено.
+2110|Price tracking switch threshold %|حد التبديل في تتبع الأسعار %|Порог замены при отслеживании цен, %
+2111|Price tracking switch threshold (EUR)|حد التبديل في تتبع الأسعار (EUR)|Порог замены при отслеживании цен (EUR)
+2112|Trade fair trip (flight + hotel)|رحلة معرض (طيران + فندق)|Поездка на выставку (перелёт + отель)
+2113|Incoming (we search the partner)|وارد (نبحث لدى الشريك)|Входящее (мы ищем у партнёра)
+2114|General administrative expenses|المصروفات الإدارية العامة|Общие и административные расходы
+2115|Valid|صالح|Действительна
+2116|Outbid|تم تجاوزه|Перебита
+2117|H2H connection created. Enter the partner's API details under Connections → Supplier API.|تم إنشاء اتصال H2H. أدخل بيانات API الخاصة بالشريك من الاتصالات ← API المورد.|Подключение H2H создано. Введите API-данные партнёра в разделе «Подключения → API поставщика».
+2118|Won|فاز|Выиграла
+2119|Profit of own department|ربح القسم الخاص|Прибыль своего отдела
+2120|Profit of own sales|ربح المبيعات الخاصة|Прибыль собственных продаж
+2121|Your salary request was approved|تمت الموافقة على طلب راتبك|Ваш запрос на оклад одобрен
+2122|Your salary request was rejected|تم رفض طلب راتبك|Ваш запрос на оклад отклонён
+2123|Salaries|الرواتب|Оклады
+2124|Salaries and requests|الرواتب والطلبات|Оклады и запросы
+2125|Accounting services|خدمات المحاسبة|Бухгалтерские услуги
+2126|Accounting · Finance reports|المحاسبة · التقارير المالية|Бухгалтерия · Финансовые отчёты
+2127|Accounting · Salaries and salary requests|المحاسبة · الرواتب وطلبات الرواتب|Бухгалтерия · Оклады и запросы
+2128|Accounting · Bonus rules|المحاسبة · قواعد المكافآت|Бухгалтерия · Правила премий
+2129|Accounting, legal, consulting|المحاسبة والقانون والاستشارات|Бухгалтерия, юристы, консалтинг
+2130|Office rent|إيجار المكتب|Аренда офиса
+2131|Operating cost (vehicles, guides, transfers)|تكلفة التشغيل (مركبات، مرشدون، نقل)|Операционные расходы (транспорт, гиды, трансферы)
+2132|By hotel|حسب الفندق|По отелю
+2133|Search hotel, city or DMC|ابحث عن فندق أو مدينة أو DMC|Поиск отеля, города или DMC
+2134|Automatic price tracking turned on.|تم تشغيل تتبع الأسعار التلقائي.|Автоматическое отслеживание цен включено.
+2135|Automatic price tracking turned off.|تم إيقاف تتبع الأسعار التلقائي.|Автоматическое отслеживание цен выключено.
+2136|POS and bank charges|رسوم نقاط البيع والبنك|Комиссии POS и банка
+2137|Only the administrator changes parameters.|لا يغيّر المعاملات إلا المسؤول.|Параметры меняет только администратор.
+2138|Marketing, sales and distribution expenses|مصروفات التسويق والبيع والتوزيع|Расходы на маркетинг, продажи и сбыт
+2139|Portfolio|المحفظة|Портфель
+2140|Product · Hotel contracts|Product · عقود الفنادق|Product · Контракты отелей
+2141|Product · Create / stop SPO|Product · إنشاء / إيقاف SPO|Product · Создание / остановка SPO
+2142|Product · Set / remove stop sale|Product · وضع / إزالة إيقاف البيع|Product · Установка / снятие стоп-сейла
+2143|Rebooking penalty % (of purchase price)|الشرط الجزائي لإعادة الحجز % (من سعر الشراء)|Штраф ребукинга, % (от цены закупки)
+2144|Rebooking management|إدارة إعادة الحجز|Управление ребукингом
+2145|Risk group A minimum score|الحد الأدنى لنقاط مجموعة المخاطر A|Минимальный балл группы риска A
+2146|Risk group B minimum score|الحد الأدنى لنقاط مجموعة المخاطر B|Минимальный балл группы риска B
+2147|Employer social security %|حصة صاحب العمل في الضمان الاجتماعي %|Соцвзносы работодателя, %
+2148|You are not authorised for SPO.|ليست لديك صلاحية لـ SPO.|У вас нет прав на SPO.
+2149|Cost of services sold|تكلفة الخدمات المباعة|Себестоимость проданных услуг
+2150|Travel agency liability insurance|تأمين مسؤولية وكالة السفر|Страхование ответственности турагентства
+2151|Season opening promotion|ترويج افتتاح الموسم|Продвижение к открытию сезона
+2152|System and software (server, licences, API)|النظام والبرمجيات (خادم، تراخيص، API)|Система и ПО (сервер, лицензии, API)
+2153|Social media advertising|إعلانات وسائل التواصل|Реклама в соцсетях
+2154|You are not authorised for stop sale.|ليست لديك صلاحية لإيقاف البيع.|У вас нет прав на стоп-сейл.
+2155|Server and software licences|الخادم وتراخيص البرمجيات|Сервер и лицензии ПО
+2156|Search contract no. or company|ابحث برقم العقد أو الشركة|Поиск по номеру договора или компании
+2157|Contract tracking|متابعة العقود|Контроль договоров
+2158|Promotion invoices|فواتير الترويج|Рекламные счета
+2159|Promotion income|دخل الترويج|Рекламный доход
+2160|The bid amount exceeds your deposit limit.|مبلغ العرض يتجاوز حد ضمانك.|Сумма ставки превышает лимит вашего депозита.
+2161|A deposit is required to bid.|يلزم ضمان لتقديم العروض.|Для ставок нужен депозит.
+2162|Transfer vehicle rental|استئجار مركبات النقل|Аренда трансферного транспорта
+2163|Tourism contribution % (info)|رسم السياحة % (للعلم)|Туристический сбор, % (справочно)
+2164|The amount was offset against the payment to the hotel.|تمت مقاصة المبلغ من الدفعة المستحقة للفندق.|Сумма зачтена в счёт платежа отелю.
+2165|Right to retain|حق الاحتفاظ|Право удержания
+2166|Profit after all expenses|الربح بعد جميع المصروفات|Прибыль после всех расходов
+2167|No suitable room|لا توجد غرفة مناسبة|Нет подходящего номера
+2168|Flights and travel|الطيران والسفر|Перелёты и командировки
+2169|Not yet due|لم يحن موعده|Срок не наступил
+2170|Taxes, fees and dues|الضرائب والرسوم والاشتراكات|Налоги, сборы и взносы
+2171|Software and communication|البرمجيات والاتصالات|ПО и связь
+2172|New DMC starting score|نقاط البدء لـ DMC الجديدة|Начальный балл нового DMC
+2173|Raise request after annual review|طلب زيادة بعد التقييم السنوي|Запрос на повышение после ежегодной оценки
+2174|x% of profit after all expenses|x% من الربح بعد جميع المصروفات|x% прибыли после всех расходов
+2175|Employee bonuses|مكافآت الموظفين|Премии сотрудников
+2176|Employer unemployment insurance %|حصة صاحب العمل في تأمين البطالة %|Взносы работодателя по безработице, %
+2177|Business and professional liability insurance|تأمين مكان العمل والمسؤولية المهنية|Страхование офиса и профессиональной ответственности
+2178|Product / Hotel Contracts|Product / عقود الفنادق|Product / Контракты отелей
+2179|Accounting · Expenses|المحاسبة · المصروفات|Бухгалтерия · Расходы
+2180|Product · Price analysis|Product · تحليل الأسعار|Product · Анализ цен
+2181|Product · Price tracking|Product · تتبع الأسعار|Product · Отслеживание цен
+2182|Reservations · Rebooking bids|الحجوزات · عروض إعادة الحجز|Бронирования · Ставки ребукинга
+2183|New hotel: {h} ({c})|فندق جديد: {h} ({c})|Новый отель: {h} ({c})
+2184|A new hotel was added to the platform: {h} ({c}). You can compare it in price analysis.|أُضيف فندق جديد إلى المنصة: {h} ({c}). يمكنك مقارنته في تحليل الأسعار.|На платформу добавлен новый отель: {h} ({c}). Сравнить можно в анализе цен.
+2185|New customer DMC: {n}|عميل DMC جديد: {n}|Новый DMC-клиент: {n}
+2186|New sales account: {n}|حساب مبيعات جديد: {n}|Новый счёт продаж: {n}
+2187|Fixed price|سعر ثابت|Фиксированная цена
+2188|Change in contract {no}: {w}|تغيير في العقد {no}: {w}|Изменение в договоре {no}: {w}
+2189|H2H connection created. Key to give the partner: {k}|تم إنشاء اتصال H2H. المفتاح الذي يُعطى للشريك: {k}|Подключение H2H создано. Ключ для партнёра: {k}
+2190|Finance expenses|مصروفات التمويل|Финансовые расходы
+2191|Marketing and advertising|التسويق والإعلان|Маркетинг и реклама
+2192|Rent and office|الإيجار والمكتب|Аренда и офис
+2193|Expense saved.|تم حفظ المصروف.|Расход сохранён.
+2194|New salary request: {n}|طلب راتب جديد: {n}|Новый запрос на оклад: {n}
+2195|Request rejected.|تم رفض الطلب.|Запрос отклонён.
+2196|Offset|تمت المقاصة|Зачтено
+2197|Collection recorded.|تم تسجيل التحصيل.|Поступление зарегистрировано.
+2198|Commercial|Commercial|Commercial
+2199|Insurance|التأمين|Страхование
+2200|Rejected|مرفوض|Отклонено
+2201|Risk group C: you cannot bid.|مجموعة المخاطر C: لا يمكنك تقديم عرض.|Группа риска C: ставки запрещены.
+2202|Booking {no} was cancelled by book4me ai within the free cancellation period.|ألغت book4me ai الحجز {no} ضمن فترة الإلغاء المجاني.|Бронирование {no} отменено book4me ai в период бесплатной отмены.
+2203|New booking {no} moved to you as confirmed (book4me ai).|انتقل إليك الحجز الجديد {no} مؤكدًا (book4me ai).|Новое бронирование {no} передано вам как подтверждённое (book4me ai).
+2204|Retained|تم الاحتفاظ|Удержано
+2205|Lost|خسر|Проиграла
+2206|To be collected|مستحق التحصيل|К взысканию
+2207|Rebooking {no}: service not delivered. Penalty {p} and replacement difference {d} will be collected.|إعادة الحجز {no}: لم تُقدَّم الخدمة. سيُحصَّل الشرط الجزائي {p} وفرق الاستبدال {d}.|Ребукинг {no}: услуга не оказана. Будут взысканы штраф {p} и разница на замену {d}.
+2208|Price tracking|تتبع الأسعار|Отслеживание цен
+2209|Finance report|التقرير المالي|Финансовый отчёт
+2210|Expenses|المصروفات|Расходы
+2211|Marketing|التسويق|Маркетинг
+2212|Outgoing (partner searches us)|صادر (الشريك يبحث لدينا)|Исходящее (партнёр ищет у нас)
+2213|Outgoing|صادر|Исходящее
+2214|Incoming|وارد|Входящее
+2215|Stop|إيقاف|Остановить
+2216|Companies and risk|الشركات والمخاطر|Компании и риски
+2217|Services not delivered|الخدمات غير المُقدَّمة|Неоказанные услуги
+2218|Scan complete: {n} actions.|اكتمل الفحص: {n} إجراءات.|Сканирование завершено: действий — {n}.
+2219|Promotion (marketing) income|دخل الترويج (التسويق)|Рекламный (маркетинговый) доход
+2220|Gross profit (buy-sell difference)|الربح الإجمالي (فرق الشراء والبيع)|Валовая прибыль (разница закупки и продажи)
+2221|Month|الشهر|Месяц
+2222|Scan complete; no new actions.|اكتمل الفحص؛ لا توجد إجراءات جديدة.|Сканирование завершено; новых действий нет.

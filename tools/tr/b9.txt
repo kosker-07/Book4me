@@ -1,0 +1,138 @@
+1587|Antalya Airport (AYT)|مطار أنطاليا (AYT)|Аэропорт Антальи (AYT)
+1588|Istanbul Airport (IST)|مطار إسطنبول (IST)|Аэропорт Стамбула (IST)
+1589|{a} paid by card. Voucher and invoice created.|تم دفع {a} بالبطاقة. وأُنشئت القسيمة والفاتورة.|{a} оплачено картой. Ваучер и счёт созданы.
+1590|{a} paid by card.|تم دفع {a} بالبطاقة.|{a} оплачено картой.
+1591|{a} deducted from your balance. Voucher and invoice created.|خُصم {a} من رصيدك. وأُنشئت القسيمة والفاتورة.|{a} списано с баланса. Ваучер и счёт созданы.
+1592|{a} deducted from your balance.|خُصم {a} من رصيدك.|{a} списано с баланса.
+1593|{m} payment · {no} (bulk)|دفعة {m} · {no} (جماعية)|Оплата ({m}) · {no} (групповая)
+1594|{a} paid for {n} bookings. Single invoice {f} and vouchers created.|تم دفع {a} عن {n} حجوزات. وأُنشئت فاتورة واحدة {f} والقسائم.|Оплачено {a} за бронирования ({n}). Создан один счёт {f} и ваучеры.
+1595|{a} paid for {n} bookings.|تم دفع {a} عن {n} حجوزات.|Оплачено {a} за бронирования ({n}).
+1596|Sub-agency profit · {no} ({a})|ربح الوكالة الفرعية · {no} ({a})|Прибыль субагентства · {no} ({a})
+1597|Closed with prepayment (currency conversion) · {no}|أُقفل بالدفع المسبق (تحويل عملة) · {no}|Закрыто предоплатой (конвертация) · {no}
+1598|Commission invoice {no} offset|مقاصة فاتورة العمولة {no}|Зачёт счёта комиссии {no}
+1599|{a} offset against platform payable.|تمت مقاصة {a} من مستحقات المنصة.|{a} зачтено против долга платформы.
+1600|{a} offset against prepayment balance.|تمت مقاصة {a} من رصيد الدفع المسبق.|{a} зачтено против баланса предоплаты.
+1601|{n} agent switched off.|تم إيقاف الوكيل {n}.|Агент «{n}» выключен.
+1602|{no}: purchase price not entered|{no}: لم يُدخل سعر الشراء|{no}: цена покупки не введена
+1603|{no}: best supplier {o}|{no}: المورّد الأنسب {o}|{no}: лучший поставщик {o}
+1604|Bank transaction matched with {r}|طوبقت الحركة البنكية مع {r}|Банковская операция сопоставлена с {r}
+1605|{no}: payment reminder|{no}: تذكير بالدفع|{no}: напоминание об оплате
+1606|{d}: {m} commission invoice|{d}: فاتورة عمولة {m}|{d}: счёт комиссии за {m}
+1607|Contract {no} ends on {d}|ينتهي العقد {no} بتاريخ {d}|Договор {no} заканчивается {d}
+1608|Purchase price is higher than sale. Changing the purchase-sale margin for {s} from {a}% to {b}% is suggested.|سعر الشراء أعلى من البيع. يُقترح تغيير فارق الشراء والبيع لـ{s} من {a}% إلى {b}%.|Цена покупки выше продажи. Предлагается изменить маржу для {s} с {a}% на {b}%.
+1609|{n} transfers failed|{n} عمليات نقل فاشلة|передач с ошибкой: {n}
+1610|{n} connection keeps failing|الاتصال {n} يفشل باستمرار|Подключение {n} постоянно выдаёт ошибки
+1611|Maintenance release {v} ready to publish|إصدار الصيانة {v} جاهز للنشر|Сервисный релиз {v} готов к публикации
+1612|{h}: rows requiring check|{h}: صفوف تحتاج إلى مراجعة|{h}: строки, требующие проверки
+1613|Uploaded from the price list with {n} warnings. Compare the prices with the document and mark as checked.|رُفع من قائمة الأسعار مع {n} تحذيرات. قارن الأسعار بالمستند وعلّمها كمراجَعة.|Загружено из прайс-листа с предупреждениями: {n}. Сверьте цены с документом и отметьте как проверенные.
+1614|{n} removed from section manager.|أُزيل {n} من إدارة القسم.|{n} больше не руководитель подразделения.
+1616|Booking {no} created and confirmed ({n} services).|تم إنشاء الحجز {no} وتأكيده ({n} خدمات).|Бронирование {no} создано и подтверждено (услуг: {n}).
+1617|Payment due date {d}.|آخر موعد للدفع {d}.|Срок оплаты {d}.
+1618|Cancellation {no} – refund|الإلغاء {no} – استرداد المبلغ|Отмена {no} – возврат суммы
+1619|Sub-agency profit reversed · {no}|استرداد ربح الوكالة الفرعية · {no}|Прибыль субагентства сторнирована · {no}
+1620|{no} cancelled. As the service is non-refundable, no refund is made. The supplier was notified.|أُلغي {no}. ولأن الخدمة غير قابلة للاسترداد لا يُرد المبلغ. وتم إبلاغ المورّد.|{no} отменено. Услуга невозвратная, сумма не возвращается. Поставщик уведомлён.
+1621|{no} cancelled. As the last free cancellation date ({d}) has passed, no refund is made. The supplier was notified.|أُلغي {no}. ولأن آخر موعد للإلغاء المجاني ({d}) قد مضى لا يُرد المبلغ. وتم إبلاغ المورّد.|{no} отменено. Последняя дата бесплатной отмены ({d}) прошла, сумма не возвращается. Поставщик уведомлён.
+1622|{no} cancelled free of charge and the supplier notified. {r} refunded to your balance.|أُلغي {no} مجانًا وأُبلغ المورّد. وأُعيد {r} إلى رصيدك.|{no} отменено бесплатно, поставщик уведомлён. {r} возвращено на баланс.
+1623|{no} cancelled free of charge and the supplier notified.|أُلغي {no} مجانًا وأُبلغ المورّد.|{no} отменено бесплатно, поставщик уведомлён.
+1624|Cancellation for non-payment {no}|إلغاء لعدم الدفع {no}|Отмена из-за неоплаты {no}
+1625|Change difference · {no}|فرق التعديل · {no}|Разница по изменению · {no}
+1626|Change refund · {no}|استرداد التعديل · {no}|Возврат по изменению · {no}
+1629|Change applied and supplier notified. The difference {d} was added to the amount due.|تم تطبيق التعديل وإبلاغ المورّد. وأُضيف الفرق {d} إلى المبلغ المستحق.|Изменение применено, поставщик уведомлён. Разница {d} добавлена к сумме к оплате.
+1630|Change applied and supplier notified. {d} was posted to your account as a refund.|تم تطبيق التعديل وإبلاغ المورّد. وقُيّد {d} في حسابك كاسترداد.|Изменение применено, поставщик уведомлён. {d} зачислено на ваш счёт как возврат.
+1633|{n} closed.|تم إغلاق {n}.|{n} закрыто.
+1634|Simulation test passed. Fields missing for a live connection: {f}|نجح اختبار المحاكاة. الحقول الناقصة للاتصال الحي: {f}|Тест симуляции пройден. Для боевого подключения не хватает полей: {f}
+1635|Transfer error, will retry: {e} {r}|خطأ في النقل، ستُعاد المحاولة: {e} {r}|Ошибка передачи, будет повтор: {e} {r}
+1636|Transferred: {e} {r}|تم النقل: {e} {r}|Передано: {e} {r}
+1637|{n} records transferred, {e} records failed (will retry).|نُقلت {n} سجلات، وفشلت {e} سجلات (ستُعاد المحاولة).|Передано записей: {n}, с ошибкой: {e} (будет повтор).
+1638|{n} records sent to the external system (simulation).|أُرسلت {n} سجلات إلى النظام الخارجي (محاكاة).|Во внешнюю систему отправлено записей: {n} (симуляция).
+1639|Daily exchange rates updated (simulation): {r}|تم تحديث أسعار الصرف اليومية (محاكاة): {r}|Дневные курсы обновлены (симуляция): {r}
+1641|Guide {g} entered the sale · payment received ({m})|أدخل المرشد {g} البيع · تم استلام الدفع ({m})|Гид {g} оформил продажу · оплата получена ({m})
+1642|Guide {g} entered the sale · payment not received|أدخل المرشد {g} البيع · لم يُستلم الدفع|Гид {g} оформил продажу · оплата не получена
+1643|The guide received the payment ({m})|استلم المرشد الدفعة ({m})|Гид получил оплату ({m})
+1644|{b} edited: {s}, purchase {a}|عدّل {b}: {s}، الشراء {a}|{b} изменил(а): {s}, покупка {a}
+1646|Cash received at the company cash desk ({b})|تم استلام النقد في صندوق الشركة ({b})|Наличные приняты в кассу компании ({b})
+1647|Paid to the service supplier ({b})|دُفع لمورّد الخدمة ({b})|Оплачено поставщику услуги ({b})
+1649|SCOPE: The account can buy these services: {sv}.|النطاق: يمكن للحساب شراء هذه الخدمات: {sv}.|ОХВАТ: счёт может покупать услуги: {sv}.
+1650|CURRENCIES: Bookings are made in one of these currencies: {c} (default {d}). Payment is made in the currency of the booking.|العملات: تتم الحجوزات بإحدى هذه العملات: {c} (الافتراضية {d}). ويتم الدفع بعملة الحجز.|ВАЛЮТЫ: бронирования оформляются в одной из валют: {c} (по умолчанию {d}). Оплата производится в валюте бронирования.
+1651|Approved. The {n} panel will open on {d}.|تمت الموافقة. ستُفتح لوحة {n} بتاريخ {d}.|Одобрено. Панель {n} откроется {d}.
+1652|Approved. The {n} panel is now open for use.|تمت الموافقة. وفُتحت لوحة {n} للاستخدام.|Одобрено. Панель {n} открыта для работы.
+1655|Skipped: {l} – {c} is not among your contract currencies ({cs})|تم التخطي: {l} – {c} ليست ضمن عملات عقدك ({cs})|Пропущено: {l} – {c} нет среди валют договора ({cs})
+1656|Enter the tour name, price, quota and at least one date.|أدخل اسم الجولة والسعر والحصة وتاريخًا واحدًا على الأقل.|Введите название тура, цену, квоту и хотя бы одну дату.
+1657|New hotel opened: {n} (contract {c})|تم فتح فندق جديد: {n} (العقد {c})|Открыт новый отель: {n} (договор {c})
+1658|Skipped: {n} contract is {a}, the row has {b}|تم التخطي: عقد {n} بعملة {a}، والصف يحتوي {b}|Пропущено: договор {n} в {a}, в строке {b}
+1659|Skipped: {n} / {r} new room, no price|تم التخطي: {n} / {r} غرفة جديدة دون سعر|Пропущено: {n} / {r} — новый номер без цены
+1660|Skipped: flights are only taken via API connection ({n})|تم التخطي: الرحلات تُؤخذ عبر اتصال API فقط ({n})|Пропущено: рейсы принимаются только через API ({n})
+1661|Not recognised: {l}|غير معروف: {l}|Не распознано: {l}
+1665|Room {i}: not enough availability in the selected type.|الغرفة {i}: لا يوجد توفر كافٍ في النوع المختار.|Номер {i}: недостаточно мест выбранного типа.
+1668|You can upload Excel (.xlsx), PDF or photos (.jpg, .png).|يمكنك رفع Excel (.xlsx) أو PDF أو صور (.jpg, .png).|Можно загрузить Excel (.xlsx), PDF или фото (.jpg, .png).
+1669|{h}: {c} not in contract|{h}: {c} ليست في العقد|{h}: {c} нет в договоре
+1670|Transfer {z}: {c} not in contract|النقل {z}: {c} ليست في العقد|Трансфер {z}: {c} нет в договоре
+1671|{p}: start or end date missing.|{p}: تاريخ البداية أو النهاية ناقص.|{p}: нет даты начала или окончания.
+1672|{p}: end date is before start.|{p}: تاريخ النهاية قبل البداية.|{p}: дата окончания раньше начала.
+1673|{a} ({af} → {at}) overlaps {b} ({bf} → {bt}).|يتداخل {a} ({af} → {at}) مع {b} ({bf} → {bt}).|{a} ({af} → {at}) пересекается с {b} ({bf} → {bt}).
+1674|{r}: no child age on the “{l}” row, 0–11.99 assumed.|{r}: لا يوجد عمر طفل في صف “{l}”، افتُرض 0–11.99.|{r}: в строке «{l}» нет возраста ребёнка, принято 0–11,99.
+1675|{r}: “{l}” price is higher than the {n}-adult price ({p}).|{r}: سعر “{l}” أعلى من سعر {n} بالغين ({p}).|{r}: цена «{l}» выше цены за {n} взрослых ({p}).
+1676|{r}: single price is higher than double ({p}).|{r}: سعر الفردي أعلى من المزدوج ({p}).|{r}: цена одноместного выше двухместного ({p}).
+1677|Read from a scanned document (OCR){fx}{lo}. Compare all dates and prices with the document before saving.|قُرئ من مستند ممسوح (OCR){fx}{lo}. قارن جميع التواريخ والأسعار بالمستند قبل الحفظ.|Прочитано из сканированного документа (OCR){fx}{lo}. Перед сохранением сверьте все даты и цены с документом.
+1680|{n} changes processed.|تمت معالجة {n} تعديلات.|Обработано изменений: {n}.
+1681|{n} hotel sheets read.|قُرئت {n} أوراق فنادق.|Прочитано листов отелей: {n}.
+1682|Save the {n} selected hotels and transfers|حفظ الفنادق المحددة ({n}) والنقل|Сохранить выбранные отели ({n}) и трансферы
+1683|Save the {n} selected hotels|حفظ الفنادق المحددة ({n})|Сохранить выбранные отели ({n})
+1684|Read from a scanned document by OCR ({s}).|قُرئ من مستند ممسوح بـOCR ({s}).|Распознано из сканированного документа OCR ({s}).
+1685|Enter the first and last name of person {n}.|أدخل الاسم الأول واسم العائلة للشخص {n}.|Введите имя и фамилию человека {n}.
+1686|Enter first and last name for {n}.|أدخل الاسم الأول واسم العائلة لـ{n}.|Введите имя и фамилию для {n}.
+1687|{a} collected.|تم تحصيل {a}.|{a} получено.
+1688|{h}: no period from {f} → {t} in the {s} season|{h}: لا توجد فترة من {f} → {t} في موسم {s}|{h}: в сезоне {s} нет периода {f} → {t}
+1689|{no}: checked {d}|{no}: رُوجع {d}|{no}: проверено {d}
+1690|{d}: negative profit on {n} bookings|{d}: ربح سالب في {n} حجوزات|{d}: отрицательная прибыль в бронированиях: {n}
+1691|Account and balance|الحساب والرصيد|Счёт и баланс
+1692|No non-refundable price on these dates.|لا يوجد سعر غير قابل للاسترداد في هذه التواريخ.|На эти даты нет невозвратной цены.
+1693|Settings saved|تم حفظ الإعدادات|Настройки сохранены
+1694|Not tested|لم يُختبر|Не проверено
+1695|{b} cancelled|ألغى {b}|{b} отменил(а)
+1696|Agency booking {no} came with ({a})|ورد حجز الوكالة {no} مع ({a})|Бронирование агентства {no} поступило ({a})
+1697|Agency booking cancelled|أُلغي حجز الوكالة|Бронирование агентства отменено
+1698|Awaiting document|بانتظار المستند|Ожидается документ
+1699|Document rejected|رُفض المستند|Документ отклонён
+1700|Sofa bed|أريكة سرير|Диван-кровать
+1701|Last minute|اللحظة الأخيرة|Горящее предложение
+1702|Long stay|إقامة طويلة|Длительное проживание
+1703|Offer stopped.|تم إيقاف العرض.|Предложение остановлено.
+1704|Tour {n}: {p} · {d} dates{q}|الجولة {n}: {p} · {d} تواريخ{q}|Тур {n}: {p} · дат: {d}{q}
+1705|New room: {n} / {r}|غرفة جديدة: {n} / {r}|Новый номер: {n} / {r}
+1706|{n} / {r}: price {p}|{n} / {r}: السعر {p}|{n} / {r}: цена {p}
+1707|{n} / {r}: quota {a}|{n} / {r}: الحصة {a}|{n} / {r}: квота {a}
+1708|{n} / {r}: stop-sale {f} → {t}|{n} / {r}: إيقاف بيع {f} → {t}|{n} / {r}: стоп-продажа {f} → {t}
+1709|{h}: no room|{h}: لا توجد غرفة|{h}: нет номера
+1710|{n} hotels saved.|تم حفظ {n} فنادق.|Сохранено отелей: {n}.
+1711|Search booking no, guest, hotel, voucher or status|ابحث برقم الحجز أو الضيف أو الفندق أو القسيمة أو الحالة|Поиск по № бронирования, гостю, отелю, ваучеру или статусу
+1712|DMC (sub-account)|شركة (حساب فرعي)|DMC (субсчёт)
+1713|Sub-DMC booking|حجز شركة فرعية|Бронирование суб-DMC
+1714|Close settings|إغلاق الإعدادات|Закрыть настройки
+1715|Details and address|البيانات والعنوان|Данные и адрес
+1716|Contract: seasons and periods|العقد: المواسم والفترات|Контракт: сезоны и периоды
+1717|Stop sale|إيقاف البيع|Стоп-продажа
+1718|Market and cancellation|السوق والإلغاء|Рынок и отмена
+1719|Fixed price and quota|السعر الثابت والحصة|Фиксированная цена и квота
+1720|SPO discount|خصم SPO|Скидка SPO
+1721|Extra discount|خصم إضافي|Доп. скидка
+1722|Read from PDF ({s}).|قُرئ من PDF ({s}).|Прочитано из PDF ({s}).
+1723|Passenger details|بيانات الركاب|Данные пассажиров
+1724|Confirm booking|تأكيد الحجز|Подтвердить бронирование
+1725|Confirm package|تأكيد الباقة|Подтвердить пакет
+1726|The amount was blocked in your prepayment; it will be deducted automatically when the free cancellation period ({d}) ends. Voucher issued.|تم حجز المبلغ في دفعك المسبق؛ وسيُخصم تلقائيًا عند انتهاء مهلة الإلغاء المجاني ({d}). وصدرت القسيمة.|Сумма заблокирована в предоплате; она спишется автоматически по окончании срока бесплатной отмены ({d}). Ваучер выдан.
+1727|Currency conversion from prepayment · {no} (1 {a} = {r} {b})|تحويل عملة من الدفع المسبق · {no} (1 {a} = {r} {b})|Конвертация из предоплаты · {no} (1 {a} = {r} {b})
+1728|{n} agent switched on; its jobs go to the approval queue.|تم تشغيل الوكيل {n}؛ وتذهب مهامه إلى قائمة الموافقات.|Агент «{n}» включён; его задачи попадают в очередь одобрений.
+1729|{n} made section manager; sees the {d} section's dashboard.|أصبح {n} مدير قسم؛ ويرى لوحة قسم {d}.|{n} назначен(а) руководителем подразделения; видит дашборд подразделения {d}.
+1730|Insufficient prepayment balance (available {a}); other payment methods will be used.|رصيد الدفع المسبق غير كافٍ (المتاح {a})؛ ستُستخدم طرق دفع أخرى.|Недостаточно предоплаты (доступно {a}); будут использованы другие способы оплаты.
+1731|{n} opened. It runs in simulation mode and goes live when real connection details are entered.|تم فتح {n}. يعمل بوضع المحاكاة ويصبح حيًا عند إدخال بيانات الاتصال الحقيقية.|{n} включено. Работает в режиме симуляции; перейдёт в боевой режим после ввода реальных данных.
+1732|{b} approved; e-mail with purchase price sent to {o} ({e})|وافق {b}؛ وأُرسل بريد بسعر الشراء إلى {o} ({e})|{b} одобрил(а); письмо с ценой покупки отправлено {o} ({e})
+1733|{b} cancelled; cancellation e-mail sent to the supplier|ألغى {b}؛ وأُرسل بريد إلغاء إلى المورّد|{b} отменил(а); поставщику отправлено письмо об отмене
+1734|Guide {g} entered the sale|أدخل المرشد {g} البيع|Гид {g} оформил продажу
+1735|{f} → {t} is not in any period; these dates stay closed for sale.|{f} → {t} ليست ضمن أي فترة؛ وتبقى هذه التواريخ مغلقة للبيع.|{f} → {t} не входит ни в один период; эти даты закрыты для продажи.
+1736|{r}: no combination row; this room will not be saved.|{r}: لا يوجد صف تركيبة؛ ولن تُحفظ هذه الغرفة.|{r}: нет строки комбинации; номер не будет сохранён.
+1737|{r}: the “{l}” row was not recognised; it will not be saved unless corrected.|{r}: لم يُعرف صف “{l}”؛ ولن يُحفظ دون تصحيح.|{r}: строка «{l}» не распознана; без исправления не сохранится.
+1738|{r}: no price in {n} cells; that combination is not sold in the related period.|{r}: لا يوجد سعر في {n} خلايا؛ ولا تُباع تلك التركيبة في الفترة المعنية.|{r}: нет цены в ячейках ({n}); эта комбинация не продаётся в соответствующем периоде.
+1739|Columns shift along the page (on {n} rows the number of prices does not match the number of periods in the header); the document could not be read reliably. Upload the Excel version or check and correct the prices manually.|تنزاح الأعمدة على طول الصفحة (في {n} صفوف لا يطابق عدد الأسعار عدد الفترات في الترويسة)؛ وتعذرت قراءة المستند بشكل موثوق. ارفع نسخة Excel أو راجع الأسعار وصحّحها يدويًا.|Столбцы смещаются по странице (в строках: {n} число цен не совпадает с числом периодов в заголовке); документ не удалось надёжно прочитать. Загрузите версию Excel или проверьте и исправьте цены вручную.
+1740|CBRT rate connection is on; rates update automatically every day (simulation). Last update: {d}|اتصال أسعار البنك المركزي التركي مفعّل؛ وتُحدَّث الأسعار تلقائيًا يوميًا (محاكاة). آخر تحديث: {d}|Подключение курсов ЦБ Турции включено; курсы обновляются автоматически каждый день (симуляция). Последнее обновление: {d}
+1741|{n} rows copied to the clipboard as CSV; you can paste them into Excel.|نُسخت {n} صفوف إلى الحافظة بصيغة CSV؛ ويمكنك لصقها في Excel.|В буфер скопировано строк в формате CSV: {n}; их можно вставить в Excel.

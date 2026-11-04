@@ -1,0 +1,179 @@
+1400|{n} hotels selected|{n} فنادق محددة|выбрано отелей: {n}
+1401|{n} bookings · deducted when the cancellation period ends|{n} حجوزات · تُخصم عند انتهاء مهلة الإلغاء|бронирований: {n} · списываются по окончании срока отмены
+1402|{n} bookings · under the payment-day rule|{n} حجوزات · وفق قاعدة يوم الدفع|бронирований: {n} · по правилу дня оплаты
+1403|{n} sales and management panel|لوحة المبيعات والإدارة لـ{n}|Панель продаж и управления {n}
+1404|Cash for {n} sales received.|تم استلام نقد {n} مبيعات.|Наличные по продажам ({n}) получены.
+1405|age {n}|العمر {n}|{n} лет
+1406|{n} new jobs went to the approval queue.|دخلت {n} مهام جديدة إلى قائمة الموافقات.|Новых задач в очереди одобрений: {n}.
+1407|{n} new hotels, {u} updates|{n} فنادق جديدة، {u} تحديثات|новых отелей: {n}, обновлений: {u}
+1408|up to {n} passengers|حتى {n} ركاب|до {n} пассажиров
+1409|{n} administrators|{n} مسؤولين|администраторов: {n}
+1410|Guest {n}|الضيف {n}|Гость {n}
+1411|Adult {n}|البالغ {n}|Взрослый {n}
+1412|Child {n}|الطفل {n}|Ребёнок {n}
+1413|{r} signature|توقيع {r}|Подпись: {r}
+1414|The {r} must read and sign the terms in its own panel and upload the documents.|يجب على {r} قراءة الشروط وتوقيعها في لوحته ورفع المستندات.|{r} должен прочитать и подписать условия в своей панели и загрузить документы.
+1415|{s} %|{s} %|{s} %
+1416|{t} transfer price|سعر النقل {t}|Цена трансфера {t}
+1417|Move to {y} season|نقل إلى موسم {y}|Перенести на сезон {y}
+1418|No vehicle price for {n} people is defined for the {z} zone.|لا يوجد سعر مركبة لـ{n} أشخاص في منطقة {z}.|Для зоны {z} не задана цена автомобиля на {n} человек.
+1419|We|ر|Ср
+1420|Run|تشغيل|Запустить
+1421|Double|مزدوجة|Двухместный
+1422|Double + single|مزدوجة + فردي|Двухместный + доп. место
+1423|Children (max)|الأطفال (الحد الأقصى)|Детей (макс.)
+1424|Child age|عمر الطفل|Возраст ребёнка
+1425|Check-out date must be after check-in.|يجب أن يكون تاريخ المغادرة بعد الوصول.|Дата выезда должна быть после заезда.
+1426|PAYMENT: No credit is given. Payment is by credit card, bank transfer, balance or prepayment. The payment due date is the earliest of the services' last free cancellation dates. Non-refundable services and those past their cancellation period are paid immediately. Bookings not paid on time are cancelled by the system.|الدفع: لا يُمنح ائتمان. يتم الدفع بالبطاقة أو التحويل أو الرصيد أو الدفع المسبق. وآخر موعد للدفع هو أبكر مواعيد الإلغاء المجاني للخدمات. تُدفع الخدمات غير القابلة للاسترداد والتي تجاوزت مهلة الإلغاء فورًا. ويُلغي النظام الحجز غير المدفوع في موعده.|ОПЛАТА: кредит не предоставляется. Оплата картой, переводом, с баланса или предоплатой. Срок оплаты — самая ранняя из последних дат бесплатной отмены услуг. Невозвратные услуги и услуги с истёкшим сроком отмены оплачиваются сразу. Неоплаченные вовремя бронирования отменяются системой.
+1427|PAYMENT: The platform does not work on credit. For sales to platform buyers the platform pays the DMC on the first Friday after two weeks from the service's check-out date, in the agreement currency. No payment is made for cancelled bookings.|الدفع: لا تعمل المنصة بالائتمان. في المبيعات لمشتري المنصة تدفع المنصة للشركة في أول جمعة بعد أسبوعين من تاريخ مغادرة الخدمة بعملة الاتفاق. ولا يُدفع عن الحجوزات الملغاة.|ОПЛАТА: платформа не работает в кредит. За продажи покупателям платформы платформа платит DMC в первую пятницу после двух недель с даты выезда, в валюте соглашения. За отменённые бронирования оплата не производится.
+1428|Payment received|تم استلام الدفع|Оплата получена
+1429|Marked as payment received ({m}).|تم التعليم كدفع مستلم ({m}).|Отмечено как оплачено ({m}).
+1430|Payment received, voucher issued|تم استلام الدفع وإصدار القسيمة|Оплата получена, ваучер выдан
+1431|Payment not received|لم يُستلم الدفع|Оплата не получена
+1432|When payment is received you can mark it in the My sales screen.|عند استلام الدفع يمكنك تعليمه من شاشة مبيعاتي.|После получения оплаты отметьте её на экране «Мои продажи».
+1433|Payment day reached|حلّ يوم الدفع|Наступил день оплаты
+1434|Payment marked.|تم تعليم الدفع.|Оплата отмечена.
+1435|Payment is by credit card, bank transfer, balance or prepayment. The payment due date is shown on the booking.|يتم الدفع بالبطاقة أو التحويل أو الرصيد أو الدفع المسبق. ويظهر آخر موعد للدفع في الحجز.|Оплата картой, переводом, с баланса или предоплатой. Срок оплаты указан в бронировании.
+1436|Payment approvals|موافقات الدفع|Подтверждения оплат
+1437|Payment and cancellation rules|قواعد الدفع والإلغاء|Правила оплаты и отмены
+1438|Payment summary|ملخص الدفع|Сводка оплаты
+1439|Payment method|طريقة الدفع|Способ оплаты
+1440|Approve payment|الموافقة على الدفع|Подтвердить оплату
+1441|No DMC bookings to pay.|لا توجد حجوزات شركات للدفع.|Нет бронирований DMC к оплате.
+1442|Select bookings to pay.|اختر الحجوزات للدفع.|Выберите бронирования для оплаты.
+1443|Cancelled for non-payment|أُلغي لعدم الدفع|Отменено из-за неоплаты
+1444|Pre-check|الفحص المسبق|Предварительная проверка
+1445|Pre-check passed|اجتاز الفحص المسبق|Предварительная проверка пройдена
+1446|Pre-check: no preview|الفحص المسبق: لا معاينة|Предварительная проверка: нет предпросмотра
+1447|Prepayment|الدفع المسبق|Предоплата
+1448|Prepayment agreement|اتفاق الدفع المسبق|Соглашение о предоплате
+1449|Prepayment agreement saved.|تم حفظ اتفاق الدفع المسبق.|Соглашение о предоплате сохранено.
+1450|Insufficient prepayment balance.|رصيد الدفع المسبق غير كافٍ.|Недостаточно средств предоплаты.
+1451|Insufficient prepayment balance; pay by card or transfer.|رصيد الدفع المسبق غير كافٍ؛ ادفع بالبطاقة أو التحويل.|Недостаточно предоплаты; оплатите картой или переводом.
+1452|Prepayment deduction, cancellation of unpaid bookings, exchange rate update, integration queue and agent run. In the offline model it runs once a day at start-up; on moving to a server it becomes a nightly job.|خصم الدفع المسبق، وإلغاء غير المدفوع، وتحديث أسعار الصرف، وقائمة التكامل، وتشغيل الوكلاء. في النموذج دون اتصال تعمل مرة يوميًا عند الفتح؛ وعند الانتقال إلى خادم تصبح مهمة ليلية.|Списание предоплат, отмена неоплаченных, обновление курсов, очередь интеграций и запуск агентов. В офлайн-модели выполняется раз в день при открытии; на сервере станет ночной задачей.
+1453|Prepayment account|حساب الدفع المسبق|Счёт предоплаты
+1454|Your prepayment account is active: available {a}. The amount is blocked and deducted when the cancellation period ends.|حساب الدفع المسبق نشط: المتاح {a}. يُحجز المبلغ ويُخصم عند انتهاء مهلة الإلغاء.|Счёт предоплаты активен: доступно {a}. Сумма блокируется и списывается по окончании срока отмены.
+1455|Prepayment system active|نظام الدفع المسبق نشط|Система предоплаты активна
+1456|Against prepayment|بضمان الدفع المسبق|Под гарантию предоплаты
+1457|Voucher issued against prepayment|صدرت القسيمة بضمان الدفع المسبق|Ваучер выдан под гарантию предоплаты
+1458|The amount could not be deducted because of insufficient prepayment.|تعذر خصم المبلغ لعدم كفاية الدفع المسبق.|Сумму не удалось списать: недостаточно предоплаты.
+1459|Prepayment: the amount is blocked and deducted automatically by the nightly job when the free cancellation period ends.|الدفع المسبق: يُحجز المبلغ ويُخصم تلقائيًا بالمهمة الليلية عند انتهاء مهلة الإلغاء المجاني.|Предоплата: сумма блокируется и автоматически списывается ночной задачей по окончании срока бесплатной отмены.
+1460|Offset against prepayment|مقاصة من الدفع المسبق|Зачёт против предоплаты
+1461|First turn on API Out from the Integration centre.|فعّل API Out أولًا من مركز التكامل.|Сначала включите API Out в Центре интеграций.
+1462|First define a company in Operations → Service suppliers.|عرّف شركة أولًا من العمليات ← مورّدو الخدمات.|Сначала добавьте компанию в разделе «Операции → Поставщики услуг».
+1463|Add a domain first.|أضف نطاقًا أولًا.|Сначала добавьте домен.
+1464|Save the connection first.|احفظ الاتصال أولًا.|Сначала сохраните подключение.
+1465|Test the connection first.|اختبر الاتصال أولًا.|Сначала проверьте подключение.
+1466|Define a hotel first.|عرّف فندقًا أولًا.|Сначала добавьте отель.
+1467|The operations arrangement must be made first.|يجب إجراء ترتيب العمليات أولًا.|Сначала нужна организация операций.
+1468|First select the check-in and check-out dates on the calendar.|اختر تاريخي الوصول والمغادرة من التقويم أولًا.|Сначала выберите в календаре даты заезда и выезда.
+1469|First select the transfer date.|اختر تاريخ النقل أولًا.|Сначала выберите дату трансфера.
+1470|First select the tour date.|اختر تاريخ الجولة أولًا.|Сначала выберите дату тура.
+1471|First select the flight date.|اختر تاريخ الرحلة أولًا.|Сначала выберите дату рейса.
+1472|First read the terms and tick the acceptance box.|اقرأ الشروط أولًا وحدد خانة الموافقة.|Сначала прочитайте условия и отметьте согласие.
+1473|Previous|السابق|Назад
+1474|Previous period's prices copied.|تم نسخ أسعار الفترة السابقة.|Цены предыдущего периода скопированы.
+1475|Copy previous|نسخ السابق|Копировать предыдущий
+1476|No preview (file larger than 2 MB)|لا معاينة (الملف أكبر من 2 ميغابايت)|Нет предпросмотра (файл больше 2 МБ)
+1477|E.g. Deluxe Sea|مثال: ديلوكس بحري|Напр. Делюкс с видом на море
+1478|E.g. Early booking|مثال: الحجز المبكر|Напр. Раннее бронирование
+1479|E.g. Kadıköy branch|مثال: فرع قاضي كوي|Напр. филиал Кадыкёй
+1480|E.g. Kemer|مثال: كيمير|Напр. Кемер
+1481|E.g. Kemer Boat Tour|مثال: جولة كيمير بالقارب|Напр. Морская прогулка в Кемере
+1482|E.g. Summer 2027|مثال: صيف 2027|Напр. Лето 2027
+1483|E.g. document not readable|مثال: المستند غير مقروء|Напр. документ не читается
+1484|E.g. how do cancellation terms work?|مثال: كيف تعمل شروط الإلغاء؟|Напр. как работают условия отмены?
+1485|E.g. hotel full|مثال: الفندق ممتلئ|Напр. отель заполнен
+1486|E.g. late payment|مثال: تأخر الدفع|Напр. задержка оплаты
+1487|Sample statement|كشف نموذجي|Пример выписки
+1488|Try with the sample list (2023 Summer, 4 hotels)|جرّب بالقائمة النموذجية (صيف 2023، 4 فنادق)|Попробовать на примере (лето 2023, 4 отеля)
+1489|Special request|طلب خاص|Особый запрос
+1490|Special request or note|طلب خاص أو ملاحظة|Особый запрос или примечание
+1491|Special offer added; it applies automatically to the price in matching searches.|تمت إضافة العرض الخاص؛ ويُطبق تلقائيًا على السعر في عمليات البحث المطابقة.|Спецпредложение добавлено; автоматически применяется к цене в подходящих поисках.
+1492|Lunch included, 3 bay stops|يشمل الغداء، 3 توقفات في الخلجان|Обед включён, 3 остановки в бухтах
+1493|Lunch and transfer included|يشمل الغداء والنقل|Обед и трансфер включены
+1494|The free change period ({d}) has passed; only guest names and the note can be changed.|انتهت مهلة التعديل المجاني ({d})؛ ولا يمكن تغيير سوى أسماء الضيوف والملاحظة.|Срок бесплатного изменения ({d}) истёк; можно изменить только имена гостей и примечание.
+1495|Free cancellation until {d}|إلغاء مجاني حتى {d}|Бесплатная отмена до {d}
+1496|Country|الدولة|Страна
+1497|Enter the product name.|أدخل اسم المنتج.|Введите название продукта.
+1498|Product added; now add a supplier and purchase price.|تمت إضافة المنتج؛ أضف الآن مورّدًا وسعر شراء.|Продукт добавлен; теперь добавьте поставщика и цену покупки.
+1499|Products|المنتجات|Продукты
+1500|Choose who you sell your products to. Platform buyers: other DMCs buy at your price plus the platform markup; the platform pays you. Your own agencies: see only your products at your profit rate. Your guides always sell your own products.|اختر لمن تبيع منتجاتك. مشترو المنصة: تشتري الشركات الأخرى بسعرك مع هامش المنصة؛ وتدفع لك المنصة. وكالاتك الخاصة: ترى منتجاتك فقط بنسبة ربحك. ومرشدوك يبيعون منتجاتك في كل الأحوال.|Выберите, кому продавать продукты. Покупатели платформы: другие DMC покупают по вашей цене с наценкой платформы; платит вам платформа. Ваши агентства: видят только ваши продукты по вашей наценке. Ваши гиды всегда продают ваши продукты.
+1501|Parent DMC profit share|حصة ربح الشركة الأم|Доля прибыли головной DMC
+1502|Parent company approval and panel opening|موافقة الشركة الأم وفتح اللوحة|Одобрение головной компании и открытие панели
+1503|Merchant no|رقم التاجر|№ мерчанта
+1504|child|طفل|ребёнок
+1505|child age {a}|طفل بعمر {a}|ребёнок {a} лет
+1506|check-out|المغادرة|выезд
+1507|select the check-out date|اختر تاريخ المغادرة|выберите дату выезда
+1508|payment received ({m})|تم استلام الدفع ({m})|оплата получена ({m})
+1509|payment not received|لم يُستلم الدفع|оплата не получена
+1510|paid|مدفوع|оплачено
+1511|payable|مستحق الدفع|к оплате
+1512|nothing payable|لا شيء مستحق|к оплате нет
+1513|payable {a}|مستحق {a}|к оплате {a}
+1514|paid|المدفوع|оплачено
+1515|from prepayment balance|من رصيد الدفع المسبق|с баланса предоплаты
+1516|{a} blocked in prepayment, deducted automatically after {d}|{a} محجوز في الدفع المسبق، يُخصم تلقائيًا بعد {d}|{a} заблокировано в предоплате, списывается автоматически после {d}
+1517|free|مجاني|бесплатно
+1518|CANCELLATION TERMS: Hotel prices are uploaded as season contracts with date-based periods and period-specific room prices. The DMC uploads the last free cancellation period for each product and may add a non-refundable (nonref) price. The platform may shorten or extend the period applied to the buyer.|شروط الإلغاء: تُرفع أسعار الفنادق كعقود مواسم بفترات حسب التاريخ وأسعار غرف خاصة بكل فترة. وتحدد الشركة آخر مهلة إلغاء مجاني لكل منتج ويجوز لها إضافة سعر غير قابل للاسترداد. ويجوز للمنصة تقصير المهلة المطبقة على المشتري أو تمديدها.|УСЛОВИЯ ОТМЕНЫ: цены отелей загружаются сезонными контрактами с периодами по датам и ценами номеров по периодам. DMC указывает последний срок бесплатной отмены для каждого продукта и может добавить невозвратную цену. Платформа может сократить или продлить срок для покупателя.
+1519|Non-refundable price|السعر غير القابل للاسترداد|Невозвратная цена
+1520|Non-refundable price (opt.)|السعر غير القابل للاسترداد (اختياري)|Невозвратная цена (необяз.)
+1521|Non-refundable prices are not affected by this term. The platform may shorten or extend the period applied to the buyer.|لا تتأثر الأسعار غير القابلة للاسترداد بهذا الشرط. ويجوز للمنصة تقصير المهلة المطبقة على المشتري أو تمديدها.|Невозвратные цены это условие не затрагивает. Платформа может сократить или продлить срок для покупателя.
+1522|Non-refundable prices and services past their cancellation period are deducted immediately.|تُخصم الأسعار غير القابلة للاسترداد والخدمات التي تجاوزت مهلة الإلغاء فورًا.|Невозвратные цены и услуги с истёкшим сроком отмены списываются сразу.
+1523|Non-refundable booking: the change request was sent for supplier approval.|حجز غير قابل للاسترداد: أُرسل طلب التعديل لموافقة المورّد.|Невозвратное бронирование: запрос на изменение отправлен поставщику на подтверждение.
+1524|Non-refundable booking: every change is sent for supplier approval; once approved the price difference is posted to your account.|حجز غير قابل للاسترداد: يُرسل كل تعديل لموافقة المورّد؛ وبعد الموافقة يُقيد فرق السعر في حسابك.|Невозвратное бронирование: каждое изменение отправляется поставщику; после подтверждения разница цены проводится по вашему счёту.
+1525|Non-refundable services and those past their cancellation period are paid immediately from the balance if sufficient, otherwise only by credit card.|تُدفع الخدمات غير القابلة للاسترداد والتي تجاوزت مهلة الإلغاء فورًا من الرصيد إن كان كافيًا، وإلا فببطاقة الائتمان فقط.|Невозвратные услуги и услуги с истёкшим сроком отмены оплачиваются сразу с баланса, если хватает средств, иначе только картой.
+1526|Refundable price|السعر القابل للاسترداد|Возвратная цена
+1527|Twin|سريران منفصلان|Два отдельных
+1528|Icon letter|حرف الأيقونة|Буква значка
+1529|Province|المحافظة|Провинция
+1530|First room type|نوع الغرفة الأول|Первый тип номера
+1531|Enter the first room type, price and quota.|أدخل نوع الغرفة الأول والسعر والحصة.|Введите первый тип номера, цену и квоту.
+1532|Signature and panel opening|التوقيع وفتح اللوحة|Подпись и открытие панели
+1533|The signed contract cannot be approved until both parties sign.|لا يمكن اعتماد العقد الموقّع قبل توقيع الطرفين.|Подписанный договор нельзя одобрить до подписи обеих сторон.
+1534|Review|مراجعة|Проверить
+1535|Discount|الخصم|Скидка
+1536|Discount %|الخصم %|Скидка %
+1537|Discount must be between 1 and 90.|يجب أن يكون الخصم بين 1 و90.|Скидка должна быть от 1 до 90.
+1538|Discounted PP|PP مخفّض|Скидочная цена за чел.
+1539|Cancelled (no commission)|ملغى (دون عمولة)|Отменено (без комиссии)
+1540|Cancelled (not paid)|ملغى (لم يُدفع)|Отменено (не оплачено)
+1541|No payment is made for a cancelled booking.|لا يُدفع عن الحجز الملغى.|За отменённое бронирование оплата не производится.
+1542|Cancel (a cancellation e-mail goes to the supplier)|إلغاء (يُرسل بريد إلغاء إلى المورّد)|Отменить (поставщику уйдёт письмо об отмене)
+1543|Cancellation period setting saved; applies to new queries and bookings.|تم حفظ إعداد مهلة الإلغاء؛ ويُطبق على الاستعلامات والحجوزات الجديدة.|Настройка срока отмены сохранена; применяется к новым запросам и бронированиям.
+1544|Cancellation · refund|الإلغاء · الاسترداد|Отмена · возврат
+1545|Cancellation terms for each service come from the supplier's terms; the last free cancellation date is shown on each service. The payment due date is the earliest of these dates.|تأتي شروط الإلغاء لكل خدمة من شروط المورّد؛ ويُعرض آخر موعد إلغاء مجاني في كل خدمة. وآخر موعد للدفع هو أبكر هذه المواعيد.|Условия отмены каждой услуги берутся у поставщика; последняя дата бесплатной отмены указана в каждой услуге. Срок оплаты — самая ранняя из этих дат.
+1546|Cancellation term saved.|تم حفظ شرط الإلغاء.|Условие отмены сохранено.
+1547|After entering the names you can add {x} to this stay and create a package with a single price. Entirely optional.|بعد إدخال الأسماء يمكنك إضافة {x} إلى هذه الإقامة وإنشاء باقة بسعر واحد. اختياري تمامًا.|После ввода имён можно добавить к проживанию {x} и собрать пакет с одной ценой. Полностью по желанию.
+1548|Request body (JSON)|نص الطلب (JSON)|Тело запроса (JSON)
+1549|The request body is not valid JSON.|نص الطلب ليس JSON صالحًا.|Тело запроса — некорректный JSON.
+1550|Request log|سجل الطلبات|Журнал запросов
+1551|Request limit / min|حد الطلبات / دقيقة|Лимит запросов / мин
+1552|İzmir (ADB)|إزمير (ADB)|Измир (ADB)
+1553|Content|المحتوى|Содержимое
+1554|Job|المهمة|Задача
+1555|Process|معالجة|Провести
+1556|Action|الإجراء|Действие
+1557|Activity history|سجل العمليات|История действий
+1558|Activity log|سجل العمليات|Журнал действий
+1559|Processed|تمت المعالجة|Проведено
+1560|No price, quota or stop-sale row to process was found.|لم يُعثر على صف سعر أو حصة أو إيقاف بيع للمعالجة.|Не найдено строк цен, квот или стоп-продаж для обработки.
+1561|Terms saved.|تم حفظ الشروط.|Условия сохранены.
+1562|Save terms|حفظ الشروط|Сохранить условия
+1563|City or tour name|المدينة أو اسم الجولة|Город или название тура
+1564|Password|كلمة المرور|Пароль
+1565|Change password|تغيير كلمة المرور|Сменить пароль
+1566|Reset password|إعادة تعيين كلمة المرور|Сбросить пароль
+1567|Password reset|إعادة تعيين كلمة المرور|Сброс пароля
+1568|Your password has been changed.|تم تغيير كلمة مرورك.|Ваш пароль изменён.
+1569|Complaint / compensation request|طلب شكوى / تعويض|Жалоба / требование компенсации
+1570|Complaints and compensation|الشكاوى والتعويض|Жалобы и компенсации
+1571|Deduct now|الخصم الآن|Списать сейчас
+1572|Run now|التشغيل الآن|Запустить сейчас
+1573|Now select the check-out date|اختر تاريخ المغادرة الآن|Теперь выберите дату выезда
+1574|Company details (on invoices)|بيانات الشركة (في الفواتير)|Реквизиты компании (в счетах)
+1575|Feb|فبر|Фев
+1576|February|فبراير|Февраль
+1577|encrypted file|ملف مشفّر|зашифрованный файл
+1578|— external company|— شركة خارجية|— внешняя компания

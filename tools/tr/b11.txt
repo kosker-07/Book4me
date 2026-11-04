@@ -1,0 +1,5 @@
+1743|Platform brand|العلامة التجارية للمنصة|Бренд платформы
+1744|The logo you upload replaces the previous one and appears immediately on all platform screens, the login page and platform documents. The previous logo is not kept.|يحل الشعار الذي ترفعه محل السابق ويظهر فورًا في جميع شاشات المنصة وصفحة الدخول ومستندات المنصة. لا يُحتفظ بالشعار السابق.|Загруженный логотип заменяет прежний и сразу появляется на всех экранах платформы, странице входа и в документах платформы. Прежний логотип не сохраняется.
+1745|Upload logo (PNG, JPG or SVG)|رفع الشعار (PNG أو JPG أو SVG)|Загрузить логотип (PNG, JPG или SVG)
+1746|Suggestion: horizontal logo with transparent background, at least 400 pixels wide.|اقتراح: شعار أفقي بخلفية شفافة، بعرض 400 بكسل على الأقل.|Рекомендация: горизонтальный логотип на прозрачном фоне, ширина не менее 400 пикселей.
+1747|New logo uploaded; the old logo was deleted.|تم رفع الشعار الجديد؛ وحُذف الشعار القديم.|Новый логотип загружен; старый удалён.

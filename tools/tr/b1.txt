@@ -1,0 +1,200 @@
+200|End cannot be before start.|لا يمكن أن تسبق النهاية البداية.|Окончание не может быть раньше начала.
+201|Blocked|محجوز|Заблокировано
+202|No debt.|لا يوجد دين.|Задолженности нет.
+203|Longitude (opt.)|خط الطول (اختياري)|Долгота (необяз.)
+204|Gap period added.|تمت إضافة فترة الفجوة.|Период-заполнитель добавлен.
+205|This DMC has not allowed support access.|لم تسمح هذه الشركة بدخول الدعم.|Эта DMC не разрешила доступ поддержки.
+206|This address is currently closed|هذا العنوان مغلق حاليًا|Этот адрес сейчас закрыт
+207|No company is registered at this address.|لا توجد شركة مسجلة على هذا العنوان.|По этому адресу компания не зарегистрирована.
+208|This domain is registered to another company.|هذا النطاق مسجل لشركة أخرى.|Этот домен зарегистрирован на другую компанию.
+209|You set and receive this sub-DMC's profit: the rate is added to the sub-DMC's price.|أنت من يحدد ربح هذه الشركة الفرعية ويحصل عليه: تُضاف النسبة إلى سعرها.|Наценку этой суб-DMC устанавливаете и получаете вы: ставка добавляется к её цене.
+210|This sub-account's profit is set by {n} ({pp}).|يحدد {n} ربح هذا الحساب الفرعي ({pp}).|Наценку этого субсчёта устанавливает {n} ({pp}).
+211|No products match this search.|لا توجد منتجات مطابقة لهذا البحث.|Нет продуктов по этому запросу.
+212|This vehicle takes at most {n} people.|تتسع هذه المركبة لـ{n} أشخاص كحد أقصى.|Этот автомобиль вмещает не более {n} человек.
+213|This connection needs no additional information.|لا يحتاج هذا الاتصال إلى معلومات إضافية.|Этому подключению не нужны дополнительные данные.
+214|This document is a draft of the invoice the seller will issue to its customer; prices include a {m}% sales commission. The legal invoice must be issued with the seller's own e-Invoice / e-Archive system.|هذا المستند مسودة للفاتورة التي سيصدرها البائع لعميله؛ وتشمل الأسعار عمولة بيع {m}%. يجب إصدار الفاتورة القانونية عبر نظام الفوترة الإلكترونية الخاص بالبائع.|Этот документ — черновик счёта, который продавец выставит клиенту; цены включают комиссию {m}%. Юридический счёт выставляется через собственную систему э-счетов продавца.
+215|No vehicle price for {n} passengers between these zones. Choose a different zone.|لا يوجد سعر مركبة لـ{n} ركاب بين هاتين المنطقتين. اختر منطقة أخرى.|Нет цены автомобиля на {n} пассажиров между этими зонами. Выберите другую зону.
+216|Only the company administrator can see this section.|يمكن لمسؤول الشركة فقط رؤية هذا القسم.|Этот раздел видит только администратор компании.
+217|Only the administrator can see this section.|يمكن للمسؤول فقط رؤية هذا القسم.|Этот раздел видит только администратор.
+218|A user with this e-mail address already exists.|يوجد مستخدم بهذا البريد الإلكتروني بالفعل.|Пользователь с таким e-mail уже существует.
+219|You are not authorised for this screen.|ليست لديك صلاحية لهذه الشاشة.|У вас нет доступа к этому экрану.
+220|There is no amount to close on this invoice.|لا يوجد مبلغ لإقفاله في هذه الفاتورة.|По этому счёту нет суммы к закрытию.
+221|No hotels in this filter.|لا توجد فنادق في هذا التصفية.|Нет отелей по этому фильтру.
+222|No bookings in this filter.|لا توجد حجوزات في هذا التصفية.|Нет бронирований по этому фильтру.
+223|No sales in this filter.|لا توجد مبيعات في هذا التصفية.|Нет продаж по этому фильтру.
+224|This transaction did not match.|لم تتطابق هذه الحركة.|Эта операция не сопоставлена.
+225|No products uploaded for this service.|لا توجد منتجات مرفوعة لهذه الخدمة.|Для этой услуги продукты не загружены.
+226|This job is no longer waiting.|لم تعد هذه المهمة بانتظار القرار.|Эта задача больше не ожидает.
+227|No available room type fits this room layout.|لا يوجد نوع غرفة متاح يناسب هذا التوزيع.|Нет свободного типа номера для такого размещения.
+228|This room is not sold to the guest's nationality.|هذه الغرفة لا تُباع لجنسية الضيف.|Этот номер не продаётся гостям этого гражданства.
+229|There is a pending request for this booking.|يوجد طلب معلّق لهذا الحجز.|По этому бронированию есть ожидающий запрос.
+230|There is a request awaiting supplier approval for this booking.|يوجد طلب بانتظار موافقة المورّد لهذا الحجز.|По этому бронированию есть запрос, ожидающий подтверждения поставщика.
+231|This booking includes a non-refundable service or one past its free cancellation period. Your balance is {b}, required {n}. The booking can only be made by paying immediately by credit card.|يتضمن هذا الحجز خدمة غير قابلة للاسترداد أو تجاوزت مهلة الإلغاء المجاني. رصيدك {b}، والمطلوب {n}. لا يمكن إتمام الحجز إلا بالدفع الفوري ببطاقة الائتمان.|В бронировании есть невозвратная услуга или услуга с истёкшим сроком бесплатной отмены. Ваш баланс {b}, требуется {n}. Бронирование возможно только с немедленной оплатой картой.
+232|There is no amount due on this booking.|لا يوجد مبلغ مستحق على هذا الحجز.|По этому бронированию нет суммы к оплате.
+233|The API returned no suitable flight for this route and date. Change the date or route.|لم يُرجع API رحلة مناسبة لهذا المسار والتاريخ. غيّر التاريخ أو المسار.|API не вернул подходящих рейсов на этот маршрут и дату. Измените дату или маршрут.
+234|No periods have been added to this season yet.|لم تُضف فترات لهذا الموسم بعد.|В этот сезон ещё не добавлены периоды.
+235|{n} signed this contract on {d}.|وقّع {n} هذا العقد بتاريخ {d}.|{n} подписал(а) этот договор {d}.
+236|No tour available for this date and {n} participants. Change the date or search.|لا توجد جولة متاحة لهذا التاريخ ولـ{n} مشاركين. غيّر التاريخ أو البحث.|Нет доступных туров на эту дату для {n} участников. Измените дату или поиск.
+237|These dates overlap another period.|تتداخل هذه التواريخ مع فترة أخرى.|Эти даты пересекаются с другим периодом.
+238|These dates overlap another season.|تتداخل هذه التواريخ مع موسم آخر.|Эти даты пересекаются с другим сезоном.
+239|No price defined for these dates.|لا يوجد سعر محدد لهذه التواريخ.|На эти даты цена не задана.
+240|No suitable tour on these dates.|لا توجد جولة مناسبة في هذه التواريخ.|На эти даты подходящих туров нет.
+241|Delete this transfer price?|هل تريد حذف سعر النقل هذا؟|Удалить эту цену трансфера?
+242|Delete this tour?|هل تريد حذف هذه الجولة؟|Удалить этот тур?
+243|This flight can no longer be found in the API. Go back to search and select again.|لم تعد هذه الرحلة موجودة في API. عد إلى البحث واختر مجددًا.|Этот рейс больше не найден в API. Вернитесь к поиску и выберите снова.
+244|This voucher covers all services in the booking. Service fees are paid to suppliers; no additional charge is made to the guest (except in-hotel extras). Please present it at each service point.|تغطي هذه القسيمة جميع خدمات الحجز. تُدفع رسوم الخدمات للمورّدين؛ ولا يُطلب من الضيف أي مبلغ إضافي (باستثناء الإضافات داخل الفندق). يُرجى إبرازها في كل نقطة خدمة.|Этот ваучер покрывает все услуги бронирования. Стоимость услуг оплачивается поставщикам; с гостя дополнительно ничего не взимается (кроме дополнительных услуг в отеле). Предъявляйте его в каждой точке обслуживания.
+245|This product does not operate on the selected day.|لا يعمل هذا المنتج في اليوم المحدد.|Этот продукт не проводится в выбранный день.
+246|This product does not operate on {g}. Days: {d}|لا يعمل هذا المنتج يوم {g}. الأيام: {d}|Этот продукт не проводится в {g}. Дни: {d}
+247|No purchase price is defined for this product. Add a service supplier and purchase price in Operations → Guide products.|لا يوجد سعر شراء محدد لهذا المنتج. أضف مورّد الخدمة وسعر الشراء من العمليات ← منتجات المرشدين.|Для этого продукта не задана цена покупки. Добавьте поставщика и цену покупки в разделе «Операции → Продукты гидов».
+248|This product has no purchase price; a sale cannot be created until purchase and sale are complete. Notify operations.|لا يوجد سعر شراء لهذا المنتج؛ ولا يمكن إنشاء البيع قبل اكتمال الشراء والبيع. أبلغ العمليات.|У этого продукта нет цены покупки; продажа невозможна без покупки. Сообщите в отдел операций.
+249|This product has no purchase price; a sale cannot be created.|لا يوجد سعر شراء لهذا المنتج؛ ولا يمكن إنشاء البيع.|У этого продукта нет цены покупки; продажа невозможна.
+250|Card today|بطاقة اليوم|Карта сегодня
+251|Cash today|نقد اليوم|Наличные сегодня
+252|Size (m²)|المساحة (م²)|Площадь (м²)
+253|CSV file|ملف CSV|Файл CSV
+254|CSV statement upload and automatic matching|رفع كشف CSV والمطابقة التلقائية|Загрузка выписки CSV и автоматическая сверка
+255|Paste the CSV statement (date; description; amount; currency). If the booking number in the description and the amount match, the transaction is matched automatically; it is processed with your approval.|الصق كشف CSV (التاريخ؛ الوصف؛ المبلغ؛ العملة). إذا تطابق رقم الحجز في الوصف والمبلغ، تُطابق الحركة تلقائيًا؛ وتُعالج بموافقتك.|Вставьте выписку CSV (дата; описание; сумма; валюта). Если номер бронирования в описании и сумма совпадают, операция сопоставляется автоматически и проводится с вашего одобрения.
+256|In the live system each user logs in with their own password. The administrator accesses all sections; other users work with the permissions given by the administrator.|في النظام الحي يدخل كل مستخدم بكلمة مروره. يصل المسؤول إلى جميع الأقسام؛ ويعمل الآخرون بالصلاحيات التي يمنحها المسؤول.|В рабочей системе каждый входит со своим паролем. Администратор имеет доступ ко всем разделам; остальные работают с правами, выданными администратором.
+257|My account transactions|حركات حسابي|Мои операции по счёту
+258|Current account|الحساب الجاري|Текущий счёт
+259|Cancellation with penalty and refund|الإلغاء بغرامة والاسترداد|Отмена со штрафом и возврат
+260|Turnover (EUR)|حجم الأعمال (EUR)|Оборот (EUR)
+261|Open DMC|فتح شركة|Открыть DMC
+262|As soon as the DMC is opened, its standard address company.book4me-ai.com is ready. The panel opens once the contract is signed and documents are approved.|بمجرد فتح الشركة يصبح عنوانها القياسي company.book4me-ai.com جاهزًا. وتُفتح اللوحة بعد توقيع العقد والموافقة على المستندات.|Сразу после открытия DMC её стандартный адрес company.book4me-ai.com готов. Панель открывается после подписания договора и одобрения документов.
+263|The DMC has not allowed support access.|لم تسمح الشركة بدخول الدعم.|DMC не разрешила доступ поддержки.
+264|Confirmed by the DMC|تم التأكيد من الشركة|Подтверждено DMC
+265|DMC and agency questions, 4 languages|أسئلة الشركات والوكالات، 4 لغات|Вопросы DMC и агентств, 4 языка
+266|Answers DMC and agency questions in 4 languages. Complaints and compensation requests go to human approval.|يجيب عن أسئلة الشركات والوكالات بأربع لغات. وتُحال الشكاوى وطلبات التعويض إلى موافقة بشرية.|Отвечает на вопросы DMC и агентств на 4 языках. Жалобы и требования компенсации идут на одобрение человеку.
+267|Search DMC or sales account|ابحث عن شركة أو حساب مبيعات|Поиск DMC или счёта продаж
+268|DMC payment marked.|تم تعليم دفعة الشركة.|Платёж DMC отмечен.
+269|The DMC has no active administrator.|لا يوجد مسؤول نشط لدى الشركة.|У DMC нет активного администратора.
+270|from the DMCs' own API trade|من تجارة API الخاصة بالشركات|с собственной API-торговли DMC
+271|For trade from the DMC's own API connection: purchase {b}% + sale {s}%. You can change the rates in Accounting → Commissions.|للتجارة عبر اتصال API الخاص بالشركة: الشراء {b}% + البيع {s}%. يمكنك تغيير النسب من المحاسبة ← العمولات.|Для торговли через собственное API DMC: покупка {b}% + продажа {s}%. Ставки меняются в разделе «Бухгалтерия → Комиссии».
+272|For trade from the DMC's own API connection: 1% of the purchase amount and 1% of the sale amount. No API connection fee; no commission on refunded amounts.|للتجارة عبر اتصال API الخاص بالشركة: 1% من مبلغ الشراء و1% من مبلغ البيع. لا رسوم على اتصال API؛ ولا عمولة على المبالغ المستردة.|Для торговли через собственное API DMC: 1% от суммы покупки и 1% от суммы продажи. Плата за подключение API не взимается; с возвращённых сумм комиссия не берётся.
+273|Month-end invoice of the 1% + 1% commissions from the DMC's own API trade.|فاتورة نهاية الشهر لعمولات 1% + 1% من تجارة API الخاصة بالشركة.|Счёт за месяц по комиссиям 1% + 1% с собственной API-торговли DMC.
+274|The DMC has no prepayment account.|لا يوجد حساب دفع مسبق للشركة.|У DMC нет счёта предоплаты.
+275|Show more|عرض المزيد|Показать ещё
+276|Dashboard and reports|لوحة التحكم والتقارير|Дашборд и отчёты
+277|Mountain|جبل|Горы
+278|Password for demo accounts: {p}|كلمة مرور الحسابات التجريبية: {p}|Пароль демо-аккаунтов: {p}
+279|Demo data reset.|تمت إعادة تعيين البيانات التجريبية.|Демо-данные сброшены.
+280|Support|الدعم|Поддержка
+281|Support agent|وكيل الدعم|Агент поддержки
+282|The support agent is off.|وكيل الدعم متوقف.|Агент поддержки выключен.
+283|Support access|دخول الدعم|Доступ поддержки
+284|Support access closed.|تم إغلاق دخول الدعم.|Доступ поддержки закрыт.
+285|Support sessions|جلسات الدعم|Входы поддержки
+286|Open in support mode|فتح بوضع الدعم|Открыть в режиме поддержки
+287|Support mode: {n} screen opened. All your actions are logged.|وضع الدعم: فُتحت شاشة {n}. جميع إجراءاتك مسجّلة.|Режим поддержки: открыт экран {n}. Все ваши действия фиксируются.
+288|Support mode: you are on the {n} screen. Every action is logged.|وضع الدعم: أنت في شاشة {n}. يُسجَّل كل إجراء.|Режим поддержки: вы на экране {n}. Каждое действие фиксируется.
+289|You are not in support mode.|لست في وضع الدعم.|Вы не в режиме поддержки.
+290|Exit support mode|الخروج من وضع الدعم|Выйти из режима поддержки
+291|Exited support mode.|تم الخروج من وضع الدعم.|Режим поддержки завершён.
+292|Change|التعديل|Изменение
+293|Change approved and applied.|تمت الموافقة على التعديل وتطبيقه.|Изменение одобрено и применено.
+294|Change request awaiting supplier approval|طلب التعديل بانتظار موافقة المورّد|Запрос на изменение ожидает подтверждения поставщика
+295|Change requests (non-refundable bookings)|طلبات التعديل (حجوزات غير قابلة للاسترداد)|Запросы на изменение (невозвратные бронирования)
+296|Change applied and notified to the supplier.|تم تطبيق التعديل وإبلاغ المورّد.|Изменение применено, поставщик уведомлён.
+297|Change applied. As the contract is approved, no new signature or documents are required.|تم تطبيق التعديل. ولأن العقد معتمد لا يلزم توقيع أو مستندات جديدة.|Изменение применено. Договор одобрен, поэтому повторная подпись или документы не нужны.
+298|No change.|لا يوجد تغيير.|Изменений нет.
+299|Approve change|الموافقة على التعديل|Одобрить изменение
+300|Apply change|تطبيق التعديل|Применить изменение
+301|Change|تغيير|Изменить
+302|We can make a package if you wish|يمكننا إعداد باقة إن رغبت|При желании можем собрать пакет
+303|Reading file…|جارٍ قراءة الملف…|Чтение файла…
+304|Choose file|اختر ملفًا|Выбрать файл
+305|The file is read in your browser; nothing is written to the system until you save.|يُقرأ الملف في متصفحك؛ ولا يُكتب شيء في النظام حتى تحفظ.|Файл читается в вашем браузере; до сохранения в систему ничего не записывается.
+306|No readable page found in the file.|لم يُعثر على صفحة قابلة للقراءة في الملف.|В файле нет читаемых страниц.
+307|No hotel price sheet found in the file.|لم يُعثر على صفحة أسعار فندق في الملف.|В файле не найден лист цен отеля.
+308|As in the file|كما في الملف|Как в файле
+309|Verified|تم التحقق|Подтверждено
+310|Announcement removed.|تمت إزالة الإعلان.|Объявление снято.
+311|Announcement is live.|الإعلان منشور.|Объявление опубликовано.
+312|Announcement published.|تم نشر الإعلان.|Объявление опубликовано.
+313|Announcements|الإعلانات|Объявления
+314|Publish announcement|نشر الإعلان|Опубликовать объявление
+315|Period (up to this month)|الفترة (حتى هذا الشهر)|Период (до этого месяца)
+316|Return|العودة|Обратно
+317|Return flight|رحلة العودة|Обратный рейс
+318|Exchange rate|سعر الصرف|Курс валют
+319|Arrangement updated.|تم تحديث الترتيب.|Организация обновлена.
+320|Editing requires Operations permission.|يتطلب التعديل صلاحية العمليات.|Для правки нужны права отдела операций.
+321|Update arrangement|تحديث الترتيب|Обновить организацию
+322|Save arrangement and send for approval|حفظ الترتيب وإرساله للموافقة|Сохранить организацию и отправить на одобрение
+323|Issued|تاريخ الإصدار|Дата выдачи
+324|Issued by|أصدره|Выдал
+325|Low|منخفض|Низкий
+326|E-mail sender address|عنوان مرسل البريد|Адрес отправителя e-mail
+327|Closed days received by e-mail or file|الأيام المغلقة الواردة بالبريد أو الملف|Закрытые дни, полученные по e-mail или файлом
+328|Incorrect e-mail or password.|البريد الإلكتروني أو كلمة المرور غير صحيحة.|Неверный e-mail или пароль.
+329|ADDITIONAL TERMS|شروط إضافية|ДОПОЛНИТЕЛЬНЫЕ УСЛОВИЯ
+330|EUR equivalent {a}|ما يعادل باليورو {a}|Эквивалент в EUR {a}
+331|EUR → EUR|EUR → EUR|EUR → EUR
+332|EUR → USD|EUR → USD|EUR → USD
+333|Additional terms updated|تم تحديث الشروط الإضافية|Дополнительные условия обновлены
+334|Do not add|لا تُضف|Не добавлять
+335|Statement file|ملف الكشف|Файл выписки
+336|No rows found in the statement. Expected columns: date; description; amount; currency|لم يُعثر على صفوف في الكشف. الأعمدة المتوقعة: التاريخ؛ الوصف؛ المبلغ؛ العملة|В выписке нет строк. Ожидаемые столбцы: дата; описание; сумма; валюта
+337|The amount and description in the statement match the booking's amount due. Processing the payment is suggested.|يتطابق المبلغ والوصف في الكشف مع المبلغ المستحق على الحجز. يُقترح معالجة الدفعة.|Сумма и описание в выписке совпадают с суммой к оплате по бронированию. Предлагается провести платёж.
+338|Read statement|قراءة الكشف|Прочитать выписку
+339|Are you sure? This job is high risk (payment, password or data deletion).|هل أنت متأكد؟ هذه المهمة عالية المخاطر (دفع أو كلمة مرور أو حذف بيانات).|Вы уверены? Задача высокого риска (платёж, пароль или удаление данных).
+340|Enter a price for at least one vehicle.|أدخل سعرًا لمركبة واحدة على الأقل.|Введите цену хотя бы для одного автомобиля.
+341|Select at least one section permission.|اختر صلاحية قسم واحد على الأقل.|Выберите права хотя бы на один раздел.
+342|Select at least one service and one currency.|اختر خدمة واحدة وعملة واحدة على الأقل.|Выберите хотя бы одну услугу и одну валюту.
+343|At least one option must remain.|يجب أن يبقى خيار واحد على الأقل.|Должен остаться хотя бы один вариант.
+344|Lowest · on sale|الأدنى · معروض للبيع|Самая низкая · в продаже
+345|Endpoint|نقطة النهاية|Endpoint
+346|Endpoint must be a valid address starting with https://.|يجب أن تكون نقطة النهاية عنوانًا صالحًا يبدأ بـ https://.|Endpoint должен быть действительным адресом, начинающимся с https://.
+347|Latitude (opt.)|خط العرض (اختياري)|Широта (необяз.)
+348|Integration|التكامل|Интеграция
+349|Integration centre|مركز التكامل|Центр интеграций
+350|The integration centre is not in your package.|مركز التكامل غير مشمول في باقتك.|Центр интеграций не входит в ваш пакет.
+351|The integration centre is not in your package. Contact the platform to upgrade your package.|مركز التكامل غير مشمول في باقتك. تواصل مع المنصة لترقية الباقة.|Центр интеграций не входит в ваш пакет. Для смены пакета свяжитесь с платформой.
+352|Integrations|التكاملات|Интеграции
+353|Integrations and agents are installed ready but switched off; agent jobs pass through the Approve / Reject approval queue.|تُثبَّت التكاملات والوكلاء جاهزة لكنها متوقفة؛ وتمر مهام الوكلاء عبر قائمة الموافقة (موافقة / رفض).|Интеграции и агенты установлены готовыми, но выключенными; задачи агентов проходят через очередь «Одобрить / Отклонить».
+354|Integrator|المتكامل|Интегратор
+355|Early booking|الحجز المبكر|Раннее бронирование
+356|Excel files are opened with our own reader; simple formulas without a cached value are also calculated.|تُفتح ملفات Excel بقارئنا الخاص؛ وتُحسب أيضًا الصيغ البسيطة التي لا تحمل قيمة مخزنة.|Файлы Excel открываются нашим собственным модулем; простые формулы без сохранённого значения тоже вычисляются.
+357|Bulk hotel upload from Excel|رفع جماعي للفنادق من Excel|Массовая загрузка отелей из Excel
+358|Drag Excel, PDF or photos here, or click to choose|اسحب ملفات Excel أو PDF أو الصور هنا، أو انقر للاختيار|Перетащите сюда Excel, PDF или фото либо нажмите для выбора
+359|September|سبتمبر|Сентябрь
+360|Not matched|غير مطابق|Не сопоставлено
+361|Matched|مطابق|Сопоставлено
+362|Match|مطابقة|Сопоставить
+363|Matched.|تمت المطابقة.|Сопоставлено.
+364|Mapping|المطابقة|Сопоставление
+365|No mappings.|لا توجد مطابقات.|Сопоставлений нет.
+366|INVOICE: Platform products are invoiced from the platform to the DMC on a single invoice. The DMC invoices sales from its own API and own products under its own title; at month end the platform issues one commission invoice to the DMC. The commission can be offset against amounts the platform owes the DMC or against the prepayment balance.|الفاتورة: تُفوتر منتجات المنصة من المنصة إلى الشركة في فاتورة واحدة. وتفوتر الشركة مبيعاتها من API الخاص بها ومنتجاتها باسمها؛ وفي نهاية الشهر تصدر المنصة فاتورة عمولة واحدة للشركة. يمكن مقاصة العمولة من المبالغ المستحقة للشركة على المنصة أو من رصيد الدفع المسبق.|СЧЁТ: продукты платформы выставляются платформой DMC одним счётом. Продажи со своего API и своих продуктов DMC выставляет от своего имени; в конце месяца платформа выставляет DMC один счёт комиссии. Комиссия может быть зачтена против сумм, которые платформа должна DMC, или против баланса предоплаты.
+367|INVOICING: The platform invoices the service fee on the net price and collects payment from the account holder. The account holder adds its own commission and issues its own invoice to its customer.|الفوترة: تفوتر المنصة رسوم الخدمة على السعر الصافي وتحصّل من صاحب الحساب. ويضيف صاحب الحساب عمولته ويصدر فاتورته لعميله.|ВЫСТАВЛЕНИЕ СЧЕТОВ: платформа выставляет стоимость услуг по нетто-цене и получает оплату от владельца счёта. Владелец счёта добавляет свою комиссию и выставляет свой счёт клиенту.
+368|FI documents (IDoc / API)|مستندات FI (IDoc / API)|Документы FI (IDoc / API)
+369|Difference %|الفرق %|Разница %
+370|No difference defined; same price for all markets.|لا يوجد فرق محدد؛ السعر نفسه لجميع الأسواق.|Разница не задана; цена одинакова для всех рынков.
+371|Bookings in another currency are covered from the {c} account at the rate at the time of deduction.|تُغطى الحجوزات بعملة أخرى من حساب {c} بسعر الصرف وقت الخصم.|Бронирования в другой валюте покрываются со счёта {c} по курсу на момент списания.
+372|Invoice and account transaction|الفاتورة وحركة الحساب|Счёт и операция по счёту
+373|Invoice and voucher are created after payment is collected.|تُنشأ الفاتورة والقسيمة بعد تحصيل الدفعة.|Счёт и ваучер создаются после получения оплаты.
+374|Invoice · platform to buyer|فاتورة · من المنصة إلى المشتري|Счёт · от платформы покупателю
+375|Invoice, account, cash|الفاتورة، الحساب، الصندوق|Счёт, контрагент, касса
+376|Invoice, collection, payment, account opening, cancellation/refund|الفاتورة، التحصيل، الدفع، فتح الحساب، الإلغاء/الاسترداد|Счёт, поступление, платёж, открытие контрагента, отмена/возврат
+377|No commission to invoice.|لا توجد عمولة للفوترة.|Нет комиссии для выставления.
+378|Invoiced|مُفوتر|Выставлено
+379|Issue invoice|إصدار الفاتورة|Выставить счёт
+380|No available hotel matches the filters and room layout. Change the dates, stars, board or price limit and search again.|لا يوجد فندق متاح يطابق التصفية وتوزيع الغرف. غيّر التواريخ أو النجوم أو الإقامة أو حد السعر وابحث مجددًا.|Нет свободных отелей по фильтрам и размещению. Измените даты, звёзды, питание или лимит цены и повторите поиск.
+381|Company / firm code|رمز الشركة|Код компании / фирмы
+382|Enter a company name.|أدخل اسم الشركة.|Введите название компании.
+383|Enter the company name.|أدخل اسم الشركة.|Введите название компании.
+384|Enter the company name.|أدخل اسم الشركة.|Введите название компании.
+385|Company not found.|لم يُعثر على الشركة.|Компания не найдена.
+386|Company login|دخول الشركة|Вход компании
+387|Companies can also log in from their own addresses, e.g. {h}|يمكن للشركات الدخول من عناوينها الخاصة أيضًا، مثل {h}|Компании могут входить и со своих адресов, напр. {h}
+388|The company's licence is suspended. Please contact your company.|تم تعليق ترخيص الشركة. يُرجى التواصل مع شركتك.|Лицензия компании приостановлена. Свяжитесь со своей компанией.
+389|Your company's contract is not yet active or the account is closed. Your company administrator handles contract and document procedures.|عقد شركتك غير نشط بعد أو الحساب مغلق. يتولى مسؤول شركتك إجراءات العقد والمستندات.|Договор вашей компании ещё не активен или счёт закрыт. Договором и документами занимается администратор компании.
+390|Price updated.|تم تحديث السعر.|Цена обновлена.
+391|Price saved.|تم حفظ السعر.|Цена сохранена.
+392|Price list upload, hotel matching|رفع قوائم الأسعار، مطابقة الفنادق|Загрузка прайс-листов, сопоставление отелей
+393|Upload the price list|ارفع قائمة الأسعار|Загрузите прайс-лист
+394|Price currency|عملة السعر|Валюта цены
+395|Price and profit|السعر والربح|Цена и наценка
+396|The price chain was taken from the list as information. The saved prices are the combination prices below.|أُخذت سلسلة الأسعار من القائمة للعلم. والأسعار المحفوظة هي أسعار التركيبات أدناه.|Цепочка цен взята из листа для информации. Сохраняются цены комбинаций ниже.
+397|Prices are per person.|الأسعار للشخص الواحد.|Цены указаны за человека.
+398|When your price is the lowest, the booking comes to you automatically and is confirmed without waiting. Cancellations appear here instantly and a notification goes to your e-mail. For sales to platform buyers, you are paid in your price currency on the first Friday after two weeks from the check-out date.|عندما يكون سعرك الأدنى يصلك الحجز تلقائيًا ويُؤكَّد دون انتظار. تظهر الإلغاءات هنا فورًا ويصل إشعار إلى بريدك. في المبيعات لمشتري المنصة يُدفع لك بعملة سعرك في أول جمعة بعد مرور أسبوعين على تاريخ المغادرة.|Когда ваша цена самая низкая, бронирование приходит автоматически и подтверждается без ожидания. Отмены видны здесь сразу, уведомление приходит на e-mail. За продажи покупателям платформы оплата производится в валюте вашей цены в первую пятницу после двух недель с даты выезда.
+399|Voucher and account transfer|نقل القيود والحسابات|Передача проводок и контрагентов

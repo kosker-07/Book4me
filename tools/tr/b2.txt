@@ -1,0 +1,200 @@
+400|Night|الليلة|Ночь
+401|Nightly jobs|المهام الليلية|Ночные задачи
+402|Nightly jobs ran: prepayment/cancellation sweep, exchange rates, integration queue, agents ({n} new jobs).|تم تشغيل المهام الليلية: فحص الدفع المسبق/الإلغاء، أسعار الصرف، قائمة التكامل، الوكلاء ({n} مهام جديدة).|Ночные задачи выполнены: проверка предоплат/отмен, курсы, очередь интеграций, агенты ({n} новых задач).
+403|Max per night ({c})|الحد الأقصى لليلة ({c})|Максимум за ночь ({c})
+404|Nightly price|السعر لليلة|Цена за ночь
+405|Nightly price ({c})|السعر لليلة ({c})|Цена за ночь ({c})
+406|Nightly room price, {c}. A room with an empty refundable price is closed for sale in that period; the non-refundable price is optional.|سعر الغرفة لليلة، {c}. الغرفة التي يُترك سعرها القابل للاسترداد فارغًا تكون مغلقة للبيع في تلك الفترة؛ والسعر غير القابل للاسترداد اختياري.|Цена номера за ночь, {c}. Номер с пустой возвратной ценой закрыт для продажи в этом периоде; невозвратная цена необязательна.
+407|General|عام|Общее
+408|Grand total|الإجمالي العام|Итого
+409|Grand total ({c})|الإجمالي العام ({c})|Итого ({c})
+410|Reason|السبب|Причина
+411|You must write a reason.|يجب كتابة سبب.|Нужно указать причину.
+412|Re-checked according to the reason|أُعيد الفحص وفقًا للسبب|Повторно проверено с учётом причины
+413|In the live system the server sends the notification. In the offline model sending is simulated and appears here as a record.|في النظام الحي يرسل الخادم الإشعار. وفي النموذج دون اتصال يُحاكى الإرسال ويظهر هنا كسجل.|В рабочей системе уведомление отправляет сервер. В офлайн-модели отправка имитируется и отображается здесь как запись.
+414|Enter valid start and end dates.|أدخل تاريخي بداية ونهاية صالحين.|Введите корректные даты начала и окончания.
+415|Enter a valid domain (e.g. www.yourcompany.com).|أدخل نطاقًا صالحًا (مثل www.yourcompany.com).|Введите корректный домен (напр. www.yourcompany.com).
+416|Enter a valid e-mail address.|أدخل بريدًا إلكترونيًا صالحًا.|Введите корректный e-mail.
+417|Enter a valid e-mail address.|أدخل بريدًا إلكترونيًا صالحًا.|Введите корректный e-mail.
+418|Enter a valid e-mail address; confirmed sales go here.|أدخل بريدًا إلكترونيًا صالحًا؛ تُرسل إليه المبيعات المؤكدة.|Введите корректный e-mail; сюда приходят подтверждённые продажи.
+419|Enter a valid e-mail.|أدخل بريدًا صالحًا.|Введите корректный e-mail.
+420|Enter a valid e-mail.|أدخل بريدًا صالحًا.|Введите корректный e-mail.
+421|Enter a valid date.|أدخل تاريخًا صالحًا.|Введите корректную дату.
+422|Select a valid date.|اختر تاريخًا صالحًا.|Выберите корректную дату.
+423|Enter a valid amount.|أدخل مبلغًا صالحًا.|Введите корректную сумму.
+424|Enter a valid amount.|أدخل مبلغًا صالحًا.|Введите корректную сумму.
+425|Enter valid stay dates.|أدخل تواريخ إقامة صالحة.|Введите корректные даты проживания.
+426|Enter valid period dates.|أدخل تواريخ فترة صالحة.|Введите корректные даты периода.
+427|Enter valid sales dates.|أدخل تواريخ بيع صالحة.|Введите корректные даты продаж.
+428|Enter valid season dates.|أدخل تواريخ موسم صالحة.|Введите корректные даты сезона.
+429|History|السجل|История
+430|Changes cannot be made to a past date.|لا يمكن إجراء تعديل على تاريخ ماضٍ.|Нельзя вносить изменения на прошедшую дату.
+431|Outbound|الذهاب|Туда
+432|Outbound flight|رحلة الذهاب|Рейс туда
+433|Round trip|ذهاب وعودة|Туда и обратно
+434|Check-in|الوصول|Заезд
+435|Check-in / check-out|الوصول / المغادرة|Заезд / выезд
+436|Select the check-in date|اختر تاريخ الوصول|Выберите дату заезда
+437|GraphQL|GraphQL|GraphQL
+438|Sender|المرسل|Отправитель
+439|The sender e-mail address is not valid.|عنوان البريد المرسل غير صالح.|Адрес отправителя недействителен.
+440|Sent|مُرسل|Отправлено
+441|Display title|الاسم المعروض|Отображаемое название
+442|To be updated|سيُحدَّث|Будет обновлено
+443|Daily quota|الحصة اليومية|Дневная квота
+444|Daily rate, platform-wide|سعر يومي على مستوى المنصة|Дневной курс для всей платформы
+445|Select the day|اختر اليوم|Выберите день
+446|Güzeloba Mah. Lara Cad. No:1 (demo)|Güzeloba Mah. Lara Cad. No:1 (تجريبي)|Güzeloba Mah. Lara Cad. No:1 (демо)
+447|Search route, vehicle or DMC|ابحث بالمسار أو المركبة أو الشركة|Поиск по маршруту, автомобилю или DMC
+448|Which module is in which package (open question). A change applies immediately to all DMCs on that package.|أي وحدة في أي باقة (سؤال مفتوح). ينعكس التغيير فورًا على جميع الشركات في تلك الباقة.|Какой модуль в каком пакете (открытый вопрос). Изменение сразу применяется ко всем DMC этого пакета.
+449|Departure time|وقت الانطلاق|Время отправления
+450|No transactions.|لا توجد حركات.|Операций нет.
+451|Excluded|باستثناء|Кроме
+452|Error|خطأ|Ошибка
+453|Error simulation (retry test)|محاكاة الخطأ (اختبار إعادة المحاولة)|Имитация ошибки (тест повторов)
+454|Failed|فاشل|С ошибкой
+455|Reminder e-mail sent.|تم إرسال بريد التذكير.|Напоминание отправлено.
+456|Pay by bank transfer|الدفع بالتحويل البنكي|Оплатить банковским переводом
+457|Bank transfer notice rejected; the booking is awaiting payment again.|رُفض إشعار التحويل؛ والحجز بانتظار الدفع مجددًا.|Уведомление о переводе отклонено; бронирование снова ожидает оплаты.
+458|Your transfer notice has been received. Payment is finalised once the platform checks and approves the account.|تم استلام إشعار التحويل. يُعتمد الدفع بعد أن تتحقق المنصة من الحساب وتوافق.|Уведомление о переводе получено. Оплата будет подтверждена после проверки платформой.
+459|Your transfer notice has been received; it will be added to your balance once the platform approves.|تم استلام إشعار التحويل؛ وسيُضاف إلى رصيدك بعد موافقة المنصة.|Уведомление о переводе получено; сумма поступит на баланс после одобрения платформой.
+460|Top up by transfer|الشحن بالتحويل|Пополнить переводом
+461|Bank transfer approved.|تمت الموافقة على التحويل.|Перевод подтверждён.
+462|Bank transfer approved. Voucher and invoice created.|تمت الموافقة على التحويل. وأُنشئت القسيمة والفاتورة.|Перевод подтверждён. Ваучер и счёт созданы.
+463|Awaiting transfer approval|بانتظار الموافقة على التحويل|Ожидает подтверждения перевода
+464|I have made the transfer|قمت بالتحويل|Я сделал(а) перевод
+465|Airport → Kemer private transfer|المطار → كيمير نقل خاص|Аэропорт → Кемер, индивидуальный трансфер
+466|Ready|جاهز|Готово
+467|Target|الوجهة|Получатель
+468|Immediate payment required|الدفع الفوري مطلوب|Требуется немедленная оплата
+469|No API commission yet.|لا توجد عمولة API بعد.|Комиссий API пока нет.
+470|You have no agencies yet.|ليست لديك وكالات بعد.|У вас пока нет агентств.
+471|No sub-accounts yet.|لا توجد حسابات فرعية بعد.|Субсчетов пока нет.
+472|No keys yet.|لا توجد مفاتيح بعد.|Ключей пока нет.
+473|No support sessions yet.|لا توجد جلسات دعم بعد.|Входов поддержки пока не было.
+474|No statement uploaded yet.|لم يُرفع أي كشف بعد.|Выписки ещё не загружались.
+475|No outgoing e-mails yet.|لا توجد رسائل صادرة بعد.|Исходящих писем пока нет.
+476|No transactions yet.|لا توجد حركات بعد.|Операций пока нет.
+477|No requests yet.|لا توجد طلبات بعد.|Запросов пока нет.
+478|No decided jobs yet.|لا توجد مهام تم البت فيها بعد.|Решённых задач пока нет.
+479|No commission invoices yet.|لا توجد فواتير عمولة بعد.|Счетов комиссии пока нет.
+480|No hotels yet. Start with “Define new hotel”.|لا توجد فنادق بعد. ابدأ بـ“تعريف فندق جديد”.|Отелей пока нет. Начните с «Добавить новый отель».
+481|No platform API connections yet.|لا توجد اتصالات API للمنصة بعد.|Подключений API платформы пока нет.
+482|No guides yet.|لا يوجد مرشدون بعد.|Гидов пока нет.
+483|No bookings yet.|لا توجد حجوزات بعد.|Бронирований пока нет.
+484|No bookings yet. Start from the Search and booking tab.|لا توجد حجوزات بعد. ابدأ من تبويب البحث والحجز.|Бронирований пока нет. Начните с вкладки «Поиск и бронирование».
+485|You have no sales yet.|ليست لديك مبيعات بعد.|У вас пока нет продаж.
+486|No bookings routed to you yet.|لم يُوجَّه إليك أي حجز بعد.|Вам пока не поступало бронирований.
+487|No offers yet.|لا توجد عروض بعد.|Предложений пока нет.
+488|No transfer prices yet.|لا توجد أسعار نقل بعد.|Цен трансферов пока нет.
+489|Not uploaded yet|لم يُرفع بعد|Ещё не загружено
+490|Upload each document separately; it can be an image or PDF. Your panel opens once the documents are approved by the admin.|ارفع كل مستند على حدة؛ ويمكن أن يكون صورة أو PDF. تُفتح لوحتك بعد موافقة المسؤول على المستندات.|Загрузите каждый документ отдельно; это может быть изображение или PDF. Панель откроется после одобрения документов администратором.
+491|Each section is optional. Your selections are calculated below as a single price; each service goes to the lowest-priced supplier.|كل قسم اختياري. تُحسب اختياراتك أدناه بسعر واحد؛ وتذهب كل خدمة إلى المورّد الأقل سعرًا.|Каждый раздел необязателен. Выбранное рассчитывается ниже одной ценой; каждая услуга уходит поставщику с самой низкой ценой.
+492|An activity log is kept for every company: who did what and when. The Back Office can open a DMC screen only when the DMC allows it.|يُحتفظ بسجل عمليات لكل شركة: من فعل ماذا ومتى. ولا يمكن لـBack Office فتح شاشة شركة إلا بإذنها.|Для каждой компании ведётся журнал: кто, что и когда сделал. Back Office может открыть экран DMC только с её разрешения.
+493|Select at least one service and currency in both templates.|اختر خدمة وعملة واحدة على الأقل في كلا القالبين.|Выберите хотя бы одну услугу и валюту в обоих шаблонах.
+494|Each hotel on a separate sheet: hotel name, address (zone / province), season, validity, market and currency, board and stars.|كل فندق في ورقة منفصلة: اسم الفندق، العنوان (المنطقة / المحافظة)، الموسم، الصلاحية، السوق والعملة، الإقامة والنجوم.|Каждый отель на отдельном листе: название, адрес (зона / провинция), сезон, срок действия, рынок и валюта, питание и звёзды.
+495|Every money movement|كل حركة مالية|Каждое движение денег
+496|Every release|كل إصدار|Каждый релиз
+497|Open account|فتح الحساب|Открыть счёт
+498|Close account|إغلاق الحساب|Закрыть счёт
+499|My account|حسابي|Мой аккаунт
+500|Your account is temporarily closed|حسابك مغلق مؤقتًا|Ваш счёт временно закрыт
+501|No section permission has been given to your account yet. Contact your company administrator.|لم تُمنح لحسابك صلاحية أي قسم بعد. تواصل مع مسؤول شركتك.|Вашему аккаунту ещё не выданы права на разделы. Обратитесь к администратору компании.
+502|Account|الحساب|Счёт
+503|The account loads the agreed amount into the prepayment account; for bookings the amount is blocked and deducted automatically once the free cancellation period under the cancellation terms ends.|يشحن الحساب المبلغ المتفق عليه في حساب الدفع المسبق؛ وفي الحجوزات يُحجز المبلغ ويُخصم تلقائيًا عند انتهاء مهلة الإلغاء المجاني وفق شروط الإلغاء.|Счёт вносит согласованную сумму на счёт предоплаты; по бронированиям сумма блокируется и списывается автоматически по окончании срока бесплатной отмены.
+504|Account information and transaction service|خدمة معلومات الحساب والحركات|Сервис информации о счёте и операциях
+505|Fetch account transactions, match bank transfers|جلب حركات الحساب، مطابقة التحويلات|Загрузка операций по счёту, сверка переводов
+506|Account closed by the platform|أُغلق الحساب من قبل المنصة|Счёт закрыт платформой
+507|Account reopened|أُعيد فتح الحساب|Счёт снова открыт
+508|Account reopened.|أُعيد فتح الحساب.|Счёт снова открыт.
+509|Service no|رقم الخدمة|№ услуги
+510|Until service date|حتى تاريخ الخدمة|До даты услуги
+511|Service voucher|قسيمة الخدمة|Ваучер на услугу
+512|No credit is given to any company. Bookings not paid on time are cancelled automatically.|لا يُمنح ائتمان لأي شركة. وتُلغى الحجوزات غير المدفوعة في موعدها تلقائيًا.|Никакой компании не предоставляется кредит. Неоплаченные вовремя бронирования отменяются автоматически.
+513|Welcome, {n}.|مرحبًا، {n}.|Добро пожаловать, {n}.
+514|INDEX zone|منطقة INDEX|Зона INDEX
+515|SCOPE: The DMC uploads and sells these services: {sv}. Only the screens for these services open in the panel.|النطاق: تحمّل الشركة هذه الخدمات وتبيعها: {sv}. ولا تُفتح في اللوحة إلا شاشات هذه الخدمات.|ОХВАТ: DMC загружает и продаёт услуги: {sv}. В панели открываются только экраны этих услуг.
+516|Kadıköy branch|فرع قاضي كوي|Филиал Кадыкёй
+517|Remaining|المتبقي|Остаток
+518|Remove|إزالة|Удалить
+519|Removed|أُزيل|Удалено
+520|Removed.|تمت الإزالة.|Удалено.
+521|Kaleiçi and Düden Waterfall Tour|جولة كاليتشي وشلال دودن|Тур Калеичи и водопад Дюден
+522|Departure airport|مطار المغادرة|Аэропорт вылета
+523|Search and select the departure point (airport or zone) and the arrival zone from the Türkiye and Egypt list. If you choose a province as arrival (whole province), this price applies to all zones in that province you have not priced separately. Prices are one way and per vehicle.|ابحث واختر نقطة الانطلاق (مطار أو منطقة) ومنطقة الوصول من قائمة تركيا ومصر. إذا اخترت محافظة كوجهة (المحافظة كاملة) يُطبق هذا السعر على جميع مناطقها التي لم تسعّرها منفصلة. الأسعار لاتجاه واحد ولكل مركبة.|Найдите и выберите точку отправления (аэропорт или зону) и зону прибытия из списка Турции и Египта. Если выбрать провинцию (вся провинция), цена применяется ко всем её зонам без отдельной цены. Цены в одну сторону и за автомобиль.
+524|Departure and arrival must differ.|يجب أن يختلف الانطلاق عن الوصول.|Пункты отправления и прибытия должны различаться.
+525|Closed|مغلق|Закрыто
+526|Amount to close|المبلغ المراد إقفاله|Сумма к закрытию
+527|Closed|مُقفل|Закрыт
+528|Scope|النطاق|Охват
+529|Covered bookings|الحجوزات المشمولة|Охваченные бронирования
+530|Decision|القرار|Решение
+531|Received by card|استُلم بالبطاقة|Получено картой
+532|Top up by card|الشحن بالبطاقة|Пополнить картой
+533|Pay by card and confirm the booking|ادفع بالبطاقة وأكّد الحجز|Оплатить картой и подтвердить бронирование
+534|Pay by card · single invoice|الدفع بالبطاقة · فاتورة واحدة|Оплата картой · один счёт
+535|Paid by card.|تم الدفع بالبطاقة.|Оплачено картой.
+536|The other party reads and signs the same text in its own panel, in its own language.|يقرأ الطرف الآخر النص نفسه ويوقّعه في لوحته وبلغته.|Другая сторона читает и подписывает этот же текст в своей панели на своём языке.
+537|The other party uploads each document separately from its own panel. Preview and approve, or reject with a reason.|يرفع الطرف الآخر كل مستند على حدة من لوحته. عاين ووافق، أو ارفض مع ذكر السبب.|Другая сторона загружает каждый документ отдельно из своей панели. Просмотрите и одобрите или отклоните с указанием причины.
+538|November|نوفمبر|Ноябрь
+539|Catalogue synchronised: {n} hotels|تمت مزامنة الكتالوج: {n} فندق|Каталог синхронизирован: {n} отелей
+540|Synchronise catalogue|مزامنة الكتالوج|Синхронизировать каталог
+541|Coefficient|المعامل|Коэффициент
+542|Participant|المشارك|Участник
+543|Participant details|بيانات المشاركين|Данные участников
+544|Saved.|تم الحفظ.|Сохранено.
+545|Saved; profit recalculated.|تم الحفظ؛ وأُعيد حساب الربح.|Сохранено; наценка пересчитана.
+546|In the to-be-saved list|ضمن قائمة الحفظ|В списке на сохранение
+547|Not saved|غير المحفوظة|Не сохраняются
+548|Check the record|افحص السجل|Проверить запись
+549|Record|السجل|Запись
+550|Awaiting record|بانتظار السجل|Ожидается запись
+551|Record not found|لم يُعثر على السجل|Запись не найдена
+552|Record verified; the {h} address and security certificate are ready.|تم التحقق من السجل؛ والعنوان {h} وشهادة الأمان جاهزان.|Запись подтверждена; адрес {h} и сертификат безопасности готовы.
+553|Once the record is seen, the security certificate is installed automatically. If you delete the record only this address closes; the system and your data stay on the platform. Your e-mails go from your own domain if the records are complete, otherwise from the platform address.|عند رصد السجل تُثبّت شهادة الأمان تلقائيًا. إذا حذفت السجل يُغلق هذا العنوان فقط؛ ويبقى النظام وبياناتك على المنصة. تُرسل رسائلك من نطاقك إن كانت السجلات مكتملة، وإلا فمن عنوان المنصة.|Когда запись обнаружена, сертификат устанавливается автоматически. Если удалить запись, закроется только этот адрес; система и данные остаются на платформе. Письма уходят с вашего домена при полных записях, иначе — с адреса платформы.
+554|Registration completed|اكتمل التسجيل|Запись завершена
+555|No records.|لا توجد سجلات.|Записей нет.
+556|No stop-sale recorded.|لا يوجد إيقاف بيع مسجّل.|Стоп-продаж нет.
+557|For trade from your own API connection the platform takes 1% on purchase + 1% on sale; one commission invoice is issued at month end and can be offset against the platform's payable to you or your prepayment balance.|في التجارة عبر اتصال API الخاص بك تأخذ المنصة 1% على الشراء + 1% على البيع؛ وتصدر فاتورة عمولة واحدة في نهاية الشهر ويمكن مقاصتها من مستحقاتك لدى المنصة أو من رصيد الدفع المسبق.|За торговлю через ваше собственное API платформа берёт 1% с покупки + 1% с продажи; в конце месяца выставляется один счёт комиссии, который можно зачесть против долга платформы перед вами или баланса предоплаты.
+558|To my own agencies|إلى وكالاتي الخاصة|Моим агентствам
+559|Sales to your own agencies and from your own API: you issue the invoice under your own title.|المبيعات لوكالاتك الخاصة ومن API الخاص بك: تصدر الفاتورة باسمك.|Продажи своим агентствам и через своё API: вы выставляете счёт от своего имени.
+560|You have no agencies of your own. You can open them in Booking → My agencies.|ليست لديك وكالات خاصة. يمكنك فتحها من الحجز ← وكالاتي.|У вас нет собственных агентств. Их можно открыть в разделе «Бронирование → Мои агентства».
+561|Own domain|نطاق خاص|Собственный домен
+562|Own domain is not in your package.|النطاق الخاص غير مشمول في باقتك.|Собственный домен не входит в ваш пакет.
+563|The own domain feature is not in your package ({p}).|ميزة النطاق الخاص غير مشمولة في باقتك ({p}).|Функция собственного домена не входит в ваш пакет ({p}).
+564|Your own domain (optional)|نطاقك الخاص (اختياري)|Ваш собственный домен (необязательно)
+565|You cannot deactivate your own account.|لا يمكنك تعطيل حسابك.|Нельзя деактивировать собственный аккаунт.
+566|Your own customer agencies log in with their own users and see and buy only your products at your profit rate. You handle invoicing and collection (Accounting → Agency accounts); no platform markup applies.|تدخل وكالات عملائك بمستخدميها وترى منتجاتك فقط وتشتريها بنسبة ربحك. أنت تتولى الفوترة والتحصيل (المحاسبة ← حسابات الوكالات)؛ ولا يُطبق هامش المنصة.|Ваши агентства-клиенты входят со своими пользователями и видят и покупают только ваши продукты по вашей наценке. Счета и оплату ведёте вы (Бухгалтерия → Счета агентств); наценка платформы не применяется.
+567|You cannot change your own role.|لا يمكنك تغيير دورك.|Нельзя изменить собственную роль.
+568|Who|من|Кто
+569|To|إلى|Кому
+570|People|الأشخاص|Человек
+571|Base price per person|السعر الأساسي للشخص|Базовая цена за человека
+572|The number of people exceeds vehicle capacity.|عدد الأشخاص يتجاوز سعة المركبة.|Число людей превышает вместимость автомобиля.
+573|Search person, action or record|ابحث بالشخص أو الإجراء أو السجل|Поиск по человеку, действию или записи
+574|People|الأشخاص|Люди
+575|Code|الرمز|Код
+576|Code repository, tests, release|مستودع الشيفرة، الاختبارات، الإصدار|Репозиторий кода, тесты, релиз
+577|Code mapping|مطابقة الرموز|Сопоставление кодов
+578|Select the code and its counterpart.|اختر الرمز وما يقابله.|Выберите код и соответствие.
+579|Combination|التركيبة|Комбинация
+580|Add combination|إضافة تركيبة|Добавить комбинацию
+581|Combination label|تسمية التركيبة|Метка комбинации
+582|Combination prices|أسعار التركيبات|Цены комбинаций
+583|Combination price saved.|تم حفظ سعر التركيبة.|Цена комбинации сохранена.
+584|Commission %|العمولة %|Комиссия %
+585|Commission (EUR)|العمولة (EUR)|Комиссия (EUR)
+586|Commission invoices|فواتير العمولة|Счета комиссии
+587|A commission invoice will be issued. This is a money movement; are you sure?|ستُصدر فاتورة عمولة. هذه حركة مالية؛ هل أنت متأكد؟|Будет выставлен счёт комиссии. Это движение денег; вы уверены?
+588|Commission invoice {no} issued: {a}|تم إصدار فاتورة العمولة {no}: {a}|Счёт комиссии {no} выставлен: {a}
+589|Commission invoice · platform to DMC|فاتورة عمولة · من المنصة إلى الشركة|Счёт комиссии · от платформы DMC
+590|Commission offset: −{a}|مقاصة العمولة: −{a}|Зачёт комиссии: −{a}
+591|Commissions|العمولات|Комиссии
+592|With your {m}% commission added, the sale price to the customer is {p}.|بعد إضافة عمولتك {m}% يصبح سعر البيع للعميل {p}.|С учётом вашей комиссии {m}% цена для клиента — {p}.
+593|Accommodation|الإقامة|Проживание
+594|Stay start|بداية الإقامة|Начало проживания
+595|Stay end|نهاية الإقامة|Конец проживания
+596|Use in console|استخدم في وحدة التحكم|Использовать в консоли
+597|Quota / night|الحصة / ليلة|Квота / ночь
+598|Quota / night (new rooms)|الحصة / ليلة (غرف جديدة)|Квота / ночь (новые номера)
+599|Check required|يحتاج إلى مراجعة|Требуется проверка
