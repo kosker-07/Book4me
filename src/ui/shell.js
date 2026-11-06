@@ -1,7 +1,7 @@
 /* Kabuk: başlık (marka), dil seçimi, giriş ekranı, panel yönlendirmesi, üst katmanlar. */
 const SH = B4M.shell = {}, A = B4M.ui.A, UI = B4M.ui, S = UI.S, db = () => B4M.db;
 SH.header = () => {
-  const x = B4M.uiBrand.current(), u = B4M.app.user(), c = B4M.ctx, host = x ? B4M.brand.addresses(x.d).filter(a => a.ok).map(a => a.host)[0] || B4M.brand.host(x.d) : "www.book4me-ai.com";
+  const x = B4M.uiBrand.current(), u = B4M.app.user(), c = B4M.ctx, host = x ? B4M.brand.addresses(x.d).filter(a => a.ok).map(a => a.host)[0] || B4M.brand.host(x.d) : "www.bed4book.com";
   return B4M.uiBrand.logo(x) + `<div class="end"><span class="mu url">${U.esc(host)}</span><label class="lngw"><span class="mu" style="font-size:12px">${t("Dil")}</span><select id="lng" aria-label="${t("Dil")}" ${UI.c("lang")}>${UI.opt(I.LANGS, I.lang, false)}</select></label>${c.uid ? `<span class="mu" style="align-self:center">${U.esc(u.name)}</span><button class="g" ${UI.a("logout")}>${t("Çıkış yap")}</button>` : ""}</div>`;
 };
 A.lang = (a, el) => { I.set(el.value); try { localStorage.setItem("b4m-lang", I.lang); } catch (e) { } };
@@ -17,7 +17,7 @@ A.supExit = () => { const r = B4M.lic.supportExit(); S.tab = "lic"; return r; };
 /* ---- giriş ---- */
 SH.login = () => {
   const slug = B4M.uiBrand.slug(), x = B4M.uiBrand.current(), lic = x && B4M.lic.of(x.d.id), closed = lic && lic.status != "Aktif";
-  if (slug && !x && slug != "backoffice") return UI.box(t("Adres bulunamadı"), `<p class="mu">${t("Bu adreste kayıtlı bir firma yok.")}</p><a href="#">www.book4me-ai.com</a>`);
+  if (slug && !x && slug != "backoffice") return UI.box(t("Adres bulunamadı"), `<p class="mu">${t("Bu adreste kayıtlı bir firma yok.")}</p><a href="#">www.bed4book.com</a>`);
   if (closed) return UI.box(t("Bu adres şu anda kapalı"), `<p class="mu" style="margin:0">${t("Firmanın lisansı askıya alındı. Lütfen firmanızla iletişime geçin.")}</p>`);
   const demo = db().where("users", u => u.active && (!x || (u.org == "s" && B4M.app.tidOf(u.oid) == x.d.id))).sort((a, b) => (a.org == "h" ? 0 : 1) - (b.org == "h" ? 0 : 1) || a.oid - b.oid || (a.role == "admin" ? 0 : 1) - (b.role == "admin" ? 0 : 1));
   const grp = {}; demo.forEach(u => { const k = u.org == "h" ? t("Back Office") : B4M.parties.dmcName(u.oid); (grp[k] = grp[k] || []).push(u); });
@@ -25,8 +25,8 @@ SH.login = () => {
   <div class="box" style="max-width:520px"><h2>${x ? t("Firma girişi") : t("Giriş")}</h2>
   <div class="row"><label>${t("E-posta")}<input id="lg_e" type="email" autocomplete="username" data-enter="login"></label></div>
   <div class="row"><label>${t("Şifre")}<input id="lg_p" type="password" autocomplete="current-password" data-enter="login"></label></div>
-  <div class="row" style="margin:0"><button class="b" ${UI.a("login")}>${t("Giriş yap")}</button>${x ? `<a class="mu" href="#" style="align-self:center">${t("Platform girişi")}</a>` : `<span class="mu" style="align-self:center">${t("Firmalar kendi adreslerinden de girebilir, ör. {h}", { h: "akdeniz.book4me-ai.com" })} <a href="#akdeniz">#akdeniz</a></span>`}</div></div>
-  <details class="box" style="max-width:720px" open><summary><b>${t("Test girişi")}</b> <span class="mu">${t("Demo hesaplarının şifresi: {p}", { p: "book4me" })}</span></summary>
+  <div class="row" style="margin:0"><button class="b" ${UI.a("login")}>${t("Giriş yap")}</button>${x ? `<a class="mu" href="#" style="align-self:center">${t("Platform girişi")}</a>` : `<span class="mu" style="align-self:center">${t("Firmalar kendi adreslerinden de girebilir, ör. {h}", { h: "akdeniz.bed4book.com" })} <a href="#akdeniz">#akdeniz</a></span>`}</div></div>
+  <details class="box" style="max-width:720px" open><summary><b>${t("Test girişi")}</b> <span class="mu">${t("Demo hesaplarının şifresi: {p}", { p: "bed4book" })}</span></summary>
   <div class="row" style="margin-top:10px"><label>${t("Kullanıcı")}<select id="lg_d">${Object.entries(grp).map(([g, L]) => `<optgroup label="${U.esc(g)}">${L.map(u => `<option value="${u.id}">${U.esc(u.name)} · ${U.esc(t(B4M.auth.roleTxt(u)))}${u.mgr ? " · " + t("kısım müdürü") : ""} · ${U.esc(u.email || "")}</option>`).join("")}</optgroup>`).join("")}</select></label><button class="b" ${UI.a("demoLogin")}>${t("Giriş yap")}</button></div>
   <p class="mu" style="margin:0">${t("Canlı sistemde her kullanıcı kendi şifresiyle girer. Yönetici tüm bölümlere erişir; diğer kullanıcılar yöneticinin verdiği yetkilerle çalışır.")}</p></details>`;
 };

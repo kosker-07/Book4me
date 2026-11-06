@@ -1,10 +1,10 @@
-/* Demo verisi: v40 prototipinin son durumuyla aynı firmalar, kullanıcılar, ürünler ve örnek rezervasyonlar. Tüm demo şifreleri: book4me */
+/* Demo verisi: v40 prototipinin son durumuyla aynı firmalar, kullanıcılar, ürünler ve örnek rezervasyonlar. Tüm demo şifreleri: bed4book */
 const SD = B4M.seed = {};
 SD.run = db => {
   B4M.db = db; const U2 = U, td = U.today(), ad = n => U.addD(td, n), P = B4M.parties, AU = B4M.auth, PR = B4M.price, now = U.now();
   db.cfg("rates", { ...PR.DEF_RATES }); db.cfg("rules", P.seedRules()); PR.table(); PR.comm(); B4M.lic.pkgs();
   ["Antalya Havalimanı (AYT)", "Lara", "Belek", "İstanbul Havalimanı (IST)", "Sultanahmet", "Beşiktaş"].forEach(z => db.add("zones", { name: z }));
-  [["TRY", "01"], ["EUR", "02"], ["USD", "03"]].forEach(([c, n]) => db.add("banks", { cur: c, bank: "Örnek Bankası (demo)", holder: "book4me ai A.Ş.", iban: "TR00 0000 0000 0000 0000 0000 " + n }));
+  [["TRY", "01"], ["EUR", "02"], ["USD", "03"]].forEach(([c, n]) => db.add("banks", { cur: c, bank: "Örnek Bankası (demo)", holder: "bed4book A.Ş.", iban: "TR00 0000 0000 0000 0000 0000 " + n }));
   const ch = { h: { hq: true, own: true }, t: { hq: true, own: true }, u: { hq: true, own: true } }, mgn = { h: 10, t: 15, u: 20, f: 5 };
   const D = (id, name, code, email, slug, x) => db.add("dmcs", { id, name, code, email, slug, tid: id, mgn: { ...mgn }, ch: U.clone(ch), ...(x || {}) });
   D(1, "Akdeniz Turizm", "1111", "rezervasyon@akdeniz-turizm.example", "akdeniz", { api: { name: "Akdeniz Uçuş API", url: "https://api.akdeniz-turizm.example/v1/flights", key: "demo-akd-7f3a", on: true, test: "" } });
@@ -41,9 +41,9 @@ SD.run = db => {
   db.all("contracts").forEach(c => { if (c.ver && !c.ver.code) c.ver.code = P.kCode(c); });
   /* kullanıcılar */
   const u = (org, oid, name, email, dept, x) => AU.addUserRaw({ org, oid, name, email, role: dept ? "user" : "admin", dept: dept || "", perms: dept ? [...AU.TPL[org][dept]] : [], unit: "", tid: org == "h" ? "P" : org == "s" ? B4M.app.tidOf(oid) : P.tidFor("a", oid), ...(x || {}) });
-  u("h", 0, "Back Office Yöneticisi", "admin@book4me-ai.com");
-  u("h", 0, "Selin Demir", "muhasebe@book4me-ai.com", "Muhasebe", { mgr: true }); u("h", 0, "Burak Şahin", "satis@book4me-ai.com", "Satış");
-  u("h", 0, "Elif Arslan", "kontrat@book4me-ai.com", "Kontrat", { perms: [...AU.TPL.h.Kontrat, "dbf"] }); u("h", 0, "Kerem Aydın", "dmc@book4me-ai.com", "DMC"); u("h", 0, "Elif Demir", "operasyon@book4me-ai.com", "Operasyon");
+  u("h", 0, "Back Office Yöneticisi", "admin@bed4book.com");
+  u("h", 0, "Selin Demir", "muhasebe@bed4book.com", "Muhasebe", { mgr: true }); u("h", 0, "Burak Şahin", "satis@bed4book.com", "Satış");
+  u("h", 0, "Elif Arslan", "kontrat@bed4book.com", "Kontrat", { perms: [...AU.TPL.h.Kontrat, "dbf"] }); u("h", 0, "Kerem Aydın", "dmc@bed4book.com", "DMC"); u("h", 0, "Elif Demir", "operasyon@bed4book.com", "Operasyon");
   [[1, "Akdeniz Turizm", "rezervasyon@akdeniz-turizm.example"], [2, "Boğaz Otelcilik", "operasyon@bogaz-otelcilik.example"], [3, "Sahil Tedarik", "booking@sahil-tedarik.example"], [4, "Mavi Seyahat", "operasyon@maviseyahat.example"], [5, "Rota Tur", "info@rotatur.example"], [6, "Kemer Otelcilik", "rezervasyon@kemerotelcilik.example"], [7, "Mavi Ankara Turizm", "ankara@maviseyahat.example"], [8, "Kemer Holiday Travel", "info@kemerholiday.example"]].forEach(([id, n, e]) => u("s", id, n + " Yöneticisi", e));
   u("s", 1, "Mehmet Demir", "mehmet@akdeniz-turizm.example", "Product"); u("s", 1, "Can Aksoy", "operasyon@akdeniz-turizm.example", "Operasyon", { mgr: true, unit: "Operasyon" });
   u("s", 1, "Deniz Kurt", "deniz@akdeniz-turizm.example", "Rezervasyon", { mgr: true }); u("s", 1, "Mert Öz", "product@akdeniz-turizm.example", "Product"); u("s", 1, "Zeynep Ak", "muhasebe@akdeniz-turizm.example", "Muhasebe", { perms: [...AU.TPL.s.Muhasebe, "dbf"] });
@@ -100,6 +100,6 @@ SD.run = db => {
   /* dashboard için oluşturma tarihlerini son 4 haftaya yay */
   const L = db.all("orders").slice().sort((a, b) => a.id - b.id); L.forEach((o, i) => { if (i < L.length - 2) { o.at = ad(-((i * 5 + 3) % 27) - 1) + " " + U.pad(9 + i % 8, 2) + ":" + U.pad(i * 7 % 60, 2); BK.oBks(o).forEach(b => b.at = o.at); } });
   db.all("commissions").forEach(c => { const b = db.get("bookings", c.bid); if (b) { c.at = b.at; c.month = b.at.slice(0, 7); } });
-  B4M.lic.announce("book4me ai v41 yayında", "Yeni yapı: dil dosyaları, marka ayarları, Entegrasyon ve Agent merkezleri. Tüm entegrasyonlar ve agentlar kapalı kuruldu; hazır olduğunuzda tek tıkla açabilirsiniz.", "all");
+  B4M.lic.announce("bed4book v41 yayında", "Yeni yapı: dil dosyaları, marka ayarları, Entegrasyon ve Agent merkezleri. Tüm entegrasyonlar ve agentlar kapalı kuruldu; hazır olduğunuzda tek tıkla açabilirsiniz.", "all");
   db.cfg("seededAt", now);
 };

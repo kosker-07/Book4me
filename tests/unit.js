@@ -50,15 +50,15 @@ test("İçe aktarma: örnek liste kaydedilir, aynı isimli otel güncellenir", (
 
 /* ---------- giriş, lisans, çok kiracılılık ---------- */
 test("Gerçek giriş: şifre doğru/yanlış, firma adresi (slug) filtresi", () => {
-  const B = load(); ok(B.auth.login("rezervasyon@akdeniz-turizm.example", "book4me").ok); ok(!B.auth.login("rezervasyon@akdeniz-turizm.example", "yanlis").ok);
-  ok(B.auth.login("rezervasyon@akdeniz-turizm.example", "book4me", "akdeniz").ok); ok(!B.auth.login("rezervasyon@akdeniz-turizm.example", "book4me", "bogaz").ok, "başka firmanın adresinden girememeli");
-  const u = B.db.find("users", u => u.email == "rezervasyon@akdeniz-turizm.example"); ok(u.pw && u.pw != "book4me" && u.salt, "şifre düz metin saklanmamalı");
+  const B = load(); ok(B.auth.login("rezervasyon@akdeniz-turizm.example", "bed4book").ok); ok(!B.auth.login("rezervasyon@akdeniz-turizm.example", "yanlis").ok);
+  ok(B.auth.login("rezervasyon@akdeniz-turizm.example", "bed4book", "akdeniz").ok); ok(!B.auth.login("rezervasyon@akdeniz-turizm.example", "bed4book", "bogaz").ok, "başka firmanın adresinden girememeli");
+  const u = B.db.find("users", u => u.email == "rezervasyon@akdeniz-turizm.example"); ok(u.pw && u.pw != "bed4book" && u.salt, "şifre düz metin saklanmamalı");
 });
 test("Lisans askıya alınınca DMC'nin tüm kullanıcıları ve alt hesapları giremez; açılınca girer", () => {
-  const B = load(); B.auth.start(B.db.find("users", u => u.email == "admin@book4me-ai.com"));
-  ok(B.lic.toggle(1, "test").ok); eq(B.lic.of(1).status, "Askıda"); ok(!B.auth.login("rezervasyon@akdeniz-turizm.example", "book4me").ok);
+  const B = load(); B.auth.start(B.db.find("users", u => u.email == "admin@bed4book.com"));
+  ok(B.lic.toggle(1, "test").ok); eq(B.lic.of(1).status, "Askıda"); ok(!B.auth.login("rezervasyon@akdeniz-turizm.example", "bed4book").ok);
   const sub = B.db.find("users", u => u.org == "s" && u.oid == 6); if (sub) ok(!B.auth.start(sub).ok, "alt hesap girebiliyor");
-  ok(B.lic.toggle(1).ok); ok(B.auth.login("rezervasyon@akdeniz-turizm.example", "book4me").ok);
+  ok(B.lic.toggle(1).ok); ok(B.auth.login("rezervasyon@akdeniz-turizm.example", "bed4book").ok);
 });
 test("Çok kiracılılık: her DMC yalnızca kendi verisini görür", () => {
   const B = load(), s1 = B.db.scope(1), s2 = B.db.scope(2);
@@ -67,7 +67,7 @@ test("Çok kiracılılık: her DMC yalnızca kendi verisini görür", () => {
   ok(s2.all("bookings").length < B.db.all("bookings").length, "rezervasyon filtrelenmiyor");
 });
 test("Destek modu: yalnızca DMC izin verirse açılır ve kayda geçer", () => {
-  const B = load(); B.auth.start(B.db.find("users", u => u.email == "admin@book4me-ai.com"));
+  const B = load(); B.auth.start(B.db.find("users", u => u.email == "admin@bed4book.com"));
   if (B.brand.of(2).support) B.brand.togSupport(2); ok(!B.lic.supportEnter(2).ok, "izinsiz açıldı"); B.brand.togSupport(2);
   const r = B.lic.supportEnter(2); ok(r.ok, r.msg); ok(B.db.where("supportLog", x => x.tid == 2).length > 0, "kayıt yok"); ok(B.lic.supportExit().ok);
 });
@@ -85,7 +85,7 @@ test("API komisyonu yalnızca DMC'nin kendi API ticaretinde doğar (seed: 1 kay�
   ok(B.db.all("bookings").filter(b => b.src != "api").every(b => !B.acc.commQualifies(b)), "API dışı rezervasyona komisyon");
 });
 test("Komisyon faturası ay sonunda tek fatura; platform alacağından mahsup", () => {
-  const B = load(); B.auth.start(B.db.find("users", u => u.email == "admin@book4me-ai.com")); const m = B.db.all("commissions")[0].month, r = B.acc.commInvoice(1, m); ok(r.ok, r.msg);
+  const B = load(); B.auth.start(B.db.find("users", u => u.email == "admin@bed4book.com")); const m = B.db.all("commissions")[0].month, r = B.acc.commInvoice(1, m); ok(r.ok, r.msg);
   const inv = B.db.all("cinvoices").slice(-1)[0]; ok(inv && inv.dmc == 1, "fatura yok"); ok(B.acc.commOpen(1).length == 0, "açık komisyon kaldı");
 });
 test("Arama: DMC'nin kendi ürünleri “Special offer” (own) olarak gelir, tedarikçi adı yok", () => {
@@ -111,7 +111,7 @@ test("Ön ödeme: tutar bloke edilir, iptal süresi dolunca GECE İŞİYLE düş
   B.util._now = Date.parse(o.due) + 2 * 864e5; B.jobs.nightly("test"); o = B.db.get("orders", o.id); eq(B.book.oDue(o), 0, "düşülmedi"); ok(o.inv, "fatura yok"); ok(!o.auto, "iptal edilmemeli");
 });
 test("Dashboard kapsamı: Back Office ve DMC panelleri sayı üretir", () => {
-  const B = load(); B.auth.start(B.db.find("users", u => u.email == "admin@book4me-ai.com")); const h = B.rep.hq("30"); ok(h && typeof h == "object");
+  const B = load(); B.auth.start(B.db.find("users", u => u.email == "admin@bed4book.com")); const h = B.rep.hq("30"); ok(h && typeof h == "object");
   B.auth.start(B.db.find("users", u => u.email == "rezervasyon@akdeniz-turizm.example")); const d = B.rep.dmc(1, "30", B.rep.scope("s", B.app.user())); ok(d && typeof d == "object");
 });
 
@@ -124,7 +124,7 @@ test("Entegrasyonlar kapalı kurulu; açılınca olay kuyruğa düşer, hata sim
   const e = B.db.all("events").slice(-1)[0]; ok(Object.values(e.out)[0].payload, "çeviri yok");
 });
 test("Agent: kapalı kurulu; Okeyle (yüksek riskte ikinci onay) ve Okeyleme (gerekçe + düzeltilmiş sürüm)", () => {
-  const B = load(); B.auth.start(B.db.find("users", u => u.email == "admin@book4me-ai.com")); ok(B.db.all("agents").every(a => !a.on), "açık agent var");
+  const B = load(); B.auth.start(B.db.find("users", u => u.email == "admin@bed4book.com")); ok(B.db.all("agents").every(a => !a.on), "açık agent var");
   const x = B.agents.propose("P", "acc", { title: "Test", why: "w", risk: "Yüksek", act: { fn: "answer", args: {} } });
   const r1 = B.agents.decide(x.id, true); ok(r1.confirm, "ikinci onay sorulmadı"); eq(B.db.get("approvals", x.id).state, "Bekliyor");
   ok(B.agents.decide(x.id, true, "", true).ok); eq(B.db.get("approvals", x.id).state, "Onaylandı");
@@ -133,7 +133,7 @@ test("Agent: kapalı kurulu; Okeyle (yüksek riskte ikinci onay) ve Okeyleme (ge
   ok(!B.agents.propose("P", "acc", { key: "k1", title: "Test2", why: "w", act: { fn: "answer" } }), "7 gün tekrar etmemeli");
 });
 test("Agent çalıştırma: açılan agent yalnızca onay kuyruğuna iş bırakır, canlı veriye dokunmaz", () => {
-  const B = load(); B.auth.start(B.db.find("users", u => u.email == "admin@book4me-ai.com")); const before = JSON.stringify(B.db.all("hotels"));
+  const B = load(); B.auth.start(B.db.find("users", u => u.email == "admin@bed4book.com")); const before = JSON.stringify(B.db.all("hotels"));
   B.agents.DEF.forEach(a => B.agents.toggle("P", a.k)); const r = B.agents.run("P"); ok(r.ok); eq(JSON.stringify(B.db.all("hotels")), before, "otel verisi değişti"); ok(B.agents.pending("P").length > 0, "iş yok");
 });
 test("API Out: kapalıyken 503, anahtarsız 401, istek sınırı 429, test anahtarı rezervasyon oluşturmaz", () => {
@@ -164,7 +164,7 @@ test("Dil: para ve tarih biçimi dile göre; RU çoğul; AR sağdan sola", () =>
 });
 test("Fatura, voucher ve sözleşme metni 4 dilde üretilir", () => {
   const B = load(), c = B.db.all("contracts")[0];
-  ["tr", "en", "ar", "ru"].forEach(l => { B.i18n.set(l); const tx = B.parties.termsText(c); ok(tx.length > 200); if (l != "tr") ok(!/[ğışİ]/.test(tx.replace(/book4me ai A\.Ş\.|Akdeniz|Boğaz|Muğla|İstanbul|Ş\./g, "")), `${l} sözleşmede Türkçe kaldı`); });
+  ["tr", "en", "ar", "ru"].forEach(l => { B.i18n.set(l); const tx = B.parties.termsText(c); ok(tx.length > 200); if (l != "tr") ok(!/[ğışİ]/.test(tx.replace(/bed4book A\.Ş\.|Akdeniz|Boğaz|Muğla|İstanbul|Ş\./g, "")), `${l} sözleşmede Türkçe kaldı`); });
 });
 
 (async () => {

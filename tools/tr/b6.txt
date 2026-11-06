@@ -21,10 +21,10 @@
 1220|infant|رضيع|младенец
 1221|waiting|بالانتظار|ожидает
 1222|end|النهاية|конец
-1223|book4me ai A.Ş.|book4me ai A.Ş.|book4me ai A.Ş.
-1224|book4me ai API|book4me ai API|book4me ai API
-1225|powered by book4me ai|بتقنية book4me ai|на платформе book4me ai
-1226|book4me ai v41 is live|book4me ai v41 متاح الآن|book4me ai v41 уже доступен
+1223|bed4book A.Ş.|bed4book A.Ş.|bed4book A.Ş.
+1224|bed4book API|bed4book API|bed4book API
+1225|powered by bed4book|بتقنية bed4book|на платформе bed4book
+1226|bed4book v41 is live|bed4book v41 متاح الآن|bed4book v41 уже доступен
 1227|zone|منطقة|зона
 1228|live adapter awaiting development|المحوّل الحي بانتظار التطوير|боевой адаптер ожидает разработки
 1229|cancellation with penalty|إلغاء بغرامة|отмена со штрафом

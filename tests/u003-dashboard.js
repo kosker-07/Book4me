@@ -3,9 +3,9 @@ const { chromium } = require("playwright"), path = require("path");
 let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log(c ? "✓" : "✗", m); };
 (async () => { const br = await chromium.launch(), pg = await br.newPage({ viewport: { width: 1280, height: 900 } }), errs = []; pg.on("pageerror", e => errs.push(e.message)); await pg.route(/^https?:\/\//, r => r.abort());
   await pg.goto("file://" + path.join(__dirname, "../dist/index.html")); await pg.evaluate(() => localStorage.clear()); await pg.reload();
-  const login = async e => { await pg.evaluate(() => { const b = document.querySelector("button[data-a=logout]"); if (b) b.click(); }); await pg.fill("#lg_e", e); await pg.fill("#lg_p", "book4me"); await pg.click("button[data-a=login]"); };
+  const login = async e => { await pg.evaluate(() => { const b = document.querySelector("button[data-a=logout]"); if (b) b.click(); }); await pg.fill("#lg_e", e); await pg.fill("#lg_p", "bed4book"); await pg.click("button[data-a=login]"); };
   const rows = async () => pg.$$eval("#dbdrill tr", r => r.filter(x => !x.querySelector("th") && !x.querySelector("td[colspan]")).length);
-  await login("admin@book4me-ai.com"); await pg.evaluate(() => B4M.ui.run("dbp", "all"));
+  await login("admin@bed4book.com"); await pg.evaluate(() => B4M.ui.run("dbp", "all"));
   const K = await pg.$$eval(".kpi.y1c", L => L.map(x => JSON.parse(x.dataset.p))); ok(K.length >= 11, `Back Office: ${K.length} kart tıklanabilir`);
   for (const k of K) { await pg.click(`.kpi.y1c[data-p='"${k}"']`); ok(await pg.isVisible("#dbdrill"), `kart ${k} → detay listesi`); }
   await pg.click(`.kpi.y1c[data-p='"gmv"']`); const n = await rows(), g = await pg.evaluate(() => B4M.rep.hq("all").okB.length); ok(n == g, `GMV listesi kart rakamıyla aynı (${n}/${g})`);

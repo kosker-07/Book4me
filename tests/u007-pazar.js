@@ -36,7 +36,7 @@ const F = path.join(__dirname, "fixtures/crystal-s27-europe-uk.xlsx"), D = { cit
   /* arayüz */
   const br = await chromium.launch(), pg = await br.newPage({ viewport: { width: 1440, height: 1000 } }), errs = []; pg.on("pageerror", e => errs.push(e.message)); await pg.route(/^https?:\/\//, rr => rr.abort());
   await pg.goto("file://" + path.join(__dirname, "../dist/index.html")); await pg.evaluate(() => localStorage.clear()); await pg.reload();
-  await pg.fill("#lg_e", "rezervasyon@akdeniz-turizm.example"); await pg.fill("#lg_p", "book4me"); await pg.click("button[data-a=login]");
+  await pg.fill("#lg_e", "rezervasyon@akdeniz-turizm.example"); await pg.fill("#lg_p", "bed4book"); await pg.click("button[data-a=login]");
   await pg.evaluate(() => B4M.ui.run("dTab", "h")); await pg.click("button[data-a=hsImp]"); await (await pg.$("input[type=file][accept*=xls]")).setInputFiles(F); await pg.waitForFunction(() => (B4M.ui.S.imp.hotels || []).length > 0, null, { timeout: 20000 });
   ok((await pg.textContent("#app")).includes("pazara ayrıldı"), "yükleme ekranında pazar bilgisi"); await pg.click("button[data-a=ixSave]"); await pg.waitForTimeout(200);
   const hid = await pg.evaluate(() => B4M.db.find("hotels", h => /Aura/.test(h.name)).id); await pg.evaluate(id => { B4M.ui.run("ixBack"); B4M.ui.S.hs = id; B4M.ui.S.imp = null; B4M.ui.render(); }, hid);

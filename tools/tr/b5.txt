@@ -30,8 +30,8 @@
 1029|Columns were matched by text position; review the prices before saving.|طوبقت الأعمدة حسب موضع النص؛ راجع الأسعار قبل الحفظ.|Столбцы сопоставлены по положению текста; проверьте цены перед сохранением.
 1030|Reset|إعادة تعيين|Сбросить
 1031|Limit / min|الحد / دقيقة|Лимит / мин
-1032|PARTIES: book4me ai (www.book4me-ai.com) and {b} ({r})|الأطراف: book4me ai (www.book4me-ai.com) و{b} ({r})|СТОРОНЫ: book4me ai (www.book4me-ai.com) и {b} ({r})
-1033|PARTIES: {a} (parent company) and {b} (sub-account); subject to the book4me ai (www.book4me-ai.com) platform rules|الأطراف: {a} (الشركة الأم) و{b} (حساب فرعي)؛ خاضع لقواعد منصة book4me ai (www.book4me-ai.com)|СТОРОНЫ: {a} (головная компания) и {b} (субсчёт); действуют правила платформы book4me ai (www.book4me-ai.com)
+1032|PARTIES: bed4book (www.bed4book.com) and {b} ({r})|الأطراف: bed4book (www.bed4book.com) و{b} ({r})|СТОРОНЫ: bed4book (www.bed4book.com) и {b} ({r})
+1033|PARTIES: {a} (parent company) and {b} (sub-account); subject to the bed4book (www.bed4book.com) platform rules|الأطراف: {a} (الشركة الأم) و{b} (حساب فرعي)؛ خاضع لقواعد منصة bed4book (www.bed4book.com)|СТОРОНЫ: {a} (головная компания) и {b} (субсчёт); действуют правила платформы bed4book (www.bed4book.com)
 1034|CBRT daily rate|السعر اليومي للبنك المركزي التركي|Дневной курс ЦБ Турции
 1035|From the TRANSFER sheet|من ورقة TRANSFER|С листа TRANSFER
 1036|TRY → TRY|TRY → TRY|TRY → TRY

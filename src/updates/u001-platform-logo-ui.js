@@ -6,9 +6,9 @@ AU.PERMS.h.push(["br", "Platform markası"]);
 VH.TABS.splice(VH.TABS.findIndex(x => x[0] == "us"), 0, ["br", "Platform markası"]);
 BRU.pLogo = () => (db() && db().cfg("platformLogo")) || "";
 const baseLogo = BRU.logo, baseDoc = BRU.docHead, baseBody = VH.body;
-BRU.logo = (x, sz = 52) => !x && BRU.pLogo() ? `<img class="plogo" src="${U.esc(BRU.pLogo())}" alt="book4me ai" style="height:${sz}px;max-width:280px;object-fit:contain;display:block">` : baseLogo(x, sz);
+BRU.logo = (x, sz = 52) => !x && BRU.pLogo() ? `<img class="plogo" src="${U.esc(BRU.pLogo())}" alt="bed4book" style="height:${sz}px;max-width:280px;object-fit:contain;display:block">` : baseLogo(x, sz);
 BRU.docHead = (dmc, sub, right) => { if (dmc || !BRU.pLogo()) return baseDoc(dmc, sub, right);
-  return `<div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;border-bottom:2px solid #B8862B;padding-bottom:12px;margin-bottom:16px"><div style="display:flex;gap:12px;align-items:center"><img src="${U.esc(BRU.pLogo())}" alt="book4me ai" style="height:46px;max-width:220px;object-fit:contain"><div style="color:#5d7075">www.book4me-ai.com · ${sub}</div></div><div style="text-align:end">${right}</div></div>`; };
+  return `<div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;border-bottom:2px solid #B8862B;padding-bottom:12px;margin-bottom:16px"><div style="display:flex;gap:12px;align-items:center"><img src="${U.esc(BRU.pLogo())}" alt="bed4book" style="height:46px;max-width:220px;object-fit:contain"><div style="color:#5d7075">www.bed4book.com · ${sub}</div></div><div style="text-align:end">${right}</div></div>`; };
 VH.body = k => k == "br" ? VH.pBrand() : baseBody(k);
 VH.pBrand = () => { const L = BRU.pLogo(), can = B4M.app.user().role == "admin" || AU.can("br");
   return UI.box(t("Platform markası"), `<p class="mu" style="margin-top:0">${t("Yüklediğiniz logo eskisinin yerine geçer ve hemen tüm platform ekranlarına, giriş sayfasına ve platform belgelerine yansır. Önceki logo saklanmaz.")}</p>

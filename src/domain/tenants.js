@@ -26,9 +26,9 @@ LIC.usage = tid => {
 /* ---- marka ---- */
 BR.DEF = { ac: "#0B2A5B", gd: "#B8862B" };
 BR.of = dmc => { const d = dmc && db().get("dmcs", B4M.app.tidOf(dmc)); if (!d) return null; d.brand = d.brand || { title: d.name, logo: "", icon: "", ac: BR.DEF.ac, gd: BR.DEF.gd, sender: "", lang: "tr", cur: "EUR", domain: null, support: false }; return d.brand; };
-BR.host = d => `${d.slug || "firma"}.book4me-ai.com`;
+BR.host = d => `${d.slug || "firma"}.bed4book.com`;
 BR.addresses = d => { const b = BR.of(d.id), L = [{ host: BR.host(d), kind: "Standart adres", ok: true }]; if (b && b.domain) L.push({ host: b.domain.name, kind: "Kendi alan adı", ok: b.domain.status == "Doğrulandı" }); const lic = LIC.of(d.id); if (lic && lic.status != "Aktif") L.forEach(x => x.ok = false); return L; };
-BR.sender = d => { if (!d) return "noreply@book4me-ai.com"; const b = BR.of(d.id); if (b && b.domain && b.domain.status == "Doğrulandı" && b.domain.mail && b.sender) return b.sender; return `noreply@book4me-ai.com (${(b && b.title) || d.name})`; };
+BR.sender = d => { if (!d) return "noreply@bed4book.com"; const b = BR.of(d.id); if (b && b.domain && b.domain.status == "Doğrulandı" && b.domain.mail && b.sender) return b.sender; return `noreply@bed4book.com (${(b && b.title) || d.name})`; };
 const HEX = /^#[0-9a-f]{6}$/i;
 BR.save = (dmc, o) => {
   const b = BR.of(dmc); if (!b) return no("Firma bulunamadı.");

@@ -4,7 +4,7 @@ const load = require("../tools/load.js"), fs = require("fs"), path = require("pa
 let pass = 0, fail = 0; const T = [], test = (n, f) => T.push([n, f]);
 const ok = (c, m) => { if (!c) throw new Error(m || "koşul sağlanmadı"); }, eq = (a, b, m) => { if (JSON.stringify(a) !== JSON.stringify(b)) throw new Error(`${m || "eşit değil"}: ${JSON.stringify(a)} ≠ ${JSON.stringify(b)}`); };
 const as = (B, email) => { const u = B.db.find("users", u => u.email == email); ok(u, "kullanıcı yok " + email); B.auth.start(u); return u; };
-const ADM = "admin@book4me-ai.com", AK = "rezervasyon@akdeniz-turizm.example", MAVI = "operasyon@maviseyahat.example";
+const ADM = "admin@bed4book.com", AK = "rezervasyon@akdeniz-turizm.example", MAVI = "operasyon@maviseyahat.example";
 const bk = (B, no) => B.db.find("bookings", b => b.no == no);
 
 test("Departmanlar: Back Office = DMC, Product / Otel Kontrat, Commercial, Muhasebe, Operasyon, Rehber, Diğer; eski Satış/Kontrat Commercial'a taşındı", () => {
@@ -24,7 +24,7 @@ test("Bildirim: yeni otel → Product / Otel Kontrat; tıklanacak kayıt referan
 test("Legal: özel şart sözleşme metnine girer, sürüm saklanır, karşı tarafa bildirilir; yetkisiz kişi ekleyemez", () => {
   const B = load(); as(B, AK); const c = B.db.all("contracts")[0]; ok(!B.legal.addClause(c.id, "Yetkisiz şart denemesi").ok, "DMC kullanıcısı Legal yapabildi");
   as(B, ADM); const r = B.legal.addClause(c.id, "Ödemeler 15 gün içinde yapılır."); ok(r.ok, r.msg); ok(/ÖZEL ŞART: Ödemeler 15 gün/.test(B.parties.termsText(c)), "metne girmedi");
-  eq(B.legal.vers(c.id)[0].ver, 1); ok(B.db.find("notifs", n => n.kind == "k" && n.ref == c.id && n.tid != "P"), "karşı tarafa bildirim yok"); ok(/TEDARİK: book4me ai/.test(B.parties.termsText(c)), "tedarik maddesi yok");
+  eq(B.legal.vers(c.id)[0].ver, 1); ok(B.db.find("notifs", n => n.kind == "k" && n.ref == c.id && n.tid != "P"), "karşı tarafa bildirim yok"); ok(/TEDARİK: bed4book/.test(B.parties.termsText(c)), "tedarik maddesi yok");
 });
 test("Fiyat analizi: diğer DMC'lerin adı çıktıda görünmez; sıra ve fark hesaplanır", () => {
   const B = load(), U = B.util; as(B, AK); const a = U.addD(U.today(), 20), R = B.fa.analyze({ key: "akdeniz palas|antalya", from: a, to: U.addD(a, 4), n: 3, tid: 1 });
@@ -49,7 +49,7 @@ test("Maaş: işveren maliyeti parametreden; talep onayı gelecek aydan geçerli
 test("Prim: kural ileriye dönük; kâr varsa tabanın oranı kadar, yoksa 0; çalışan kendi primini görür", () => {
   const B = load(), F = B.fin, m = B.util.today().slice(0, 7); as(B, ADM); ok(!F.setRule("P", { base: "net", pct: 2, from: F.addM(m, -1) }).ok, "geçmiş aya kural girildi");
   B.db.add("promoInv", { tid: "P", no: "T-X", hid: 3, hotel: "Belek", amt: 100000, cur: "EUR", d: B.util.today(), st: "Açık" }); const x = F.month("P", m); ok(x.pre > 0, "kâr oluşmadı");
-  const op = B.db.find("users", u => u.email == "operasyon@book4me-ai.com"), b = x.bon.find(b => b.uid == op.id); ok(b && Math.abs(b.amt - x.pre * 0.01) < 0.01, "prim %1 değil"); eq(F.bonusOf(op, m).amt, b.amt);
+  const op = B.db.find("users", u => u.email == "operasyon@bed4book.com"), b = x.bon.find(b => b.uid == op.id); ok(b && Math.abs(b.amt - x.pre * 0.01) < 0.01, "prim %1 değil"); eq(F.bonusOf(op, m).amt, b.amt);
   ok(Math.abs(x.netProfit - (x.pre - x.bonT)) < 0.01, "net kâr primden sonra değil");
 });
 test("Tanıtım faturası: tahsil veya mahsup; gelir tablosunda marketing geliri; sıralamayı etkilemez", () => {

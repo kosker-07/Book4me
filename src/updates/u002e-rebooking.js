@@ -1,6 +1,6 @@
 /* Yama 1 · Rebooking
    L1 Ters açık artırma (rezervasyon akışının içinde): ücretsiz iptal süresi içindeki otel rezervasyonları açık artırmaya açılır; DMC'ler kendi panelinden fiyat verir.
-      Kimse kimseyi görmez: herkesin karşı tarafı book4me ai'dır. Alıcının hiçbir bilgisi olmaz; satış fiyatı, rezervasyon numarası ve voucher değişmez.
+      Kimse kimseyi görmez: herkesin karşı tarafı bed4book'tur. Alıcının hiçbir bilgisi olmaz; satış fiyatı, rezervasyon numarası ve voucher değişmez.
       Artırma, mevcut tedarikçinin ücretsiz iptal süresinin son saniyesine kadar açıktır. En düşük geçerli teklif kazanır (eşitlikte ilk veren).
       Mevcut tedarikçinin tutma hakkı vardır (en düşük teklife eşitleyip rezervasyonu tutar). Kazanan teklif onay beklenmeden onaylı sayılır.
       Kazanan veremezse: bizim alış fiyatımız üzerinden cezai şart (varsayılan %10) + yerine koyma farkı DMC'den tahsil edilir. Aynı ürün kuralı kesindir.
@@ -59,8 +59,8 @@ RB.swap = (b, y, why, aid) => { const fromE = E(b.cost, b.costCur), from = b.sup
   b.mg = { ...(b.mg || {}), rb: U.r2((b.mg && b.mg.rb || 0) + gain) };
   db().add("rbRev", { aid: aid || 0, bid: b.id, no: b.no, e: gain, kind: why, from, to: y.sup, at: U.now() });
   const ft = B4M.app.tidOf(from), wt = B4M.app.tidOf(y.sup), wp = RB.prof(wt); wp.wins++;
-  NT.push({ tid: ft, depts: ["Rezervasyon", "Product"], perms: ["r"], title: "Rezervasyon {no}, ücretsiz iptal süresi içinde book4me ai tarafından iptal edildi.", tp: { no: b.no }, kind: "rbx", ref: b.id });
-  NT.push({ tid: wt, depts: ["Rezervasyon", "Product"], perms: ["rb"], title: "Yeni rezervasyon {no} onaylı olarak size geçti (book4me ai).", tp: { no: b.no }, kind: "rbw", ref: b.id });
+  NT.push({ tid: ft, depts: ["Rezervasyon", "Product"], perms: ["r"], title: "Rezervasyon {no}, ücretsiz iptal süresi içinde bed4book tarafından iptal edildi.", tp: { no: b.no }, kind: "rbx", ref: b.id });
+  NT.push({ tid: wt, depts: ["Rezervasyon", "Product"], perms: ["rb"], title: "Yeni rezervasyon {no} onaylı olarak size geçti (bed4book).", tp: { no: b.no }, kind: "rbw", ref: b.id });
   B4M.audit.log("rb.swapped", b.no, `${I.fm(gain, "EUR")} · ${why}`, "P"); return gain; };
 RB.close = (aid, force) => { const x = db().get("rbAuctions", aid); if (!x || x.st != "Açık") return no(""); if (!force && U.now() <= x.end) return no("Artırma hâlâ açık.");
   const b = db().get("bookings", x.bid); if (!b || b.status != "Onaylı") { x.st = "İptal"; return ok("Rezervasyon iptal edildiği için artırma kapandı."); }

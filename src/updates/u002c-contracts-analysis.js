@@ -27,7 +27,7 @@ LG.saveTerms = (cid, o) => { if (!LG.can()) return no("Bu işlem için Legal yet
 /* sözleşme metni: özel şartlar ve tedarik maddesi */
 const baseTerms = P.termsText;
 P.termsText = c => { let s = baseTerms(c); const n = (s.match(/^\d+\./gm) || []).length;
-  const L = [`${n + 1}. ${t("TEDARİK: book4me ai, hizmeti aynı otel, oda tipi, pansiyon ve tarihlerde, eşit veya daha iyi iptal şartıyla eşdeğer bir tedarikçiden sağlayabilir. Bu durumda satış fiyatı, rezervasyon numarası ve şartlar değişmez.")}`];
+  const L = [`${n + 1}. ${t("TEDARİK: bed4book, hizmeti aynı otel, oda tipi, pansiyon ve tarihlerde, eşit veya daha iyi iptal şartıyla eşdeğer bir tedarikçiden sağlayabilir. Bu durumda satış fiyatı, rezervasyon numarası ve şartlar değişmez.")}`];
   (c.special || []).forEach((x, i) => L.push(`${n + 2 + i}. ${t("ÖZEL ŞART")}: ${x.text}`)); return s.trimEnd() + "\n" + L.join("\n") + "\n"; };
 /* ---- gizlilikli fiyat analizi ---- */
 const FA = B4M.fa = {};

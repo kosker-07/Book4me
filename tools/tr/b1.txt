@@ -60,7 +60,7 @@
 259|Cancellation with penalty and refund|الإلغاء بغرامة والاسترداد|Отмена со штрафом и возврат
 260|Turnover (EUR)|حجم الأعمال (EUR)|Оборот (EUR)
 261|Open DMC|فتح شركة|Открыть DMC
-262|As soon as the DMC is opened, its standard address company.book4me-ai.com is ready. The panel opens once the contract is signed and documents are approved.|بمجرد فتح الشركة يصبح عنوانها القياسي company.book4me-ai.com جاهزًا. وتُفتح اللوحة بعد توقيع العقد والموافقة على المستندات.|Сразу после открытия DMC её стандартный адрес company.book4me-ai.com готов. Панель открывается после подписания договора и одобрения документов.
+262|As soon as the DMC is opened, its standard address company.bed4book.com is ready. The panel opens once the contract is signed and documents are approved.|بمجرد فتح الشركة يصبح عنوانها القياسي company.bed4book.com جاهزًا. وتُفتح اللوحة بعد توقيع العقد والموافقة على المستندات.|Сразу после открытия DMC её стандартный адрес company.bed4book.com готов. Панель открывается после подписания договора и одобрения документов.
 263|The DMC has not allowed support access.|لم تسمح الشركة بدخول الدعم.|DMC не разрешила доступ поддержки.
 264|Confirmed by the DMC|تم التأكيد من الشركة|Подтверждено DMC
 265|DMC and agency questions, 4 languages|أسئلة الشركات والوكالات، 4 لغات|Вопросы DMC и агентств, 4 языка

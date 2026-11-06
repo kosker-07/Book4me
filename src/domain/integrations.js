@@ -8,7 +8,7 @@ const ACC_EV = /^(invoice\.issued|payment\.|booking\.cancelled|commission\.invoi
 IN.CAT = [
   { k: "sup_rest", g: "Tedarikçi API (gelen)", n: "Standart REST/JSON", sc: "pd", ev: null, f: ["url", "key"], d: "Otel, uçak, transfer, tur: arama, fiyat teyidi, rezervasyon, iptal" },
   { k: "sup_ota", g: "Tedarikçi API (gelen)", n: "OTA XML (OpenTravel)", sc: "pd", ev: null, f: ["url", "user", "pass"], d: "OTA_HotelAvailRQ / OTA_HotelResRQ mesajları" },
-  { k: "apiout", g: "API Out (giden)", n: "book4me ai API", sc: "p", ev: null, f: ["limit"], d: "Arama, fiyat teyidi, rezervasyon, iptal, sorgu, sabit içerik; test ve canlı anahtar" },
+  { k: "apiout", g: "API Out (giden)", n: "bed4book API", sc: "p", ev: null, f: ["limit"], d: "Arama, fiyat teyidi, rezervasyon, iptal, sorgu, sabit içerik; test ve canlı anahtar" },
   { k: "acc_logo", g: "Muhasebe", n: "Logo", sc: "pd", ev: ACC_EV, f: ["url", "user", "pass", "firm"], d: "Fatura, tahsilat, ödeme, cari açma, iptal/iade" },
   { k: "acc_luca", g: "Muhasebe", n: "Luca", sc: "pd", ev: ACC_EV, f: ["user", "pass", "firm"], d: "Fiş ve cari aktarımı" },
   { k: "acc_mikro", g: "Muhasebe", n: "Mikro", sc: "pd", ev: ACC_EV, f: ["url", "key", "firm"], d: "Fatura ve cari hareket" },

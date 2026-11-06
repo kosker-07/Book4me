@@ -15,7 +15,7 @@ let pass = 0, fail = 0; const ok = (c, m) => { if (c) { pass++; console.log("✓
 
   /* 1 */
   await login("operasyon@maviseyahat.example", "yanlis"); ok(/E-posta veya şifre hatalı/.test(await txt()), "yanlış şifre reddedildi");
-  await login("operasyon@maviseyahat.example", "book4me"); ok(await pg.$("button[data-a=logout]"), "şifreyle giriş");
+  await login("operasyon@maviseyahat.example", "bed4book"); ok(await pg.$("button[data-a=logout]"), "şifreyle giriş");
   await pg.click('button[data-a=dTab][data-p=\'"rs"\']'); await pg.click('button[data-a=dTab][data-p=\'"by"\']');
   const o0 = await ev(() => B4M.db.all("orders").length);
   await pg.click("button[data-a=openBk]"); const names = await pg.$$("input[data-i=gName]"); for (const [i, n] of names.entries()) await n.fill(["Ali Veli", "Ayşe Veli"][i] || "Test Kişi");
@@ -33,14 +33,14 @@ let pass = 0, fail = 0; const ok = (c, m) => { if (c) { pass++; console.log("✓
   ok(oid2 != oid && o1.inv && o1.due == 0, "kartla ödendi, fatura oluştu"); ok(o1.vch, "voucher düzenlendi");
 
   /* 2 */
-  await login("admin@book4me-ai.com", "book4me", "#backoffice"); await pg.click('button[data-a=hTab][data-p=\'"lic"\']');
+  await login("admin@bed4book.com", "bed4book", "#backoffice"); await pg.click('button[data-a=hTab][data-p=\'"lic"\']');
   await pg.click('button[data-a=licD][data-p="4"]'); await pg.click("button[data-a=licTog]"); ok(await pg.$(".dlg"), "askıya alma sayfa içi onay kutusu"); await pg.fill("#dlg_in", "test"); await pg.click("button[data-a=dlgYes]");
   ok(await ev(() => B4M.lic.of(4).status) == "Askıda", "lisans askıda");
-  await login("operasyon@maviseyahat.example", "book4me"); ok(!(await pg.$("button[data-a=logout]")) && /askıya/i.test(await txt()), "askıdaki DMC giremedi");
+  await login("operasyon@maviseyahat.example", "bed4book"); ok(!(await pg.$("button[data-a=logout]")) && /askıya/i.test(await txt()), "askıdaki DMC giremedi");
   await ev(() => { B4M.lic.toggle(4); B4M.db.commit(); });
 
   /* 3 */
-  await login("rezervasyon@akdeniz-turizm.example", "book4me", "#akdeniz"); await pg.selectOption("header select, #hdr select", "en"); ok(/Dashboard|Sales|Profit/.test(await txt()) && !/Çıkış yap/.test(await txt()), "EN arayüz");
+  await login("rezervasyon@akdeniz-turizm.example", "bed4book", "#akdeniz"); await pg.selectOption("header select, #hdr select", "en"); ok(/Dashboard|Sales|Profit/.test(await txt()) && !/Çıkış yap/.test(await txt()), "EN arayüz");
   await pg.selectOption("#hdr select", "ar"); ok(await ev(() => document.documentElement.dir) == "rtl", "AR sağdan sola"); await pg.screenshot({ path: "/home/claude/shots/ar.png" });
   await pg.selectOption("#hdr select", "ru"); ok(/Выйти|Дашборд|Продажи/.test(await txt()), "RU arayüz"); await pg.selectOption("#hdr select", "tr");
 
@@ -50,7 +50,7 @@ let pass = 0, fail = 0; const ok = (c, m) => { if (c) { pass++; console.log("✓
     const sv = await pg.$("button[data-a=ixSave]"); if (sv) { const h0 = await ev(() => B4M.db.all("hotels").length); await sv.click(); ok(await ev(() => B4M.db.all("hotels").length) > h0, "oteller kaydedildi"); } else ok(false, "kaydet düğmesi"); }
 
   /* 5 */
-  await login("admin@book4me-ai.com", "book4me", "#backoffice"); await pg.click('button[data-a=hTab][data-p=\'"ag"\']'); await pg.click('button[data-a=agt][data-p=\'"a"\']');
+  await login("admin@bed4book.com", "bed4book", "#backoffice"); await pg.click('button[data-a=hTab][data-p=\'"ag"\']'); await pg.click('button[data-a=agt][data-p=\'"a"\']');
   await pg.click('button[data-a=agTog][data-p=\'["P","acc"]\']'); await pg.click('button[data-a=agTog][data-p=\'["P","kontrat"]\']'); await pg.click("button[data-a=agRun]");
   const y = await pg.$("button[data-a=agYes]"); ok(!!y, "onay kuyruğunda iş var"); if (y) { await pg.click("button[data-a=agNo]"); ok(await pg.$(".dlg"), "Okeyleme gerekçe kutusu"); await pg.fill("#dlg_in", "uygun değil"); await pg.click("button[data-a=dlgYes]"); ok(/Okeylenmedi/.test(await txt()), "Okeyleme kaydedildi");
     await pg.click("button[data-a=agYes]"); if (await pg.$(".dlg")) await pg.click("button[data-a=dlgYes]"); ok(/Okeylendi/.test(await txt()), "Okeyle uygulandı"); }

@@ -5,9 +5,9 @@ let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log(
 (async () => {
   const br = await chromium.launch(), pg = await br.newPage({ viewport: { width: 1280, height: 900 } }), errs = []; await pg.route(/^https?:\/\//, r => r.abort()); pg.on("pageerror", e => errs.push(e.message));
   await pg.goto("file://" + path.join(__dirname, "../dist/index.html")); await pg.evaluate(() => localStorage.clear()); await pg.reload();
-  const login = async e => { await pg.evaluate(() => { const b = document.querySelector("button[data-a=logout]"); if (b) b.click(); }); await pg.fill("#lg_e", e); await pg.fill("#lg_p", "book4me"); await pg.click("button[data-a=login]"); };
+  const login = async e => { await pg.evaluate(() => { const b = document.querySelector("button[data-a=logout]"); if (b) b.click(); }); await pg.fill("#lg_e", e); await pg.fill("#lg_p", "bed4book"); await pg.click("button[data-a=login]"); };
   const run = (a, p) => pg.evaluate(([a, p]) => B4M.ui.run(a, p), [a, p]), txt = async () => (await pg.textContent("#app")).replace(/\s+/g, " ");
-  await login("admin@book4me-ai.com");
+  await login("admin@bed4book.com");
   for (const [k, w] of [["hk", "Otel kontratları"], ["cm", "Sözleşme takibi"], ["fa", "Tarih bazında"], ["rbo", "Açık artırmalar"]]) { await run("hTab", k); ok((await txt()).includes(w), `Back Office · ${w}`); }
   await run("hTab", "acc"); for (const [k, w] of [["fr", "Gelir tablosu"], ["fx2", "Gider ekle"], ["fsal", "Maaş talepleri"], ["fbon", "Prim kuralları"], ["fpro", "Tanıtım (marketing) faturaları"], ["fbud", "Bütçe ve gerçekleşen"], ["fprm", "SGK işveren payı"], ["dp", "Üst tedarikçi kâr payı"]]) { await run("acT", k); ok((await txt()).includes(w), `Muhasebe · ${w}`); }
   await run("hTab", "pr"); const pr = await txt(); ok(pr.includes("Kâr özeti") && pr.includes("Kazancınız") && pr.includes("Üst tedarikçilerin alt tedarikçi kârı"), "Platform markup: v40 düzeni (Kazancınız + Kâr özeti)");
@@ -20,7 +20,7 @@ let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log(
   ok(await pg.evaluate(id => B4M.rb.low(id).amt == 200 && !B4M.rb.low(id).auto, aid), "arayüzden teklif verildi");
   await run("dTab", "rbt"); ok((await txt()).includes("Otomatik fiyat takibi"), "Fiyat takibi penceresi (Product)");
   for (const k of ["hk", "fa", "mfr", "mx", "msl", "mbn", "mtn", "pw"]) { await run("dTab", k); } ok(true, "DMC yeni sekmeleri çizildi");
-  await login("admin@book4me-ai.com"); await run("hTab", "rbo"); await pg.click(`button[data-a=rbClose][data-p='${aid}']`);
+  await login("admin@bed4book.com"); await run("hTab", "rbo"); await pg.click(`button[data-a=rbClose][data-p='${aid}']`);
   ok(await pg.evaluate(() => { const b = B4M.db.find("bookings", b => b.no == "B4M26-000007-1"); return b.sup == 4 && b.cost == 200 && b.status == "Onaylı"; }), "Back Office artırmayı kapattı; rezervasyon yeni tedarikçide");
   await pg.setViewportSize({ width: 390, height: 844 }); await run("hTab", "rbo"); ok(await pg.evaluate(() => document.documentElement.scrollWidth <= 400), "mobil: sayfa yatay taşmıyor");
   ok(!errs.length, "sayfa hatası yok " + errs.join(" | ")); await br.close(); console.log(`\n${pass} geçti, ${fail} kaldı`); process.exit(fail ? 1 : 0);

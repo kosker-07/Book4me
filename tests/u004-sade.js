@@ -24,8 +24,8 @@ const as = (B, id) => { B.auth.logout(); B.auth.start(B.db.get("users", id)); };
   const br = await chromium.launch(), pg = await br.newPage({ viewport: { width: 1280, height: 900 } }), errs = []; await pg.route(/^https?:\/\//, r => r.abort()); pg.on("pageerror", e => errs.push(e.message));
   const URL = "file://" + path.join(__dirname, "../dist/index.html"); await pg.goto(URL); await pg.evaluate(() => localStorage.clear()); await pg.reload();
   const ev = f => pg.evaluate(f), run = (a, p) => pg.evaluate(([a, p]) => B4M.ui.run(a, p), [a, p]), txt = () => pg.textContent("#app");
-  const login = async e => { await pg.evaluate(() => { const b = document.querySelector("button[data-a=logout]"); if (b) b.click(); }); await pg.fill("#lg_e", e); await pg.fill("#lg_p", "book4me"); await pg.click("button[data-a=login]"); };
-  await login("admin@book4me-ai.com");
+  const login = async e => { await pg.evaluate(() => { const b = document.querySelector("button[data-a=logout]"); if (b) b.click(); }); await pg.fill("#lg_e", e); await pg.fill("#lg_p", "bed4book"); await pg.click("button[data-a=login]"); };
+  await login("admin@bed4book.com");
   ok(await ev(() => document.querySelectorAll(".sidenav .gh").length) == 7, "Back Office menüsü 7 başlık");
   const reach = await ev(() => { const T = B4M.vHQ.tabs().map(x => x[0]).filter(k => k != "pw"), seen = new Set(); B4M.vNav.H.forEach(g => g[1].forEach(l => l[1].forEach(sb => seen.add(sb[0])))); return T.filter(k => !seen.has(k)); });
   ok(!reach.length, "eski 21 sekmenin hepsine menüden ulaşılıyor " + reach.join(","));
@@ -33,9 +33,9 @@ const as = (B, id) => { B.auth.logout(); B.auth.start(B.db.get("users", id)); };
   ok(await ev(() => !!document.querySelector("#hdr button.usr") && !document.querySelector('.sidenav button[data-p=\'"pw"\']')), "Hesabım üst bantta");
   await run("hTab", "res"); ok(await ev(() => document.querySelector("main").getBoundingClientRect().width) >= 1270, "1040 px sınırı kalktı (tam genişlik)");
   /* tek kullanıcılık yetki: menü yok */
-  await ev(() => { const u = B4M.auth.addUserRaw({ org: "h", oid: 0, name: "Tek Yetki", email: "tek@book4me-ai.com", perms: ["log"], dept: "Diğer", tid: "P" }); B4M.db.commit(); });
-  await login("tek@book4me-ai.com"); ok(await ev(() => !document.querySelector(".sidenav") && !document.querySelector("nav.tabs")), "tek ekrana yetkili kullanıcı menü görmüyor, doğrudan ekranına düşüyor");
-  await login("admin@book4me-ai.com"); await run("hTab", "res");
+  await ev(() => { const u = B4M.auth.addUserRaw({ org: "h", oid: 0, name: "Tek Yetki", email: "tek@bed4book.com", perms: ["log"], dept: "Diğer", tid: "P" }); B4M.db.commit(); });
+  await login("tek@bed4book.com"); ok(await ev(() => !document.querySelector(".sidenav") && !document.querySelector("nav.tabs")), "tek ekrana yetkili kullanıcı menü görmüyor, doğrudan ekranına düşüyor");
+  await login("admin@bed4book.com"); await run("hTab", "res");
   /* tek arama */
   for (const [q, w] of [["B4M26-000007", "Rezervasyon"], ["Deniz Aksoy", "Rezervasyon"], ["VCH-B4M26-000004", "Rezervasyon"], ["Belek", "Otel"], ["Mavi", "DMC"], ["K-2026", "Sözleşme"]]) { await pg.fill("#hs_q", q); await pg.waitForTimeout(50); ok(await ev(w => [...document.querySelectorAll("#hs_r .hsg")].some(x => x.textContent.includes(B4M.t(w))), w), `arama "${q}" → ${w}`); }
   await pg.fill("#hs_q", "B4M26-000007"); await pg.press("#hs_q", "ArrowDown"); await pg.keyboard.press("Enter"); ok(await pg.isVisible(".bxw"), "arama sonucundan tek tıkla rezervasyon ekranı");
@@ -53,7 +53,7 @@ const as = (B, id) => { B.auth.logout(); B.auth.start(B.db.get("users", id)); };
   const ord = await ev(() => [...document.querySelectorAll("tr[data-bx]")].map(r => B4M.db.get("bookings", +r.dataset.bx).a)); ok(ord.join() == ord.slice().sort().join(), "seyahat tarihine göre sıralama");
   /* sütunlar ve filtre kalıcı */
   await run("lcOpen", "hres"); await pg.click('input[data-c=lcTog][data-p=\'["hres","sup"]\']'); ok(await ev(() => [...document.querySelectorAll("th")].some(x => x.textContent == B4M.t("Tedarikçi"))), "sütun eklendi");
-  await login("admin@book4me-ai.com"); await run("hTab", "res"); ok(await ev(() => [...document.querySelectorAll("th")].some(x => x.textContent == B4M.t("Tedarikçi")) && B4M.vRez.lf("hres").o == "tr"), "sütun ve filtre yeniden girişte korunuyor");
+  await login("admin@bed4book.com"); await run("hTab", "res"); ok(await ev(() => [...document.querySelectorAll("th")].some(x => x.textContent == B4M.t("Tedarikçi")) && B4M.vRez.lf("hres").o == "tr"), "sütun ve filtre yeniden girişte korunuyor");
   await run("lcDef", "hres"); await run("lfClr", "hres");
   /* Benim işlerim + dashboard */
   await run("hTab", "o"); await run("dbp", "30"); ok(await pg.isVisible("#mywork"), "Benim işlerim (Dashboard'un üstünde)");
@@ -75,7 +75,7 @@ const as = (B, id) => { B.auth.logout(); B.auth.start(B.db.get("users", id)); };
   await login("operasyon@maviseyahat.example"); await ev(() => B4M.ui.run("bxOpen", B4M.db.find("bookings", b => b.no == "B4M26-000007-1").id));
   const mv = await pg.textContent(".bxw"); ok(!mv.includes("Akdeniz Turizm") && !mv.includes(B4M_t_tedarikci()), "alıcı tarafında tedarikçi adı görünmüyor");
   /* taşma */
-  for (const w of [375, 1280, 1920]) { await pg.setViewportSize({ width: w, height: 900 }); await login("admin@book4me-ai.com"); await run("hTab", "res"); const o1 = await ev(() => document.documentElement.scrollWidth <= innerWidth + 1); await ev(() => B4M.ui.run("bxOpen", B4M.db.all("bookings")[0].id)); const o2 = await ev(() => document.documentElement.scrollWidth <= innerWidth + 1); ok(o1 && o2, `${w} px: yatay taşma yok`); }
+  for (const w of [375, 1280, 1920]) { await pg.setViewportSize({ width: w, height: 900 }); await login("admin@bed4book.com"); await run("hTab", "res"); const o1 = await ev(() => document.documentElement.scrollWidth <= innerWidth + 1); await ev(() => B4M.ui.run("bxOpen", B4M.db.all("bookings")[0].id)); const o2 = await ev(() => document.documentElement.scrollWidth <= innerWidth + 1); ok(o1 && o2, `${w} px: yatay taşma yok`); }
   await pg.setViewportSize({ width: 1920, height: 900 }); ok(await ev(() => { const l = document.querySelector(".lay"); return l.classList.contains("hasdet") && getComputedStyle(l.querySelector(".cnt")).display != "none"; }), "geniş ekran: liste ve ayrıntı yan yana (üç panel)");
   await pg.setViewportSize({ width: 375, height: 800 }); await run("bxClose"); await run("navTog"); ok(await ev(() => getComputedStyle(document.querySelector(".side")).display != "none"), "telefon: menü çekmece olarak açılıyor");
   ok(await ev(() => !!document.querySelector(".tw td[data-label]")), "telefon: tablolar kart görünümü");

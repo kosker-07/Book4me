@@ -1,6 +1,6 @@
 /* Uygulama çekirdeği: depo örneği, oturum bağlamı, olay kuyruğu (entegrasyonlar için) ve işlem kaydı. */
 const A = B4M.app = {};
-A.STORAGE_KEY = "book4me-ai-v41";
+A.STORAGE_KEY = "bed4book-v41";
 /* oturum: org = "h" (Back Office) | "s" (DMC) | "a" (alıcı / satış hesabı), uid = kullanıcı, dmc = DMC firması, acct = satış ekranındaki alıcı hesabı */
 B4M.ctx = { org: "", uid: 0, dmc: 0, acct: 0, support: null };
 A.init = (adapter, seedFn) => { B4M.db = B4M.store.create(adapter || B4M.store.LocalAdapter(A.STORAGE_KEY)).load(seedFn || B4M.seed.run); return B4M.db; };

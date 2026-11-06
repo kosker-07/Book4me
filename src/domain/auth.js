@@ -14,7 +14,7 @@ AU.TPL = {
   a: { Satış: ["s", "o"], Muhasebe: ["o", "h"], Diğer: ["s"] }
 };
 AU.tempPw = () => { const c = "abcdefghjkmnpqrstuvwxyz23456789"; let s = ""; for (let i = 0; i < 8; i++) s += c[Math.floor(Math.random() * c.length)]; return s; };
-AU.DEMO_PW = "book4me";
+AU.DEMO_PW = "bed4book";
 AU.setPw = (u, pw) => { u.salt = U.hsh(u.id + "|" + (u.email || "") + "|" + Math.random()); u.pw = U.pwHash(pw, u.salt); };
 AU.addUserRaw = o => { const u = db().add("users", { role: "user", dept: "", perms: [], unit: "", active: true, mgr: false, ...o, pw: undefined }); AU.setPw(u, o.pw || AU.DEMO_PW); return u; };
 AU.can = (k, u) => { u = u || B4M.app.user(); return u.role == "admin" || (u.perms || []).includes(k); };
@@ -44,7 +44,7 @@ AU.addUser = (org, oid, o) => {
   if (o.email && db().find("users", u => (u.email || "").toLowerCase() == o.email.toLowerCase())) return no("Bu e-posta adresiyle bir kullanıcı zaten var.");
   const pw = AU.tempPw(), tid = org == "h" ? "P" : org == "s" ? B4M.app.tidOf(oid) : B4M.parties.tidFor("a", oid);
   const u = AU.addUserRaw({ org, oid, name: o.name, email: o.email, role: "user", dept: o.dept, perms: o.perms, mgr: !!o.mgr, unit: o.unit || "", tid, pw });
-  B4M.mail.send({ dmc: org == "s" ? oid : 0, to: o.email || "", subj: "Kullanıcı daveti", body: `Merhaba ${o.name},\nbook4me ai hesabınız açıldı.\nGiriş: ${o.email}\nGeçici şifre: ${pw}\nİlk girişte şifrenizi değiştirin.`, tid });
+  B4M.mail.send({ dmc: org == "s" ? oid : 0, to: o.email || "", subj: "Kullanıcı daveti", body: `Merhaba ${o.name},\nbed4book hesabınız açıldı.\nGiriş: ${o.email}\nGeçici şifre: ${pw}\nİlk girişte şifrenizi değiştirin.`, tid });
   B4M.events.emit("user.created", u.id, 0);
   return ok("{n} ({d}) için kullanıcı açıldı. Geçici şifre: {pw}", { n: o.name, d: t(o.dept), pw }, { u });
 };
@@ -57,7 +57,7 @@ AU.resetPw = uid => { const u = db().get("users", uid), pw = AU.tempPw(); AU.set
 /* ---- e-posta (simülasyon): DMC'nin e-postaları kendi alan adından, kayıtlar eksikse platform adresinden gider ---- */
 B4M.mail = {
   send(o) {
-    const db = B4M.db, d = o.dmc ? db.get("dmcs", B4M.app.tidOf(o.dmc)) : null, from = B4M.brand ? B4M.brand.sender(d) : "noreply@book4me-ai.com";
+    const db = B4M.db, d = o.dmc ? db.get("dmcs", B4M.app.tidOf(o.dmc)) : null, from = B4M.brand ? B4M.brand.sender(d) : "noreply@bed4book.com";
     const okTo = U.isMail(o.to);
     return db.add("mail", { at: U.now(), dmc: o.dmc || 0, sup: o.sup || 0, gs: o.gs || 0, to: o.to || "", from, subj: o.subj, body: o.body, state: okTo ? "Gönderildi (simülasyon)" : "Beklemede: e-posta adresi tanımlı değil", tid: o.tid || (o.dmc ? B4M.app.tidOf(o.dmc) : "P") });
   }

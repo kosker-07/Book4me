@@ -18,14 +18,14 @@ Y1.hooks.unshift({ seed() {
   X(1, "sys", 250, "EUR", D(-5, 1), "Yazılım ve iletişim", 1); X(1, "rent", 30000, "TRY", D(-5, 1), "Ofis kirası", 1); X(1, "opx", 22000, "TRY", D(-5, 1), "Transfer araç kiralama", 1, "Operasyon"); X(1, "ins", 400, "EUR", D(-1, 5), "Seyahat acentası sorumluluk sigortası"); X(1, "mkt", 300, "EUR", D(0, 1), "Sosyal medya reklamı");
   /* maaşlar (brüt, TRY) → işveren maliyetiyle gidere girer */
   const S = (tid, email, gross) => { const u = d.find("users", u => u.email == email); if (u) d.add("salaries", { tid, uid: u.id, name: u.name, dept: u.dept, gross, cur: "TRY", from: M(-5), to: "", by: sys, at: D(-5, 1) + " 09:00" }); };
-  S("P", "muhasebe@book4me-ai.com", 85000); S("P", "satis@book4me-ai.com", 80000); S("P", "kontrat@book4me-ai.com", 78000); S("P", "dmc@book4me-ai.com", 75000); S("P", "operasyon@book4me-ai.com", 70000);
+  S("P", "muhasebe@bed4book.com", 85000); S("P", "satis@bed4book.com", 80000); S("P", "kontrat@bed4book.com", 78000); S("P", "dmc@bed4book.com", 75000); S("P", "operasyon@bed4book.com", 70000);
   S(1, "mehmet@akdeniz-turizm.example", 60000); S(1, "operasyon@akdeniz-turizm.example", 52000); S(1, "deniz@akdeniz-turizm.example", 50000); S(1, "muhasebe@akdeniz-turizm.example", 58000);
   /* prim kuralları: tüm giderler düştükten sonraki kârın %1'i (herkes); satışçıya kendi satış kârının %2'si */
   d.add("bonusRules", { tid: "P", uid: 0, dept: "", base: "net", pct: 1, from: M(-5), by: sys, at: D(-5, 1) + " 09:00" }); d.add("bonusRules", { tid: 1, uid: 0, dept: "", base: "net", pct: 1, from: M(-5), by: sys, at: D(-5, 1) + " 09:00" });
   const dz = d.find("users", u => u.email == "deniz@akdeniz-turizm.example"); if (dz) d.add("bonusRules", { tid: 1, uid: dz.id, dept: "", base: "own", pct: 2, from: M(-5), by: sys, at: D(-5, 1) + " 09:00" });
   if (dz) d.where("bookings", b => b.own == 1).forEach(b => { b.by = dz.name; });
   /* maaş talebi (bekliyor) */
-  const op = d.find("users", u => u.email == "operasyon@book4me-ai.com"); if (op) { const x = d.add("salReq", { tid: "P", uid: op.id, name: op.name, dept: op.dept, amt: 78000, cur: "TRY", note: "Yıllık değerlendirme sonrası artış talebi", st: "Bekliyor", at: D(0, 2) + " 10:30" });
+  const op = d.find("users", u => u.email == "operasyon@bed4book.com"); if (op) { const x = d.add("salReq", { tid: "P", uid: op.id, name: op.name, dept: op.dept, amt: 78000, cur: "TRY", note: "Yıllık değerlendirme sonrası artış talebi", st: "Bekliyor", at: D(0, 2) + " 10:30" });
     B4M.notif.push({ tid: "P", depts: ["Muhasebe"], perms: ["sal"], title: "Yeni maaş talebi: {n}", tp: { n: op.name }, kind: "sal", ref: x.id }); }
   /* tanıtım faturaları: otellere; sıralamaya etkisi yok */
   const P1 = (tid, hid, hotel, amt, dd, st, desc) => d.add("promoInv", { tid, no: (tid == "P" ? "TNT-" : "TNT" + tid + "-") + dd.slice(0, 4) + "-" + U.pad(d.where("promoInv", x => x.tid == tid).length + 1, 4), hid, hotel, amt, cur: "EUR", d: dd, period: dd.slice(0, 7), desc, st, by: sys, at: dd + " 11:00", set: st != "Açık" ? { by: sys, at: dd + " 12:00", mode: st == "Mahsup edildi" ? "mahsup" : "tahsil" } : undefined });

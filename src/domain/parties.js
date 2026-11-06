@@ -48,7 +48,7 @@ P.tidFor = (p, id) => { const x = P.get(p, id); if (!x) return "P"; return x.tid
 /* ---- okunabilir sözleşme metni (dile göre) ---- */
 P.termsText = c => {
   const pn = P.name(c.p, c.pid), sv = c.services.map(x => t(U.SVN[x])).join(", "), L = []; let n = 0; const a = (s, p) => L.push(`${++n}. ${t(s, p)}`);
-  L.push(`${t("SÖZLEŞME NO")}: ${c.no}`, c.by ? t("TARAFLAR: {a} (üst firma) ile {b} (alt hesap); book4me ai (www.book4me-ai.com) platform kurallarına tabidir", { a: P.name(c.by.p, c.by.id), b: pn }) : t("TARAFLAR: book4me ai (www.book4me-ai.com) ile {b} ({r})", { b: pn, r: t(P.PN[c.p]) }), "");
+  L.push(`${t("SÖZLEŞME NO")}: ${c.no}`, c.by ? t("TARAFLAR: {a} (üst firma) ile {b} (alt hesap); bed4book (www.bed4book.com) platform kurallarına tabidir", { a: P.name(c.by.p, c.by.id), b: pn }) : t("TARAFLAR: bed4book (www.bed4book.com) ile {b} ({r})", { b: pn, r: t(P.PN[c.p]) }), "");
   a("SÜRE: Sözleşme {a} ile {b} tarihleri arasında geçerlidir.", { a: I.fd(c.start), b: I.fd(c.end) });
   if (c.p == "s") {
     a("KAPSAM: DMC şu hizmetleri yükler ve satar: {sv}. Panelde yalnızca bu hizmetlerin ekranları açılır.", { sv });
