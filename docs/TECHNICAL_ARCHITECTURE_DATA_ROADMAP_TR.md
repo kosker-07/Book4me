@@ -1,12 +1,19 @@
 # BED4BOOK — Teknik Mimari, Veri Altyapısı ve Kurulum Yol Haritası
 
 - Belge: Teknik Mimari ve Veri Yol Haritası
-- Sürüm: **2.0** (v1.0'ın bağımsız denetim sonrası revizyonu)
+- Sürüm: **2.1** (2.0 + proje sahibinin onayladığı kararlar ve uygulanan kod)
 - Tarih: 07.11.2026
 - Depo: `kosker-07/Book4me`
 - Bağlayıcı kapsam: `docs/BED4BOOK_Teknik_Sartname.md`, `docs/BED4BOOK_Proje_Sartnamesi.md`, `docs/IMPLEMENTATION_PLAN_BED4BOOK_V1.md`
 - Denetim raporu: `docs/reviews/CLAUDE_ARCHITECTURE_ROADMAP_REVIEW.md` (madde kodları bu belgede köşeli parantezle anılır, ör. [A1])
-- Durum: Tasarım önerisi. Üretim ortamına kurulmamıştır. **"ÖNERİLEN — ONAY BEKLİYOR"** işaretli maddeler proje sahibi onaylayana kadar kesin karar değildir (bkz. §13).
+- Durum: Tasarım + kısmi uygulama. Üretim ortamına kurulmamıştır. **"KARAR VERİLDİ"** maddeler proje sahibi tarafından onaylanmıştır; **"ÖNERİLEN — ONAY BEKLİYOR"** maddeler henüz kesin değildir (bkz. §13).
+
+## Sürüm 2.1'de değişenler
+
+- Proje sahibinin onayladığı kararlar kesinleştirildi (§13): net gecelik fiyat + yüzde/sabit markup (override yok); Back Office platform genelinde yetkili; iptal yetkileri; zorunlu misafir alanları.
+- Back Office'i ana acente kiracısına bağlayan model ve açıklamalar düzeltildi (§5.1).
+- Uygulanan kod: `server/migrations/002_v1_product_rules.sql`, arama uç noktası, imzalı quote ile rezervasyon, iptal/ret ve kontenjan iadesi, fiyat snapshot'ı, misafir doğrulaması (§3.2, §7).
+- Test matrisi gerçek durumla güncellendi; yalnız çalıştırılmış testler "geçti" olarak işaretli (§11).
 
 ## Sürüm 2.0'da değişenler
 
@@ -70,14 +77,21 @@ Teknik Şartname Kabul Kriteri 4, eş zamanlı taleplerde kontenjan tutarsızlı
 
 Mükerrer rezervasyon `Idempotency-Key` benzersiz kaydıyla engellenir (§5.6).
 
-**Kontenjan hangi anda düşer? — ÖNERİLEN — ONAY BEKLİYOR (§13, karar 1):** Yalnızca **Back Office onayı anında**. `Beklemede` talep kontenjanı tüketmez; böylece onay bekleyen talep odayı fiilen tutmaz. Bedeli: onay bekleyen talebin odası bu sürede başka acenteye satılabilir; bu, kilit yok kuralının doğal sonucudur. Alternatif (talep anında düşüm) PR #2'nin ilk davranışıdır ve süresiz bir envanter tutma anlamına gelir; bu nedenle önerilmez.
+**Kontenjan hangi anda düşer? — ÖNERİLEN — ONAY BEKLİYOR (§13, karar 1).**
+
+| | Davranış |
+|---|---|
+| **Mevcut (uygulanan) davranış** | Kontenjan, rezervasyon talebi oluşturulurken (`pending`) atomik koşullu düşümle azalır. Ret veya iptalde aynı transaction içinde **bir kez** iade edilir. Açık kilit yoktur. |
+| **Önerilen hedef** | Kontenjan yalnızca Back Office onayı anında düşer; `pending` talep kontenjan tüketmez. Bedeli: onay bekleyen talebin odası bu sürede başka acenteye satılabilir. |
+
+Proje sahibi karar verene kadar mevcut davranış korunur; kod sessizce değiştirilmez.
 
 ### 2.3 Tek kazananın tanımı [D3, D5]
 
-- **Eşdeğerlik anahtarı** — ÖNERİLEN — ONAY BEKLİYOR (§13, karar 3): `canonical_property_id`, `room_type_code`, `board_code`, doluluk (oda başına yetişkin sayısı ve çocuk yaşları), giriş ve çıkış tarihi, `cancellation_class`, `payment_class`, pazar/milliyet.
+- **Eşdeğerlik anahtarı** — uygulanan varsayılan, ÖNERİLEN — ONAY BEKLİYOR (§13, karar 3): otel id, oda id, pansiyon, iptal koşulu, ödeme koşulu (anahtar sırasından bağımsız JSON), yetişkin/çocuk sayısı ve çocuk yaşları, giriş/çıkış tarihi, oda sayısı (`server/pricing.ts` `equivalenceKey`). Pazar/milliyet v1 veri modelinde yoktur.
 - **Uygunluk:** yayın aktif; otel, oda ve fiyat planı aktif; tüm geceler için fiyat var; her gece `allotment - sold >= oda sayısı`; stop-sale yok; pazar ve kapasite uygun; kur mevcut.
-- **Normalize toplam:** Σ(gecelik net fiyat) → acente fiyat kuralı → karşılaştırma para birimine çevrim (quote anındaki kur kaydıyla). Tüm hesap `NUMERIC` ile. **Kuru bulunmayan teklif karşılaştırmaya girmez** (sessizce 1 kabul edilmez).
-- **Tie-break** — ÖNERİLEN — ONAY BEKLİYOR (§13, karar 6): `normalized_total ASC`, sonra kaynak (ana acente) id, sonra fiyat planı id. Sonuç deterministiktir.
+- **Normalize toplam** — KARAR VERİLDİ (fiyat modeli): oda sayısı × Σ(gecelik net fiyat + acente markup'ı). Markup yüzde (`net × (1 + değer/100)`) veya sabit (`net + değer`, oda/gece başına, fiyat planı para biriminde). Hesap tam sayı kuruş ile yapılır. Karşılaştırma EUR'ya çevrilerek yapılır (`fx_rates`). **Kuru bulunmayan teklif değerlendirme dışı kalır** (sessizce 1 kabul edilmez).
+- **Tie-break** — uygulanan varsayılan, ÖNERİLEN — ONAY BEKLİYOR (§13, karar 6): `normalized_total ASC`, sonra en küçük fiyat planı id. Sonuç deterministiktir.
 - **Yanıt:** eşdeğerlik anahtarı başına tam bir kayıt. Kaybeden tekliflerin fiyatı, kaynağı ve sayısı yanıtta, dışa aktarımda ve loglarda yer almaz.
 
 ## 3. Mevcut durum (kodla doğrulanmış)
@@ -102,18 +116,26 @@ Mükerrer rezervasyon `Idempotency-Key` benzersiz kaydıyla engellenir (§5.6).
 
 - `server/app.ts`, `server/db.ts`, `server/security.ts`, `server/migrations/001_initial.sql`: giriş, oturum, otel oluşturma, acente otel listesi, rezervasyon oluşturma, Back Office kuyruğu ve durum güncelleme.
 - Parolalar tuzlu scrypt; oturum HMAC imzalı; kiracı bağlamı token'dan türetilir; her istekte kullanıcı DB'den doğrulanır.
-- Bu revizyonla birlikte yapılan kod düzeltmeleri: rezervasyon oluşturmadaki parametre hatası giderildi; açık `FOR UPDATE` kilidi kaldırılıp gece başına tek ifadeli atomik koşullu düşüme geçildi; gerçek PostgreSQL ile entegrasyon testleri ve CI eklendi (bkz. §11).
-- Açık eksikler: `docs/reviews/CLAUDE_V1_TECHNICAL_REVIEW.md` (K2-K4, Y1-Y7, O1-O11).
+- Uygulanan düzeltmeler:
+  - rezervasyon oluşturmadaki parametre hatası giderildi; sunucu kodunda açık satır kilidi (`FOR UPDATE`) yok, her gece tek ifadeli atomik koşullu düşüm;
+  - `002_v1_product_rules.sql`: Back Office platform geneli, rol ↔ acente tipi kısıtı, markup modeli, `fx_rates`, misafir alanları, `booking_nights` snapshot'ı, rezervasyon numarası sequence'i, idempotency içerik özeti, indeksler;
+  - salt okunur arama (`POST /api/agency/searches`), tek kazanan, imzalı quote; rezervasyon yalnız quote ile;
+  - ret/iptalde kontenjanın tek kez iadesi; alt acente iptali; Back Office ve sistem yöneticisi iptali; ana acentenin iptal yetkisi yok;
+  - paralel aynı idempotency anahtarında tek rezervasyon; farklı içerikle aynı anahtar 422;
+  - geçersiz girdilerde 500 yerine 4xx.
+- Açık eksikler (PR #2 incelemesinden): otel/oda/fiyat planı/takvim/yayın yönetim uç noktaları ve voucher (K4), `draft` durumu (Y1), pasif acente kontrolü girişte (Y2 — arama ve rezervasyonda uygulandı), girişte hız sınırı (Y7), oturum iptali (O8), RLS (O5), audit genişletme (O7), migration çalıştırıcı ve admin CLI (O10), HTTP sertleştirme (O11).
 
 ### 3.3 Test durumu (07.11.2026, Node 22)
 
 | Komut | Sonuç |
 |---|---|
-| `npm run test:server` (DATABASE_URL ile) | 8/8 geçti (2 birim + 6 PostgreSQL entegrasyon) |
-| `node tests/u008-bed4book.js` | Geçti — bu revizyonda iki hatalı test beklentisi düzeltildi |
+| `npm run test:server` (PostgreSQL 16, `DATABASE_URL` ile) | 39/39 geçti (27 entegrasyon + 12 birim) |
+| `npm run build` / `npm test` | Projede bu script'ler **yok** (`package.json`: `build:server`, `start:server`, `dev:server`, `test:server`) |
+| `node tests/u008-bed4book.js` | Geçti |
 | `node tests/bed4book.js` | Geçti |
 | `node tests/unit.js` | 26 geçti, 4 kaldı — 4'ü depo dışı fikstür yolu (`/home/user/paket/...`) |
-| Tarayıcı testleri (`tests/ui-flow.js` vb.) | Doğrulanmadı |
+| Tarayıcı testleri (Playwright) | `ui-flow` 23/23, `u002-ui` 24/24, `u002-yama1` 20/20, `u003-dashboard` 33/33, `u005-mudahale` 59/59, `u005-ciftekran` 19/19, `u006-crystal` 26/26, `u007-pazar` 39/39, `u007c-tema` 10/10 geçti. `u004-sade` kararsız (4 çalıştırmanın 1'inde 30 sn zaman aşımı, 3'ünde 61/61). `u001-logo` depo dışı `/tmp/logo1.png` dosyası olmadığı için çalışmıyor |
+| Not | Depodaki `dist/index.html`, `node tools/build.js` çıktısıyla aynı değil (eski derleme); tarayıcı testleri yeniden derlenmiş paketle çalıştırıldı |
 
 ## 4. Hedef teknoloji mimarisi (v1.0)
 
@@ -154,7 +176,11 @@ Tüm tablolarda UUID birincil anahtar (olay tablolarında `bigserial`), `created
 
 - `tenants(id, type CHECK IN ('platform','master','sub'), parent_tenant_id, name, active)` — ana acente / alt acente hiyerarşisi.
 - `users(id, tenant_id, email, password_hash, role, active, token_version)`; `UNIQUE (lower(email))`.
-- Roller (Şartname §3): `system_admin` → platform; `master_agency` ve `back_office` → master; `sub_agency` → sub. **Rol ↔ kiracı tipi kısıtı DB'de** (trigger veya bileşik FK).
+- Roller (Şartname §3) — KARAR VERİLDİ:
+  - `system_admin` ve `back_office` → **platform geneli**; hiçbir acente kiracısına bağlı değildir (`agency_id IS NULL`). Back Office tüm otelleri ve rezervasyonları görür ve yönetir.
+  - `master_agency` → ana acente; yalnız kendi otelleri ve bu otellerin rezervasyonları.
+  - `sub_agency` → alt acente; yalnız kendisine yayınlanan ürünler ve kendi rezervasyonları.
+- **Rol ↔ kiracı kısıtı DB'de uygulandı** (`002`): `users_role_agency_scope` CHECK ve `users_role_matches_agency_type` trigger'ı. Yetki ayrıca backend'de her uç noktada kontrol edilir.
 - `login_attempts(email_lower, ip, success, at)`, `password_reset_tokens(token_hash, user_id, expires_at, used_at)`.
 - Eski tarayıcı uygulamasındaki SHA-256 parola özetleri taşınmaz; kullanıcılar ilk girişte parola sıfırlar. Demo kullanıcılar üretim verisine girmez.
 
@@ -169,14 +195,14 @@ Tüm tablolarda UUID birincil anahtar (olay tablolarında `bigserial`), `created
 ### 5.3 Acenteye yayın ve satış fiyatı [A2, D1]
 
 - `agency_publications(id, rate_plan_id, sub_tenant_id → sub, active, valid_from, valid_to, UNIQUE (rate_plan_id, sub_tenant_id))` — otel, fiyat planından türetilir; ayrı `hotel_id` tutulmaz (tutarsızlık riski).
-- `agency_price_rules(id, publication_id, date_from, date_to, rule_type CHECK IN ('percent','fixed','override'), value NUMERIC(19,4))` — model ÖNERİLEN — ONAY BEKLİYOR (§13, karar 4).
+- Acente fiyat kuralı — KARAR VERİLDİ: `markup_type IN ('percent','fixed')`, `markup_value >= 0`. **Override modeli yoktur.** v1'de yayın kaydı üzerinde tutulur (`agency_hotel_sales.markup_type/markup_value`, `002`); 001'deki `sell_price`/`sell_currency` fiyatlamada kullanılmaz. Tarih aralıklı markup gerekirse ayrı onayla eklenir.
 - Yayını yalnızca otelin sahibi ana acente yapabilir; hedef aktif bir alt acente olmalıdır.
 
 ### 5.4 Arama ve kazanan (kilitsiz)
 
 - `search_sessions(id, sub_tenant_id, params JSONB, created_at)`
-- `fx_rates(id, base, quote, rate NUMERIC(19,8), source, valid_at)`
-- `winner_quotes(id, search_id, sub_tenant_id, equivalence_key, rate_plan_id, publication_id, nights JSONB, normalized_total NUMERIC(19,4), currency, fx_rate_id NOT NULL, expires_at, UNIQUE (search_id, equivalence_key))` — yalnız kazanan saklanır.
+- `fx_rates(currency PK, eur_per_unit NUMERIC(18,8), source, valid_at)` — uygulandı (`002`).
+- Kazanan quote — **uygulanan:** veritabanına yazılmaz. Arama, her kazanan için HMAC imzalı bir `quoteId` döndürür (acente, fiyat planı, tarihler, oda, doluluk, toplam, para birimi, 30 dk fiyat geçerliliği; `server/quotes.ts`). Quote envanter ayırmaz; yalnızca hangi fiyat planının hangi fiyatla kazandığını kanıtlar. İleride denetim için kalıcı kayıt gerekirse `winner_quotes` tablosu ayrı onayla eklenir.
 - `search_audit_events(id, search_id, reason_code, detail JSONB)` — yalnız yetkili iç rol okur.
 
 Arama hiçbir envanter tablosuna yazmaz.
@@ -185,7 +211,7 @@ Arama hiçbir envanter tablosuna yazmaz.
 
 - `bookings(id, booking_no (sequence), sub_tenant_id, property_id, rate_plan_id, winner_quote_id, status CHECK IN ('draft','pending','confirmed','rejected','cancelled'), reason_code, check_in, check_out, rooms, total NUMERIC(19,4), currency, operation_notes, agency_reference, version)`
 - `booking_nights(booking_id, rate_calendar_id, stay_date, rooms, net_price, sell_price, PRIMARY KEY (booking_id, stay_date))` — fiyat snapshot'ı ve iptalde kontenjan iadesinin kaynağı.
-- `booking_guests(id, booking_id, room_index, first_name, last_name, guest_type, age)` — kapsam ÖNERİLEN — ONAY BEKLİYOR (§13, karar 7'ye bağlı KVKK değerlendirmesi).
+- Zorunlu misafir alanları — KARAR VERİLDİ: ad, soyad, yetişkin sayısı, çocuk sayısı, çocuk yaşları, e-posta, telefon, uyruk (ISO 3166-1 alfa-2), operasyon notu. Backend'de doğrulanır (`server/validation.ts`); v1'de `bookings` üzerinde sütun olarak tutulur (`002`). Oda başına çoklu misafir listesi (`booking_guests`) gerekirse ayrı onayla eklenir. Saklama süresi KVKK değerlendirmesine bağlıdır.
 - `booking_events(id, booking_id, from_status, to_status, reason_code, actor_id, note, at)` — append-only.
 - `booking_notes(id, booking_id, author_id, body, visibility, at)`
 - `vouchers(id, booking_id, version, document_id, sha256, generated_by, generated_at)`
@@ -202,7 +228,7 @@ Arama hiçbir envanter tablosuna yazmaz.
 - Tüm zamanlar UTC saklanır; otelin yerel saat dilimi ve iptal son tarihi ayrıca tutulur.
 - Para tutarları `NUMERIC(19,4)`, para birimi ISO 4217.
 - Karşılaştırma yalnız eşdeğerlik anahtarı aynı tekliflerde yapılır (§2.3).
-- `winner_quotes` üzerinde arama + eşdeğerlik anahtarı başına tek kazanan.
+- Arama yanıtında eşdeğerlik anahtarı başına tek kazanan (`server/pricing.ts` `chooseWinners`).
 - `idempotency_records` üzerinde kiracı + işlem + anahtar benzersiz.
 - Kiracı verilerinde kiracı id'si içeren bileşik indeksler ve FK kontrolleri.
 - `rate_calendar (rate_plan_id, stay_date)`, `bookings (sub_tenant_id, created_at)`, `bookings (property_id, status)`, `booking_events (booking_id)`, `agency_publications (sub_tenant_id)` indeksleri.
@@ -223,12 +249,12 @@ Arama hiçbir envanter tablosuna yazmaz.
 1. API kimliği, rolü (`sub_agency`) ve arama parametrelerini doğrular.
 2. Acenteye yayınlanmış fiyat planları arasında uygunluk kontrolü yapılır (§2.3).
 3. Normalize toplam hesaplanır; eşdeğerlik anahtarı başına tek en düşük kazanan seçilir.
-4. Yalnız kazananlar `winner_quotes`'a yazılır ve döndürülür.
+4. Yalnız kazananlar imzalı `quoteId` ile döndürülür; veritabanına hiçbir şey yazılmaz.
 5. Envantere hiçbir yazma yapılmaz; hold/lock/booking oluşmaz.
 
 ### 6.3 Rezervasyon talebi → Back Office kararı
 
-1. Alt acente yalnız `winnerQuoteId` ve `Idempotency-Key` ile talep oluşturur (`draft`); misafir bilgilerini girer ve gönderir (`pending`). Quote süresi dolmuşsa veya başka acenteye aitse 409/404. **Kontenjan bu aşamada düşmez** (ÖNERİLEN — ONAY BEKLİYOR, §13 karar 1).
+1. Alt acente yalnız arama sonucundaki imzalı `quoteId`, zorunlu misafir alanları ve `Idempotency-Key` ile talep oluşturur (`pending`). Quote süresi dolmuşsa 409, sahte ise 400, başka acenteye aitse 404. Yalnız quote'taki kazanan fiyat planının fiyatı ve kontenjanı yeniden doğrulanır; fiyat değiştiyse 409 `PRICE_CHANGED`, kontenjan yoksa 409 `ALLOTMENT_UNAVAILABLE`; başka teklif denenmez. **Mevcut davranış:** kontenjan bu aşamada düşer; hedef davranış §2.2 / §13 karar 1'de onay bekliyor. (`draft` durumu henüz uygulanmadı.)
 2. Talep Back Office kuyruğuna düşer.
 3. Back Office **onaylarsa**, tek transaction içinde (§6.5): yalnız kazanan fiyat planının fiyatı ve kontenjanı yeniden doğrulanır; tüm geceler atomik koşullu düşümle güncellenir; başarılıysa `confirmed`.
 4. Herhangi bir gece başarısızsa transaction geri alınır; rezervasyon `rejected` + `NO_AVAILABILITY` veya `PRICE_CHANGED` olur; **başka seçenek denenmez**; acenteye yeni arama yapması bildirilir.
@@ -247,7 +273,18 @@ Taslak ──iptal──▶ İptal edildi
 Onaylandı ──iptal (politikaya göre)──▶ İptal edildi  [aynı transaction'da booking_nights üzerinden kontenjan iadesi]
 ```
 
-`HOLD`, `HELD`, `LOCKED`, `OPTION` durumları yoktur. Kim hangi geçişi yapabilir: ÖNERİLEN — ONAY BEKLİYOR (§13, karar 7). Her geçiş `booking_events` ve `audit_events`'e kullanıcı, zaman ve sebep koduyla yazılır.
+`HOLD`, `HELD`, `LOCKED`, `OPTION` durumları yoktur.
+
+Geçiş yetkileri — KARAR VERİLDİ (iptal), uygulandı:
+
+| Geçiş | Yetkili | Uygulama |
+|---|---|---|
+| `pending → approved / rejected` | Back Office, sistem yöneticisi (platform geneli); ana acente (yalnız kendi otelleri) | `PATCH /api/backoffice/bookings/{id}/status` |
+| `pending → cancelled` | Alt acente (yalnız kendi oluşturduğu), Back Office, sistem yöneticisi | `POST /api/agency/bookings/{id}/cancel`, `PATCH …/status` |
+| `approved → cancelled` | **Yalnız** Back Office ve sistem yöneticisi | `PATCH …/status` |
+| Herhangi bir iptal | Ana acente **yetkisizdir** (403) | — |
+
+Her geçiş tek bir koşullu `UPDATE … WHERE status = <beklenen>` ile yapılır; bu sayede aynı rezervasyon iki kez iptal edilemez ve kontenjan yalnız bir kez iade edilir. Geçişler `booking_status_history` ve `audit_logs`'a kullanıcı, zaman ve not ile yazılır.
 
 v1 sonrasında tedarikçi entegrasyonu eklenirse `SUPPLIER_PENDING` ve `UNKNOWN_OUTCOME_RECONCILIATION` ara durumları `pending → confirmed` arasına girer; v1 durumları değişmez.
 
@@ -270,7 +307,7 @@ COMMIT;
 
 ### 6.6 İptal
 
-Onaylanmış rezervasyon iptalinde aynı transaction'da `booking_nights` satırlarındaki her gece için `UPDATE rate_calendar SET sold = sold - :rooms` yapılır. Reddedilen veya taslak/beklemede iptal edilen rezervasyon zaten kontenjan tüketmediği için iade gerekmez (karar 1 onaylanırsa).
+Mevcut davranışta (talep anında düşüm) `pending` veya `approved` rezervasyonun ret/iptalinde aynı transaction içinde `booking_nights` snapshot'ındaki her gece için kontenjan iade edilir (`002` öncesi oluşturulmuş rezervasyonlarda tarih aralığından). Hedef davranış (karar 1) onaylanırsa yalnız `approved` rezervasyonun iptali iade gerektirir.
 
 ### 6.7 Voucher
 
@@ -286,9 +323,13 @@ Taban yol `/api/v1`. OpenAPI şeması ve sözleşme testleri zorunludur.
 | Yönetim | acente ve kullanıcı CRUD, rol, pasifleştirme | `system_admin` |
 | Katalog | otel CRUD + durum; oda tipi; fiyat planı; `PUT /rate-plans/{id}/calendar` (tarih aralığı toplu) | `master_agency` |
 | Yayın | `POST/PATCH/DELETE /publications`, fiyat kuralları | `master_agency` |
-| Arama | `POST /searches` → yalnız kazananlar; `GET /quotes/{id}` | `sub_agency` |
-| Rezervasyon | `POST /bookings` (`winnerQuoteId`, `Idempotency-Key`), `POST /bookings/{id}/submit`, `POST /bookings/{id}/cancel`, `GET /bookings`, `GET /bookings/{id}` | `sub_agency` |
-| Back Office | `GET /backoffice/bookings` (filtre, sayfalama), `GET /backoffice/bookings/{id}`, `POST /backoffice/bookings/{id}/approve`, `/reject`, `/cancel`, notlar, geçmiş | `back_office`, `master_agency`, `system_admin` |
+| Arama | `POST /searches` → yalnız kazananlar ve imzalı `quoteId` | `sub_agency` |
+| Rezervasyon | `POST /bookings` (`quoteId`, misafir alanları, `Idempotency-Key`), `POST /bookings/{id}/cancel`, `GET /bookings`, `GET /bookings/{id}`; `POST /bookings/{id}/submit` (`draft` ile birlikte, henüz yok) | `sub_agency` |
+| Back Office | `GET /backoffice/bookings`, `GET /backoffice/bookings/{id}`, `GET /backoffice/hotels`, `PATCH /backoffice/bookings/{id}/status`; filtre/sayfalama, notlar (henüz yok) | `back_office`, `system_admin` (platform geneli); `master_agency` (yalnız kendi otelleri, iptal hariç) |
+
+**Bugün uygulanmış uç noktalar** (taban yol şu an `/api`, `/api/v1`'e geçiş henüz yapılmadı): `POST /api/auth/login`, `GET /api/me`, `POST /api/admin/agencies`, `POST /api/admin/hotels`, `GET /api/agency/hotels`, `POST /api/agency/searches`, `POST /api/agency/bookings`, `GET /api/agency/bookings`, `GET /api/agency/bookings/{id}`, `POST /api/agency/bookings/{id}/cancel`, `GET /api/backoffice/bookings`, `GET /api/backoffice/bookings/{id}`, `GET /api/backoffice/hotels`, `PATCH /api/backoffice/bookings/{id}/status`.
+
+**Sözleşme değişikliği:** `POST /api/agency/bookings` artık `ratePlanId` yerine arama sonucundaki `quoteId`'yi ve zorunlu misafir alanlarını ister. Gerekçe: yalnız kazanan teklif rezerve edilebilmeli (Kural 2-4). Bu uç noktayı kullanan bir istemci henüz yoktu (UI API'ye bağlı değil).
 | Voucher | `GET /bookings/{id}/voucher` (yalnız `confirmed`) | yetkili roller |
 | Sağlık | `GET /health`, `GET /ready` (DB kontrollü) | — |
 
@@ -386,26 +427,49 @@ Her adımın kapanış şartı: kendi testlerinin gerçek PostgreSQL ile CI'de y
 
 ## 11. Test ve kabul matrisi
 
+Durum sütunu yalnız gerçekten çalıştırılmış testleri "Geçti" olarak gösterir. Test adları `tests/server/booking.integration.test.ts` (PostgreSQL 16) ve `tests/server/rules.test.ts` (birim) dosyalarındadır.
+
 | Test | Beklenen sonuç | Durum |
 |---|---|---|
-| Arama envantere dokunmaz | Arama sonrası rezervasyon kaydı yok, `sold`/`reserved` değişmedi | Mevcut uç noktada otomatik test var |
-| Eş zamanlı kontenjan | N paralel istek, kontenjan K → tam K başarılı, aşım 0 | Rezervasyon oluşturma için otomatik test var (20 istek / 5 kontenjan); onay akışı için eklenecek |
-| Kısmi düşüm yok | Bir gece yetersizse hiçbir gece düşmez | Otomatik test var |
-| Tek kazanan | Eşdeğer teklifler içinde normalize toplamı en düşük tek kayıt döner | Eklenecek (adım 5) |
-| Eşdeğer olmayan teklifler | Aynı karşılaştırma havuzuna girmez (ör. farklı pansiyon) | Eklenecek |
-| Eşit fiyat | Tie-break deterministik | Eklenecek |
-| Kur eksik | Teklif elenir | Eklenecek |
-| Alternatif gizliliği | Yanıt/export/log yalnız kazananı içerir | Eklenecek |
-| Onayda yeniden doğrulama | Yalnız kazanan fiyat planı kontrol edilir | Eklenecek (adım 6) |
-| Onay başarısız | Başka fiyat planı/otel denenmez; `rejected` + sebep | Eklenecek |
-| Onaysız kesinleşme yok | Back Office onayı olmadan `confirmed` oluşmaz | Eklenecek |
-| İptal iadesi | Onaylı rezervasyon iptalinde kontenjan geri gelir | Eklenecek |
-| Idempotency | Aynı anahtar → tek rezervasyon; paralel aynı anahtar → 500 yok; farklı içerik → 422 | Tekrar oynatma testi var; paralel ve 422 eklenecek |
-| Kiracı izolasyonu | Alt acente A, B'nin fiyat, müşteri ve rezervasyonunu ID tahminiyle dahi göremez | Rezervasyon için test var; diğer uç noktalar eklenecek |
-| Voucher | Yalnız onaylı rezervasyon; doğru içerik; yetkisiz erişim reddi | Eklenecek (adım 7) |
-| Rebooking/RateRelay devre dışı | v1 paketinde bu modüller çağrılamaz | Eklenecek |
-| Yedekten geri yükleme | Tatbikatla kanıtlanır | Eklenecek (adım 9) |
-| Hata kayıtları | Hiçbir geçersiz girdi 500 dönmez; hatalar request-id ile loglanır | Eklenecek |
+| Arama envantere dokunmaz | Arama sonrası tüm tabloların satır sayısı ve `inventory_daily` içeriği aynı | **Geçti** — `01` |
+| Otel listesi envantere dokunmaz | Aynı | **Geçti** — `01b` |
+| Eksik envanter satırı | 409, değişiklik yok | **Geçti** — `02` |
+| Eş zamanlı kontenjan | 20 paralel istek / kontenjan 5 → tam 5 başarılı, aşım 0 | **Geçti** — `03` (talep anında düşüm için) |
+| Kısmi düşüm yok | Sonraki gece başarısızsa önceki geceler geri alınır | **Geçti** — `04` |
+| Paralel aynı idempotency anahtarı | Tek rezervasyon, 500 yok | **Geçti** — `05` |
+| Aynı anahtar farklı içerik | 422 | **Geçti** — `05b` |
+| Başka acentenin rezervasyonuna erişim | 404 | **Geçti** — `06` |
+| Başka acentenin rezervasyonunu iptal | 404, durum ve kontenjan değişmez | **Geçti** — `07` |
+| Ana acente iptali | 403 | **Geçti** — `08` |
+| Back Office platform geneli | Tüm oteller ve tüm ana acentelerin rezervasyonları; `agencyId = null` | **Geçti** — `09` |
+| Platform yetkisi olmayan kullanıcı | Ana acente yalnız kendi otelleri; alt acente Back Office uç noktalarında 403 | **Geçti** — `10` |
+| Onaylı rezervasyon iptali | Back Office ve sistem yöneticisi iptal edebilir; kontenjan iade | **Geçti** — `11` |
+| Alt acente onaylı rezervasyonu iptal edemez | 409 | **Geçti** — `11b` |
+| İptal/ret tek iade | Tekrar iptal 409; paralel çift iptal tek iade, tek geçmiş kaydı | **Geçti** — `12` |
+| En düşük fiyat | Eşdeğerler içinde tek ve en düşük sonuç | **Geçti** — `13`, birim testleri |
+| Eşit fiyat | Deterministik (en küçük fiyat planı id) | **Geçti** — `13b`, birim testi |
+| Kazanan başarısızsa ikinci teklif yok | 409; diğer teklifin kontenjanı ve rezervasyon yok | **Geçti** — `14` |
+| Fiyat değiştiyse | 409 `PRICE_CHANGED`, geçiş yok | **Geçti** — `14b` |
+| Eşdeğerlik | Farklı pansiyondaki ucuz teklif kazananın yerini almaz | **Geçti** — `15`, birim testi |
+| Kur eksik | Teklif değerlendirme dışı; kur eklenince dahil | **Geçti** — `15b`, birim testi |
+| Rakip bilgisi sızmaz | Yanıtta kaybeden fiyatı, fiyat planı/acente id, net fiyat, markup yok; acenteler birbirinin fiyatını görmez | **Geçti** — `16` |
+| Başka acentenin quote'u | 404 | **Geçti** — `16b` |
+| Zorunlu misafir alanları | Her biri eksik/geçersizken 400 ve alan adı | **Geçti** — `17`, birim testi |
+| Doluluk quote ile uyumlu | 409 | **Geçti** — `17b` |
+| Fiyat snapshot'ı | Sonradan fiyat ve markup değişse de rezervasyon tutarı ve gecelik fiyatlar aynı | **Geçti** — `18` |
+| Geçersiz girdi | 500 yok; 400/404 | **Geçti** — `19` |
+| Kodda açık kilit/hold durumu yok | `server/` ve 002+ migration'larda `FOR UPDATE`, advisory lock, `HOLD/LOCKED` yok | **Geçti** — birim testi (statik tarama) |
+| Migration: boş DB | 001 + 002 hatasız | **Geçti** — yerel + CI adımı |
+| Migration: tekrar uygulama | 002 ikinci kez hatasız | **Geçti** — yerel + CI adımı |
+| Migration: mevcut veriyle yükseltme | Eski rezervasyon korunur, back_office acenteden ayrılır, kısıtlar çalışır | **Geçti** — `tests/server/migrations/legacy_upgrade_checks.sql`, yerel + CI adımı |
+| Onay anında düşüm (hedef davranış) | — | Uygulanmadı (karar 1 bekliyor) |
+| `draft` durumu ve gönderme | — | Uygulanmadı |
+| Yönetim uç noktaları (otel/oda/fiyat planı/takvim/yayın) | — | Uygulanmadı |
+| Voucher | — | Uygulanmadı |
+| Pasif acente girişte reddedilir | — | Uygulanmadı (arama ve rezervasyonda pasif acente dışlanıyor, test yok) |
+| Rebooking/RateRelay v1 paketinde devre dışı | — | Uygulanmadı |
+| Yedekten geri yükleme | — | Uygulanmadı |
+| Yük/performans | — | Uygulanmadı |
 
 ## 12. Riskler
 
@@ -417,20 +481,30 @@ Her adımın kapanış şartı: kendi testlerinin gerçek PostgreSQL ile CI'de y
 6. **Hosting:** bölge, KVKK, SLA, bütçe ve operasyon sorumlusu belirlenmeden sağlayıcı kesinleşmez.
 7. **Yük:** gerçek trafik profili olmadan kapasite taahhüdü verilmez; staging ölçümüyle belirlenir.
 
-## 13. Açık kararlar — proje sahibi onayı gerekli
+## 13. Kararlar
 
-| # | Karar | Önerilen | Etkilenen bölümler |
+### 13.1 Proje sahibi tarafından onaylanan kararlar (KARAR VERİLDİ)
+
+| Karar | İçerik | Uygulama |
+|---|---|---|
+| Fiyat modeli | `inventory_daily.price` net gecelik fiyattır; acente markup'ı yüzde veya sabit tutar. Rezervasyonda gecelik fiyatlar snapshot olarak saklanır; sonraki fiyat değişikliği mevcut rezervasyonu etkilemez. Override modeli yoktur. | `002`, `server/pricing.ts`, test `18` |
+| Back Office kapsamı | Platform geneli: tüm oteller ve rezervasyonlar; ana acente kiracısına bağlı değil; yetki backend'de. Ana acente ve alt acente izolasyonu korunur. | `002`, `server/app.ts`, testler `09`, `10` |
+| İptal yetkileri | Alt acente yalnız kendi oluşturduğu `pending` rezervasyonu iptal eder. Onaylı rezervasyonu Back Office veya sistem yöneticisi iptal eder. Ana acentenin iptal yetkisi yoktur. Tekrarlanan iptal kontenjanı artırmaz. | `server/app.ts`, testler `07`, `08`, `11`, `11b`, `12` |
+| Zorunlu misafir alanları | Ad, soyad, yetişkin sayısı, çocuk sayısı, çocuk yaşları, e-posta, telefon, uyruk, operasyon notu; backend doğrulaması. | `server/validation.ts`, test `17` |
+
+### 13.2 Açık kararlar (ÖNERİLEN — ONAY BEKLİYOR)
+
+| # | Karar | Mevcut / uygulanan varsayılan | Öneri |
 |---|---|---|---|
-| 1 | Kontenjan ne zaman düşer? | Yalnız Back Office onayı anında | §2.2, §6.3, §6.6 |
-| 2 | Backend | PR #2 temeli (Express 5) ile devam | §4.1, §8.2 |
-| 3 | Eşdeğerlik anahtarı iptal ve ödeme koşulunu içerir mi? | Evet (iade edilebilir ve edilemez fiyat iki ayrı kazanan olur) | §2.3, §5.4 |
-| 4 | Fiyat modeli | Net fiyat + acente kuralı (yüzde/sabit/override) | §5.3 |
-| 5 | Karşılaştırma para birimi ve kur kaynağı | EUR; kur kaynağı ve zamanı kayıtlı; kur yoksa teklif elenir | §2.3, §5.4 |
-| 6 | Eşit fiyatta kazanan | Kaynak id, sonra fiyat planı id (deterministik) | §2.3 |
-| 7 | Onay sonrası iptal yetkisi; alt acentenin iptal hakkı; misafir verisi kapsamı | İş sahibi belirler (Şartname §10) | §5.5, §6.4, §6.6 |
-| 8 | Back Office kapsamı | Ana acente bazlı | §5.1 |
-| 9 | PostgreSQL sürümü ve hosting bölgesi | PostgreSQL 16; TR veya AB bölgesi, KVKK değerlendirmesiyle | §4.1, §4.3 |
-| 10 | Rebooking/RateRelay | v1 dışı; ileride tek uygulama seçilir | §10.1 |
+| 1 | Kontenjan ne zaman düşer? | Talep anında (`pending`); ret/iptalde tek iade | Yalnız Back Office onayı anında |
+| 2 | Backend | PR #2 temeli (Express 5) kullanılıyor | Aynı temelle devam |
+| 3 | Eşdeğerlik anahtarı iptal ve ödeme koşulunu içerir mi? | Evet (uygulandı) | Evet |
+| 5 | Karşılaştırma para birimi ve kur kaynağı | EUR; `fx_rates` tablosu; kaynak alanı zorunlu, kaynak seçimi yapılmadı | EUR; kur kaynağı belirlenmeli |
+| 6 | Eşit fiyatta kazanan | En küçük fiyat planı id (uygulandı) | Aynı veya iş kuralı |
+| 9 | PostgreSQL sürümü ve hosting bölgesi | Testler PostgreSQL 16 ile | PostgreSQL 16; TR veya AB, KVKK değerlendirmesi |
+| 10 | Rebooking/RateRelay | v1 dışı | Ayrı onay |
+
+(4, 7 ve 8 numaralı kararlar 13.1'de kesinleşti.)
 
 ## 14. Kaynaklar
 
