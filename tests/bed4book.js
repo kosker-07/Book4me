@@ -8,13 +8,14 @@ const eq = (a,b,m) => { if(JSON.stringify(a)!==JSON.stringify(b)) throw new Erro
   B.util._now = now;
   const X = B.bed4book;
   ok(X && X.rebooking && X.rateRelay, "module exports");
-  const old = B.db.all("bookings").find(x => x.kind === "h" && x.status === "Onaylı");
+  const old = B.db.all("bookings").filter(x => x.kind === "h" && x.status === "Onaylı").sort((a,b) => (+b.cost||0) - (+a.cost||0))[0];
   ok(old, "seed hotel booking");
   const oldSupplier = String(old.sup);
   const oldHotel = B.db.get("hotels", old.hid);
   const eqv = { propertyKey:String(old.hid), roomKey:String(old.room), boardKey:String(oldHotel.board||""), checkIn:old.a, checkOut:old.b, occupancyKey:JSON.stringify([...(old.guests||[])].sort()), marketKey:String(old.nat||""), cancellationKey:String(old.dl||""), paymentKey:String(old.paymentKey||"") };
   const baselineEur = B.price.cv(old.cost, old.costCur || old.cur, "EUR");
-  const cheaperTotal = Math.max(0.01, baselineEur * 0.5);
+  ok(baselineEur > 0.02, "seed booking must have positive normalized supplier cost");
+  const cheaperTotal = baselineEur * 0.5;
   const mkOffer = (total) => ({available:true,total,currency:"EUR",equivalence:eqv});
   X.registerSupplier("test-new", {
     quote: async () => [mkOffer(cheaperTotal)],
