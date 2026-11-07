@@ -115,7 +115,8 @@ app.get("/api/agency/hotels", authenticate, roles("sub_agency"), requireAgency, 
   } catch (error) { next(error); }
 });
 
-// Booking creation is transactional and locks every inventory-day row before decrementing allotment.
+// Booking creation is transactional. There is no explicit inventory lock or hold: each night is decremented
+// with a single atomic conditional UPDATE, and the whole transaction rolls back if any night lacks allotment.
 app.post("/api/agency/bookings", authenticate, roles("sub_agency"), requireAgency, async (req: AuthedRequest, res, next) => {
   const agencyId = req.auth!.agencyId!;
   const idempotencyKey = String(req.header("Idempotency-Key") || "");
@@ -140,14 +141,13 @@ app.post("/api/agency/bookings", authenticate, roles("sub_agency"), requireAgenc
       if (nights < 1 || nights > 60) throw Object.assign(new Error("INVALID_STAY_DATES"), { status: 400 });
       const dates: string[] = [];
       for (let i=0;i<nights;i++) dates.push(new Date(Date.parse(checkIn) + i*86400000).toISOString().slice(0,10));
+      // Dates are processed in ascending order so concurrent transactions touch rows in the same order.
       for (const date of dates) {
-        const inventory = await client.query(
-          "SELECT id, allotment, reserved FROM inventory_daily WHERE rate_plan_id=$1 AND stay_date=$2 FOR UPDATE",
-          [ratePlanId, date]
+        const updated = await client.query(
+          "UPDATE inventory_daily SET reserved = reserved + $3 WHERE rate_plan_id = $1 AND stay_date = $2::date AND allotment - reserved >= $3",
+          [ratePlanId, date, rooms]
         );
-        if (!inventory.rowCount || inventory.rows[0].allotment - inventory.rows[0].reserved < rooms)
-          throw Object.assign(new Error("ALLOTMENT_UNAVAILABLE"), { status: 409 });
-        await client.query("UPDATE inventory_daily SET reserved=reserved+$3 WHERE id=$1 AND allotment-reserved >= $3", [inventory.rows[0].id, date, rooms]);
+        if (updated.rowCount !== 1) throw Object.assign(new Error("ALLOTMENT_UNAVAILABLE"), { status: 409 });
       }
       const bookingId = randomUUID(), bookingNo = `B4B-${Date.now().toString(36).toUpperCase()}`;
       const total = Number(sale.rows[0].sell_price) * rooms * nights;
