@@ -31,3 +31,16 @@ These are static source contract tests, NOT browser or integration tests. They d
 - Add real browser and API integration tests on a separately approved integration branch.
 - Report PASS/FAIL/BLOCKED separately for static checks, browser tests, API tests and deployment.
 - No merge into main, no Railway changes, no live secrets.
+
+
+## 2026-11-08 OTP implementation update — integration NOT yet verified
+- `server/email-otp.ts`: random six-digit OTP, HMAC digest, 5-minute expiry, Resend HTTP sender.
+- `server/app.ts`: login now creates a challenge and sends email; `POST /api/auth/verify-email` validates OTP with row lock and issues 72-hour token.
+- `server/security.ts`: configurable token TTL; defaults remain eight hours for legacy callers.
+- `prototypes/b2b-search/sql/email-otp.sql`: DDL **NOT yet integrated into the repository's migration runner**.
+- `prototypes/b2b-search/index.html`: OTP step in login.
+- `tests/server/email-otp.test.ts`: pure unit tests.
+- `RESEND_API_KEY`, `OTP_FROM_EMAIL`, and `OTP_SECRET` (>=32 characters) must be configured. Do not commit real values.
+- **BLOCKED**: SQL migration must be integrated into the actual migration sequence before starting the changed backend. Existing backend integration tests that expect immediate login tokens must be updated for OTP. Verify mail delivery, resend throttling, challenge cleanup, session revocation, OTP brute-force and end-to-end browser flows. No such tests have been executed or confirmed in this handoff.
+- Security follow-up: resend cooldown and per-account/per-IP OTP challenge creation throttling are not implemented yet. Existing password login rate limits alone do not fully address email flooding. Do not deploy before adding these safeguards.
+- **BLOCKED**: market/nationality eligibility, multiroom occupancy allocation, and actual booking integration remain incomplete.
