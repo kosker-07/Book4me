@@ -23,9 +23,11 @@ test('unsupported room distribution cannot be submitted', () => {
   assert.match(script, /if\(rooms\.length!==1\)/);
   assert.match(html, /Çoklu oda için oda bazında doluluk/);
 });
-test('unimplemented booking action is disabled', () => {
-  assert.match(script, /b\.disabled=true/);
-  assert.doesNotMatch(script, /\/api\/agency\/bookings/);
+test('booking submits signed quote, guest and idempotency key', () => {
+  assert.match(script, /\/api\/agency\/bookings/);
+  assert.match(script, /'Idempotency-Key':key/);
+  assert.match(script, /quoteId:selectedOffer\.quoteId/);
+  assert.match(script, /operationNote/);
 });
 test('supplier identifiers and internal pricing are absent from UI', () => {
   assert.doesNotMatch(html, /supplierId|supplierName|ratePlanId|netPrice|markupValue|apiKey|secretKey/);
