@@ -55,5 +55,22 @@ jobs:
             echo "Applying $f"
             psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -q -f "$f"
           done
+      - name: Re-apply migrations after 001 (must be idempotent)
+        run: |
+          for f in server/migrations/*.sql; do
+            [ "$(basename "$f")" = "001_initial.sql" ] && continue
+            psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -q -f "$f"
+          done
+      - name: Upgrade a database that has only 001 and legacy data
+        run: |
+          BASE="postgres://bed4book:bed4book@localhost:5432"
+          psql "$BASE/bed4book_test" -c "CREATE DATABASE bed4book_upgrade"
+          psql "$BASE/bed4book_upgrade" -v ON_ERROR_STOP=1 -q -f server/migrations/001_initial.sql
+          psql "$BASE/bed4book_upgrade" -v ON_ERROR_STOP=1 -q -f tests/server/migrations/legacy_001_data.sql
+          for f in server/migrations/*.sql; do
+            [ "$(basename "$f")" = "001_initial.sql" ] && continue
+            psql "$BASE/bed4book_upgrade" -v ON_ERROR_STOP=1 -q -f "$f"
+          done
+          psql "$BASE/bed4book_upgrade" -v ON_ERROR_STOP=1 -f tests/server/migrations/legacy_upgrade_checks.sql
       - run: npm run build:server
       - run: npm run test:server
