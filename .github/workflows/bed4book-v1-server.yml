@@ -1,0 +1,31 @@
+name: BED4BOOK v1 server checks
+
+on:
+  push:
+    branches:
+      - feature/bed4book-v1-server-foundation
+    paths:
+      - "server/**"
+      - "tests/server/**"
+      - "package.json"
+      - "tsconfig.server.json"
+      - ".github/workflows/bed4book-v1-server.yml"
+  pull_request:
+    paths:
+      - "server/**"
+      - "tests/server/**"
+      - "package.json"
+      - "tsconfig.server.json"
+      - ".github/workflows/bed4book-v1-server.yml"
+
+jobs:
+  server:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install
+      - run: npm run build:server
+      - run: npm run test:server

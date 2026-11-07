@@ -1,0 +1,24 @@
+{
+  "name": "bed4book-platform",
+  "version": "1.0.0",
+  "private": true,
+  "description": "BED4BOOK Hotel Wholesale Platform server foundation",
+  "engines": { "node": ">=22" },
+  "scripts": {
+    "build:server": "tsc -p tsconfig.server.json",
+    "start:server": "node dist-server/server/app.js",
+    "dev:server": "tsx watch server/app.ts",
+    "test:server": "tsx --test tests/server/*.test.ts"
+  },
+  "dependencies": {
+    "express": "^5.1.0",
+    "pg": "^8.16.3"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.3",
+    "@types/node": "^22.15.30",
+    "@types/pg": "^8.15.4",
+    "tsx": "^4.20.3",
+    "typescript": "^5.8.3"
+  }
+}
