@@ -7,13 +7,19 @@
   const clone = x => JSON.parse(JSON.stringify(x));
   const fail = (code, message, extra) => ({ ok: false, code, message, ...(extra || {}) });
   const pass = (data, message) => ({ ok: true, message, data });
+  const inFlight = new Map();
   const idem = async (key, op) => {
     if (!key) return fail("IDEMPOTENCY_KEY_REQUIRED", "Idempotency key is required.");
     const d = db(), old = d.find("b4mOps", x => x.key === key);
     if (old) return old.result;
-    const result = await op();
-    d.add("b4mOps", { key, at: now(), result });
-    return result;
+    if (inFlight.has(key)) return inFlight.get(key);
+    const pending = (async () => {
+      const result = await op();
+      d.add("b4mOps", { key, at: now(), result });
+      return result;
+    })();
+    inFlight.set(key, pending);
+    try { return await pending; } finally { inFlight.delete(key); }
   };
   const price = x => Number(x && x.normalizedTotal);
   const valid = x => x && x.available === true && Number.isFinite(price(x)) && price(x) >= 0 &&
