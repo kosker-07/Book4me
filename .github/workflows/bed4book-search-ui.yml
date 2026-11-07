@@ -5,6 +5,7 @@ on:
   pull_request:
     paths:
       - 'prototypes/b2b-search/**'
+      - 'prototypes/backoffice-phase1/**'
       - '.github/workflows/bed4book-search-ui.yml'
 jobs:
   contract-tests:
@@ -15,4 +16,4 @@ jobs:
         with:
           node-version: '22'
       - name: Run B2B search UI contract tests
-        run: node --test prototypes/b2b-search/tests/*.test.cjs
+        run: node --test prototypes/b2b-search/tests/*.test.cjs prototypes/backoffice-phase1/tests/*.test.cjs
