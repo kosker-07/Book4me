@@ -1,21 +1,21 @@
 // API origin is supplied only through VITE_API_URL; no production host is hard-coded.
-export const API_URL = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
+export const API_URL = (window.BED4BOOK_API_URL || 'http://localhost:3000').replace(/\/$/, '');
 export const STATUS = Object.freeze({draft:'Taslak',pending:'Beklemede',approved:'Onaylandı',rejected:'Reddedildi',cancelled:'İptal edildi'});
 const messages = {
- INVALID_CREDENTIALS:'E-posta veya şifre hatalı', TOO_MANY_LOGIN_ATTEMPTS:'Çok fazla deneme, 15 dakika sonra tekrar deneyin',
+ INVALID_CREDENTIALS:'E-posta veya şifre hatalı', TOO_MANY_LOGIN_ATTEMPTS:'Çok fazla deneme. 15 dakika sonra tekrar deneyin.',
  PRICE_CHANGED:'Fiyat değişti, lütfen yeniden arayın',ALLOTMENT_UNAVAILABLE:'Bu oda artık müsait değil, lütfen yeniden arayın',
  QUOTE_EXPIRED:'Teklifin süresi doldu, lütfen yeniden arayın',
- QUOTE_OCCUPANCY_MISMATCH:'Kişi sayısı teklifle uyuşmuyor, lütfen yeniden arayın',
+ QUOTE_OCCUPANCY_MISMATCH:'Kişi sayısı teklifle uyuşmuyor.',
  OCCUPANCY_EXCEEDS_CAPACITY:'Kişi sayısı oda kapasitesini aşıyor',
  IDEMPOTENCY_KEY_REUSED:'Bu işlem zaten farklı bilgilerle gönderildi',
  CANCEL_NOT_ALLOWED:'Bu işlem bu durumda yapılamaz',INVALID_STATUS_TRANSITION:'Bu işlem bu durumda yapılamaz',
  ONLY_DRAFT_CAN_BE_SUBMITTED:'Bu işlem bu durumda yapılamaz',
- VOUCHER_REQUIRES_APPROVED_BOOKING:'Voucher sadece onaylı rezervasyonda alınabilir',
+ VOUCHER_REQUIRES_APPROVED_BOOKING:'Voucher yalnız onaylı rezervasyonda alınabilir.',
  BOOKING_NOT_FOUND:'Kayıt bulunamadı',PRODUCT_NOT_PUBLISHED:'Kayıt bulunamadı',
  UNAUTHENTICATED:'Oturum sona erdi, yeniden giriş yapın',SESSION_REVOKED:'Oturum sona erdi, yeniden giriş yapın',
  VALIDATION_FAILED:'Bilgileri kontrol edin', FORBIDDEN:'Bu işlem için yetkiniz yok'
 };
-export function errorMessage(code,status){return messages[code] || (status===429?'Çok fazla deneme, lütfen bekleyin':status>=500?'Sunucuda bir hata oluştu, daha sonra tekrar deneyin':'İşlem tamamlanamadı');}
+export function errorMessage(code,status){return messages[code] || (status===429?'Çok fazla deneme, lütfen bekleyin':status>=500?'Beklenmeyen bir hata oluştu.':'İşlem tamamlanamadı');}
 export function money(value,currency){const raw=String(value??'');if(!/^-?\d+(\.\d+)?$/.test(raw))return raw+' '+(currency||'');return new Intl.NumberFormat('tr-TR',{style:'currency',currency:/^[A-Z]{3}$/.test(currency||'')?currency:'EUR'}).format(Number(raw));}
 export function canManage(role){return ['system_admin','back_office','master_agency'].includes(role);}
 export function canCancel(role,status){return role==='sub_agency'&&['draft','pending'].includes(status)||['system_admin','back_office'].includes(role)&&['draft','pending','approved'].includes(status);}
