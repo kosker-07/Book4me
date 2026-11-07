@@ -2,7 +2,7 @@ import {createApi,ApiError,STATUS,money,canManage,canCancel,canApprove,canVouche
 
 const root=document.querySelector('#app');
 const api=createApi(()=>{user=null;activeQuote=null;pendingAttempt=null;render();notify('Oturum sona erdi, yeniden giriş yapın','error');});
-let user=null,activeQuote=null,pendingAttempt=null,searchResults=[],searchInput=null,view='search',busy=false;
+let user=null,activeQuote=null,pendingAttempt=null,searchResults=[],searchInput=null,view='search',busy=false,adminSaved=null;
 const el=(tag,text,cls)=>{const n=document.createElement(tag);if(text!==undefined)n.textContent=String(text);if(cls)n.className=cls;return n};
 const add=(parent,...children)=>{parent.append(...children);return parent};
 const clear=node=>node.replaceChildren();
@@ -97,7 +97,7 @@ async function initAdminSelectors(main){
   const old=selected??select.value;clear(select);const blank=el('option',placeholder);blank.value='';select.append(blank);
   for(const item of items){const opt=el('option',item.label);opt.value=item.id;select.append(opt)}
   if(items.some(item=>item.id===old))select.value=old;
-  else if(items.length)select.value=items[0].id;
+  else if(items.length&&select.dataset.allowBlank!=='true')select.value=items[0].id;
  }
  function replaceUuid(form,name,kind){
   if(!form)return;
@@ -105,7 +105,7 @@ async function initAdminSelectors(main){
   if(!input)return;
   const wrapper=input.parentElement;
   const selector=makeSelect(kind==='agency'?'admin-agency-select':kind==='user'?'admin-user-select':kind==='room'?'admin-room-select':kind==='rate'?'admin-rateplan-select':'admin-hotel-select');
-  selector.name=name;selector.required=input.required;
+  selector.name=name;selector.required=input.required;if(kind==='userAgency')selector.dataset.allowBlank='true';
   const fallback=el('small','Liste henüz kullanılamıyor','muted');fallback.hidden=true;
   input.name='';input.required=false;input.hidden=true;
   wrapper.append(selector,fallback);
@@ -120,6 +120,7 @@ async function initAdminSelectors(main){
   binding.input.hidden=!on;binding.input.disabled=!on;binding.input.name=on?binding.name:'';binding.input.required=on&&binding.selector.required;
   binding.fallback.hidden=!on;
  }
+ if(forms.user){const role=forms.user.querySelector('[name=role]');const agencyBinding=idSelects.find(b=>b.form===forms.user&&b.name==='agencyId');if(role&&agencyBinding){const sync=()=>{const platform=['system_admin','back_office'].includes(role.value);agencyBinding.selector.required=!platform;agencyBinding.input.required=!platform;if(platform)agencyBinding.selector.value=''};role.addEventListener('change',sync);sync()}}
  function fillBindings(){
   const rooms=state.detail?.rooms||[],rates=state.detail?.ratePlans||[];
   const opts={
@@ -135,7 +136,7 @@ async function initAdminSelectors(main){
   for(const b of idSelects){
    const unavailable=(['master','sub','userAgency','agency'].includes(b.kind)&&state.agencies===null)||(b.kind==='user'&&state.users===null);
    setFallback(b,unavailable);
-   if(!unavailable)options(b.selector,opts[b.kind]||[],'Seçiniz',b.selector.value||({hotel:state.hotelId,room:state.roomId,rate:state.ratePlanId}[b.kind]||''));
+   if(!unavailable)options(b.selector,opts[b.kind]||[],b.kind==='userAgency'?'Acente yok (platform rolü)':'Seçiniz',b.selector.value||({hotel:state.hotelId,room:state.roomId,rate:state.ratePlanId}[b.kind]||''));
   }
  }
  function showPublications(){
@@ -196,24 +197,24 @@ async function initAdminSelectors(main){
    else if(b.kind==='room'){state.roomId=b.selector.value;roomSelect.value=state.roomId;fillBindings()}
    else if(b.kind==='rate'){state.ratePlanId=b.selector.value;rateSelect.value=state.ratePlanId;fillBindings();showCalendar()}};
  }
- for(const [id,form] of Object.entries(forms)){
-  form.addEventListener('submit',async()=>{
-   // Wait until the existing form handler has completed, then refresh the affected lists.
-   // A successful save writes a non-empty result line; failed saves leave it unchanged.
-   const result=form.querySelector('p.muted');const before=result?.textContent;
-   await new Promise(resolve=>{const watch=new MutationObserver(()=>{if(result?.textContent!==before){watch.disconnect();resolve()}});if(result)watch.observe(result,{childList:true,characterData:true,subtree:true});setTimeout(()=>{watch.disconnect();resolve()},2500)});
-   if(!result?.textContent?.startsWith('Kaydedildi')||result.textContent===before)return;
-   const match=result.textContent.match(/ID: ([0-9a-f-]{36})/i);const createdId=match?.[1];
-   if(id==='hotel')await refreshHotels(createdId);
-   else if(['room','rate','activate','calendar','publication'].includes(id)){
-    await selectHotel(state.hotelId);
-    if(id==='room'&&createdId){state.roomId=createdId;syncRoom()}
-    if(id==='rate'&&createdId){state.ratePlanId=createdId;syncRate()}
-   }
-   else if(['agency','agency-status'].includes(id)){await refreshAgencies();if(createdId){for(const b of idSelects.filter(x=>x.kind==='agency'||x.kind==='master'||x.kind==='sub'))if(Array.from(b.selector.options).some(o=>o.value===createdId))b.selector.value=createdId}}
-   else if(['user','user-status'].includes(id)){await refreshUsers();if(createdId){for(const b of idSelects.filter(x=>x.kind==='user'))b.selector.value=createdId}}
-  });
- }
+ adminSaved=async(id,r)=>{
+  const createdId=r?.id||r?.ratePlanId;
+  if(id==='hotel')await refreshHotels(createdId);
+  else if(['room','rate','activate','calendar','publication'].includes(id)){
+   await selectHotel(state.hotelId);
+   if(id==='room'&&createdId){state.roomId=createdId;syncRoom()}
+   if(id==='rate'&&createdId){state.ratePlanId=createdId;syncRate()}
+  }
+  else if(['agency','agency-status'].includes(id)){
+   await refreshAgencies();
+   if(createdId)for(const b of idSelects.filter(x=>['agency','master','sub','userAgency'].includes(x.kind)))
+    if(Array.from(b.selector.options).some(o=>o.value===createdId))b.selector.value=createdId;
+  }
+  else if(['user','user-status'].includes(id)){
+   await refreshUsers();
+   if(createdId)for(const b of idSelects.filter(x=>x.kind==='user'))b.selector.value=createdId;
+  }
+ };
  await refreshHotels();await refreshAgencies();await refreshUsers();
 }
 
@@ -228,8 +229,8 @@ function renderAdmin(main){const notice=el('p','Ürün yönetimi yalnız yetkili
  ];
  if(user.role==='system_admin')defs.push(
  {title:'Acente oluştur',id:'agency',path:'/api/admin/agencies',method:'POST',fields:[['name','Acente adı']],extra:[['type','Acente türü',[['master','Ana acente'],['sub','Alt acente']]]],map:v=>({name:v.name,type:v.type})},
- {title:'Kullanıcı oluştur',id:'user',path:'/api/admin/users',method:'POST',fields:[['email','E-posta','email'],['password','Başlangıç şifresi','password'],['agencyId','Acente UUID']],extra:[['role','Rol',[['sub_agency','Alt acente'],['master_agency','Ana acente'],['back_office','Back Office'],['system_admin','Sistem yöneticisi']]]],map:v=>({email:v.email,password:v.password,agencyId:v.agencyId||null,role:v.role})});
- if(user.role==='system_admin')defs.push({title:'Acente aktif/pasif',id:'agency-status',path:v=>'/api/admin/agencies/'+encodeURIComponent(v.id),method:'PATCH',fields:[['id','Acente UUID']],extra:[['active','Durum',[['false','Pasifleştir'],['true','Aktifleştir']]]],map:v=>({active:v.active==='true'})},{title:'Kullanıcı aktif/pasif',id:'user-status',path:v=>'/api/admin/users/'+encodeURIComponent(v.id),method:'PATCH',fields:[['id','Kullanıcı UUID']],extra:[['active','Durum',[['false','Pasifleştir'],['true','Aktifleştir']]]],map:v=>({active:v.active==='true'})});for(const def of defs){const box=panel(def.title);const form=el('form');form.dataset.testid='admin-'+def.id;const grid=el('div',undefined,'grid');for(const [name,label,type] of def.fields)grid.append(field(name,label,type||'text',name!=='ownerAgencyId'&&name!=='agencyId'));for(const [name,label,options] of def.extra||[])grid.append(selectField(name,label,options));form.append(grid);const submit=el('button','Kaydet','primary');submit.type='submit';submit.dataset.testid='save-'+def.id;form.append(submit);const result=el('p',undefined,'muted');form.append(result);form.onsubmit=async e=>{e.preventDefault();const v=formValues(form);const r=await execute(()=>api.call(typeof def.path==='function'?def.path(v):def.path,{method:def.method,body:def.map(v)}),form);if(r)result.textContent='Kaydedildi · ID: '+(r.id||r.ratePlanId||'güncellendi')};box.append(form);main.append(box)}
+ {title:'Kullanıcı oluştur',id:'user',path:'/api/admin/users',method:'POST',fields:[['email','E-posta','email'],['password','Başlangıç şifresi','password'],['agencyId','Acente UUID']],extra:[['role','Rol',[['sub_agency','Alt acente'],['master_agency','Ana acente'],['back_office','Back Office'],['system_admin','Sistem yöneticisi']]]],map:v=>({email:v.email,password:v.password,agencyId:['system_admin','back_office'].includes(v.role)?null:(v.agencyId||null),role:v.role})});
+ if(user.role==='system_admin')defs.push({title:'Acente aktif/pasif',id:'agency-status',path:v=>'/api/admin/agencies/'+encodeURIComponent(v.id),method:'PATCH',fields:[['id','Acente UUID']],extra:[['active','Durum',[['false','Pasifleştir'],['true','Aktifleştir']]]],map:v=>({active:v.active==='true'})},{title:'Kullanıcı aktif/pasif',id:'user-status',path:v=>'/api/admin/users/'+encodeURIComponent(v.id),method:'PATCH',fields:[['id','Kullanıcı UUID']],extra:[['active','Durum',[['false','Pasifleştir'],['true','Aktifleştir']]]],map:v=>({active:v.active==='true'})});for(const def of defs){const box=panel(def.title);const form=el('form');form.dataset.testid='admin-'+def.id;const grid=el('div',undefined,'grid');for(const [name,label,type] of def.fields)grid.append(field(name,label,type||'text',name!=='ownerAgencyId'&&name!=='agencyId'));for(const [name,label,options] of def.extra||[])grid.append(selectField(name,label,options));form.append(grid);const submit=el('button','Kaydet','primary');submit.type='submit';submit.dataset.testid='save-'+def.id;form.append(submit);const result=el('p',undefined,'muted');form.append(result);form.onsubmit=async e=>{e.preventDefault();const v=formValues(form);const r=await execute(()=>api.call(typeof def.path==='function'?def.path(v):def.path,{method:def.method,body:def.map(v)}),form);if(r){result.textContent='Kaydedildi · ID: '+(r.id||r.ratePlanId||'güncellendi');await adminSaved?.(def.id,r)}};box.append(form);main.append(box)}
  initAdminSelectors(main).catch(()=>notify('Yönetim listeleri yüklenemedi','error'));
 }
 render();
