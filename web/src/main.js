@@ -75,6 +75,148 @@ async function loadBookings(box){const list=box.querySelector('[data-testid=book
  if(canVoucher(item.status))actions.append(button('Voucher PDF','voucher-button',()=>voucher((user.role==='sub_agency'?'/api/agency':'/api/backoffice')+'/bookings/'+encodeURIComponent(item.id)+'/voucher')));
  card.append(actions);list.append(card)}if(!items.length)list.append(el('p','Bu filtreye uygun rezervasyon yok.'))}
 async function changeBooking(path,method,body,box){const r=await execute(()=>api.call(path,{method,body}));if(r)await loadBookings(box)}
+
+// Admin selector enhancement. The original forms and API payloads remain unchanged.
+async function initAdminSelectors(main){
+ const forms=Object.fromEntries(Array.from(main.querySelectorAll('form[data-testid^="admin-"]')).map(f=>[f.dataset.testid.slice(6),f]));
+ const state={hotels:[],detail:null,agencies:null,users:null,hotelId:'',roomId:'',ratePlanId:''};
+ const headingPanel=panel('Otel / oda / fiyat planı seçimi');
+ const first=main.querySelector('[data-testid="list-hotels"]')?.parentElement;
+ if(first)first.before(headingPanel);else main.prepend(headingPanel);
+ const makeSelect=(testid)=>{const s=el('select');s.dataset.testid=testid;return s};
+ const hotelSelect=makeSelect('admin-hotel-select'),roomSelect=makeSelect('admin-room-select'),rateSelect=makeSelect('admin-rateplan-select');
+ const controls=el('div',undefined,'grid');
+ for(const [label,s] of [['Otel',hotelSelect],['Oda',roomSelect],['Fiyat planı',rateSelect]]){const wrap=el('label',label);wrap.append(s);controls.append(wrap)}
+ headingPanel.append(controls);
+ const calendarPanel=panel('Seçili fiyat planı takvimi'),calendarHost=el('div');
+ calendarHost.dataset.testid='admin-calendar-table';calendarPanel.append(calendarHost);headingPanel.append(calendarPanel);
+ const publicationPanel=panel('Seçili otelin yayınları'),publicationHost=el('div');
+ publicationHost.dataset.testid='admin-publication-list';publicationPanel.append(publicationHost);headingPanel.append(publicationPanel);
+ const idSelects=[];
+ function options(select,items,placeholder,selected){
+  const old=selected??select.value;clear(select);const blank=el('option',placeholder);blank.value='';select.append(blank);
+  for(const item of items){const opt=el('option',item.label);opt.value=item.id;select.append(opt)}
+  if(items.some(item=>item.id===old))select.value=old;
+  else if(items.length)select.value=items[0].id;
+ }
+ function replaceUuid(form,name,kind){
+  if(!form)return;
+  const input=Array.from(form.elements).find(x=>x.name===name);
+  if(!input)return;
+  const wrapper=input.parentElement;
+  const selector=makeSelect(kind==='agency'?'admin-agency-select':kind==='user'?'admin-user-select':kind==='room'?'admin-room-select':kind==='rate'?'admin-rateplan-select':'admin-hotel-select');
+  selector.name=name;selector.required=input.required;
+  const fallback=el('small','Liste henüz kullanılamıyor','muted');fallback.hidden=true;
+  input.name='';input.required=false;input.hidden=true;
+  wrapper.append(selector,fallback);
+  idSelects.push({form,name,kind,input,selector,fallback});
+ }
+ for(const [id,form] of Object.entries(forms)){
+  const kinds={hotel:{ownerAgencyId:'master'},room:{hotelId:'hotel'},rate:{roomId:'room'},calendar:{ratePlanId:'rate'},publication:{ratePlanId:'rate',agencyId:'sub'},activate:{hotelId:'hotel'},user:{agencyId:'userAgency'},'agency-status':{id:'agency'},'user-status':{id:'user'}};
+  for(const [name,kind] of Object.entries(kinds[id]||{}))replaceUuid(form,name,kind);
+ }
+ function setFallback(binding,on){
+  binding.selector.hidden=on;binding.selector.disabled=on;binding.selector.name=on?'':binding.name;
+  binding.input.hidden=!on;binding.input.disabled=!on;binding.input.name=on?binding.name:'';binding.input.required=on&&binding.selector.required;
+  binding.fallback.hidden=!on;
+ }
+ function fillBindings(){
+  const rooms=state.detail?.rooms||[],rates=state.detail?.ratePlans||[];
+  const opts={
+   hotel:state.hotels.map(x=>({id:x.id,label:x.name+' · '+(x.location||'')})),
+   room:rooms.map(x=>({id:x.id,label:x.name})),
+   rate:rates.map(x=>({id:x.id,label:x.board_name+' · '+x.currency})),
+   master:(state.agencies||[]).filter(x=>x.type==='master'&&x.active!==false).map(x=>({id:x.id,label:x.name})),
+   sub:(state.agencies||[]).filter(x=>x.type==='sub'&&x.active!==false).map(x=>({id:x.id,label:x.name})),
+   userAgency:(state.agencies||[]).map(x=>({id:x.id,label:x.name+' · '+x.type})),
+   agency:(state.agencies||[]).map(x=>({id:x.id,label:x.name+(x.active?'':' (pasif)')})),
+   user:(state.users||[]).map(x=>({id:x.id,label:x.email+' · '+x.role+(x.active?'':' (pasif)')}))
+  };
+  for(const b of idSelects){
+   const unavailable=(['master','sub','userAgency','agency'].includes(b.kind)&&state.agencies===null)||(b.kind==='user'&&state.users===null);
+   setFallback(b,unavailable);
+   if(!unavailable)options(b.selector,opts[b.kind]||[],'Seçiniz',b.selector.value||({hotel:state.hotelId,room:state.roomId,rate:state.ratePlanId}[b.kind]||''));
+  }
+ }
+ function showPublications(){
+  clear(publicationHost);
+  const rows=state.detail?.publications||[];
+  if(!rows.length){publicationHost.append(el('p','Bu otelde yayın yok.'));return}
+  const table=el('table');const head=el('tr');
+  for(const title of ['Acente','Fiyat planı','Markup türü','Değer','Aktif'])head.append(el('th',title));
+  table.append(head);
+  for(const p of rows){const tr=el('tr');const plan=(state.detail.ratePlans||[]).find(r=>r.id===p.rate_plan_id);
+   for(const value of [p.agency_name||p.agency_id,plan?.board_name||p.rate_plan_id,p.markup_type,p.markup_value,p.active?'Evet':'Hayır'])tr.append(el('td',value));table.append(tr)}
+  publicationHost.append(table);
+ }
+ async function showCalendar(){
+  clear(calendarHost);
+  if(!state.ratePlanId){calendarHost.append(el('p','Fiyat planı seçiniz.'));return}
+  try{
+   const result=await api.call('/api/admin/rate-plans/'+encodeURIComponent(state.ratePlanId)+'/calendar');
+   if(!result.items?.length){calendarHost.append(el('p','Takvimde kayıt yok.'));return}
+   const table=el('table');const head=el('tr');
+   for(const title of ['Tarih','Net fiyat','Kontenjan','Rezerve'])head.append(el('th',title));
+   table.append(head);
+   for(const item of result.items){const tr=el('tr');
+    for(const value of [formatDate(item.date),String(item.price),String(item.allotment),String(item.reserved)])tr.append(el('td',value));
+    table.append(tr)}
+   calendarHost.append(table);
+  }catch(err){calendarHost.append(el('p',err instanceof ApiError?err.message:'Takvim yüklenemedi'))}
+ }
+ function syncRate(){const rates=state.detail?.ratePlans||[];options(rateSelect,rates.map(r=>({id:r.id,label:r.board_name+' · '+r.currency})),'Fiyat planı seçiniz',state.ratePlanId);state.ratePlanId=rateSelect.value;fillBindings();showCalendar()}
+ function syncRoom(){const rooms=state.detail?.rooms||[];options(roomSelect,rooms.map(r=>({id:r.id,label:r.name})),'Oda seçiniz',state.roomId);state.roomId=roomSelect.value;syncRate()}
+ async function selectHotel(id){
+  state.hotelId=id;state.detail=null;state.roomId='';state.ratePlanId='';
+  if(id){try{state.detail=await api.call('/api/admin/hotels/'+encodeURIComponent(id))}catch(err){notify(err instanceof ApiError?err.message:'Otel detayı alınamadı','error')}}
+  syncRoom();showPublications();
+ }
+ async function refreshHotels(selected){
+  try{const r=await api.call('/api/backoffice/hotels');state.hotels=r.items||[];
+   options(hotelSelect,state.hotels.map(h=>({id:h.id,label:h.name+' · '+(h.location||'')})),'Otel seçiniz',selected||state.hotelId);
+   await selectHotel(hotelSelect.value);
+  }catch(err){notify(err instanceof ApiError?err.message:'Otel listesi alınamadı','error')}
+ }
+ async function refreshAgencies(){
+  try{const r=await api.call('/api/admin/agencies');state.agencies=r.items||[]}
+  catch(err){state.agencies=null;if(!(err instanceof ApiError&&err.status===404))notify('Acente listesi alınamadı; elle UUID girebilirsiniz.','error')}
+  fillBindings();
+ }
+ async function refreshUsers(){
+  if(!forms['user-status'])return;
+  try{const r=await api.call('/api/admin/users');state.users=r.items||[]}
+  catch(err){state.users=null;if(!(err instanceof ApiError&&err.status===404))notify('Kullanıcı listesi alınamadı; elle UUID girebilirsiniz.','error')}
+  fillBindings();
+ }
+ hotelSelect.onchange=()=>selectHotel(hotelSelect.value);
+ roomSelect.onchange=()=>{state.roomId=roomSelect.value;fillBindings()};
+ rateSelect.onchange=()=>{state.ratePlanId=rateSelect.value;fillBindings();showCalendar()};
+ for(const b of idSelects){
+  b.selector.onchange=()=>{if(b.kind==='hotel'){state.hotelId=b.selector.value;hotelSelect.value=state.hotelId;selectHotel(state.hotelId)}
+   else if(b.kind==='room'){state.roomId=b.selector.value;roomSelect.value=state.roomId;fillBindings()}
+   else if(b.kind==='rate'){state.ratePlanId=b.selector.value;rateSelect.value=state.ratePlanId;fillBindings();showCalendar()}};
+ }
+ for(const [id,form] of Object.entries(forms)){
+  form.addEventListener('submit',async()=>{
+   // Wait until the existing form handler has completed, then refresh the affected lists.
+   // A successful save writes a non-empty result line; failed saves leave it unchanged.
+   const result=form.querySelector('p.muted');const before=result?.textContent;
+   await new Promise(resolve=>{const watch=new MutationObserver(()=>{if(result?.textContent!==before){watch.disconnect();resolve()}});if(result)watch.observe(result,{childList:true,characterData:true,subtree:true});setTimeout(()=>{watch.disconnect();resolve()},2500)});
+   if(!result?.textContent?.startsWith('Kaydedildi')||result.textContent===before)return;
+   const match=result.textContent.match(/ID: ([0-9a-f-]{36})/i);const createdId=match?.[1];
+   if(id==='hotel')await refreshHotels(createdId);
+   else if(['room','rate','activate','calendar','publication'].includes(id)){
+    await selectHotel(state.hotelId);
+    if(id==='room'&&createdId){state.roomId=createdId;syncRoom()}
+    if(id==='rate'&&createdId){state.ratePlanId=createdId;syncRate()}
+   }
+   else if(['agency','agency-status'].includes(id)){await refreshAgencies();if(createdId){for(const b of idSelects.filter(x=>x.kind==='agency'||x.kind==='master'||x.kind==='sub'))if(Array.from(b.selector.options).some(o=>o.value===createdId))b.selector.value=createdId}}
+   else if(['user','user-status'].includes(id)){await refreshUsers();if(createdId){for(const b of idSelects.filter(x=>x.kind==='user'))b.selector.value=createdId}}
+  });
+ }
+ await refreshHotels();await refreshAgencies();await refreshUsers();
+}
+
 function renderAdmin(main){const notice=el('p','Ürün yönetimi yalnız yetkili kullanıcılar içindir.','notice');main.append(notice);const hotels=panel('Yetkili oteller');main.append(hotels);const hotelsButton=button('Otelleri listele','list-hotels',async()=>{const r=await execute(()=>api.call('/api/backoffice/hotels'));if(!r)return;for(const old of hotels.querySelectorAll('.hotel-row'))old.remove();for(const h of r.items||[]){const item=el('p',h.name+' · '+h.location+' · '+(STATUS[h.status]||h.status),'hotel-row');hotels.append(item)}});hotels.append(hotelsButton);
  const defs=[
  {title:'Otel oluştur',id:'hotel',path:'/api/admin/hotels',method:'POST',fields:[['name','Otel adı'],['location','Konum'],['ownerAgencyId','Ana acente UUID (platform yöneticisi)']] ,map:v=>({name:v.name,location:v.location,...(v.ownerAgencyId?{ownerAgencyId:v.ownerAgencyId}:{})})},
@@ -88,5 +230,6 @@ function renderAdmin(main){const notice=el('p','Ürün yönetimi yalnız yetkili
  {title:'Acente oluştur',id:'agency',path:'/api/admin/agencies',method:'POST',fields:[['name','Acente adı']],extra:[['type','Acente türü',[['master','Ana acente'],['sub','Alt acente']]]],map:v=>({name:v.name,type:v.type})},
  {title:'Kullanıcı oluştur',id:'user',path:'/api/admin/users',method:'POST',fields:[['email','E-posta','email'],['password','Başlangıç şifresi','password'],['agencyId','Acente UUID']],extra:[['role','Rol',[['sub_agency','Alt acente'],['master_agency','Ana acente'],['back_office','Back Office'],['system_admin','Sistem yöneticisi']]]],map:v=>({email:v.email,password:v.password,agencyId:v.agencyId||null,role:v.role})});
  if(user.role==='system_admin')defs.push({title:'Acente aktif/pasif',id:'agency-status',path:v=>'/api/admin/agencies/'+encodeURIComponent(v.id),method:'PATCH',fields:[['id','Acente UUID']],extra:[['active','Durum',[['false','Pasifleştir'],['true','Aktifleştir']]]],map:v=>({active:v.active==='true'})},{title:'Kullanıcı aktif/pasif',id:'user-status',path:v=>'/api/admin/users/'+encodeURIComponent(v.id),method:'PATCH',fields:[['id','Kullanıcı UUID']],extra:[['active','Durum',[['false','Pasifleştir'],['true','Aktifleştir']]]],map:v=>({active:v.active==='true'})});for(const def of defs){const box=panel(def.title);const form=el('form');form.dataset.testid='admin-'+def.id;const grid=el('div',undefined,'grid');for(const [name,label,type] of def.fields)grid.append(field(name,label,type||'text',name!=='ownerAgencyId'&&name!=='agencyId'));for(const [name,label,options] of def.extra||[])grid.append(selectField(name,label,options));form.append(grid);const submit=el('button','Kaydet','primary');submit.type='submit';submit.dataset.testid='save-'+def.id;form.append(submit);const result=el('p',undefined,'muted');form.append(result);form.onsubmit=async e=>{e.preventDefault();const v=formValues(form);const r=await execute(()=>api.call(typeof def.path==='function'?def.path(v):def.path,{method:def.method,body:def.map(v)}),form);if(r)result.textContent='Kaydedildi · ID: '+(r.id||r.ratePlanId||'güncellendi')};box.append(form);main.append(box)}
+ initAdminSelectors(main).catch(()=>notify('Yönetim listeleri yüklenemedi','error'));
 }
 render();
