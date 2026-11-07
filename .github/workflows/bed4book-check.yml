@@ -1,0 +1,22 @@
+name: BED4BOOK core checks
+on:
+  push:
+    paths:
+      - "src/updates/u0030-bed4book-core.js"
+      - "tests/bed4book.js"
+      - "tools/build.js"
+      - "tools/load.js"
+      - ".github/workflows/bed4book-check.yml"
+  workflow_dispatch:
+jobs:
+  bed4book:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Run BED4BOOK focused tests
+        run: node tests/bed4book.js
+      - name: Build application bundle
+        run: node tools/build.js
