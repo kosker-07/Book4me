@@ -39,6 +39,8 @@ test('search validates date and night range', () => {
   assert.match(script, /nights>=1&&nights<=60/);
   assert.match(script, /ci<today\(\)/);
 });
-test('this prototype does not claim to implement OTP', () => {
-  assert.doesNotMatch(script, /\/api\/auth\/otp\/verify/);
+test('email OTP must precede bearer token', () => {
+  assert.match(script, /\/api\/auth\/verify-email/);
+  assert.match(script, /data\.requiresOtp/);
+  assert.match(script, /challengeId/);
 });
