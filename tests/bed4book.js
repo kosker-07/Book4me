@@ -11,7 +11,8 @@ const eq = (a,b,m) => { if(JSON.stringify(a)!==JSON.stringify(b)) throw new Erro
   const old = B.db.all("bookings").find(x => x.kind === "h" && x.status === "Onaylı");
   ok(old, "seed hotel booking");
   const oldSupplier = String(old.sup);
-  const eqv = { propertyKey:String(old.hid), roomKey:String(old.room), boardKey:"", checkIn:old.a, checkOut:old.b, occupancyKey:JSON.stringify([...(old.guests||[])].sort()), marketKey:String(old.nat||""), cancellationKey:String(old.dl||""), paymentKey:String(old.paymentKey||"") };
+  const oldHotel = B.db.get("hotels", old.hid);
+  const eqv = { propertyKey:String(old.hid), roomKey:String(old.room), boardKey:String(oldHotel.board||""), checkIn:old.a, checkOut:old.b, occupancyKey:JSON.stringify([...(old.guests||[])].sort()), marketKey:String(old.nat||""), cancellationKey:String(old.dl||""), paymentKey:String(old.paymentKey||"") };
   const mkOffer = (total) => ({available:true,total,currency:"EUR",equivalence:eqv});
   X.registerSupplier("test-new", {
     quote: async () => [mkOffer(1)],
