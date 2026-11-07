@@ -31,10 +31,11 @@ B4M_BED.audit = (type, ref, payload) => db().add("bed4bookAudit", {
   type, ref: String(ref || ""), payload: U.clone(payload || {}), at: now()
 });
 B4M_BED.sameTerms = (old, offer) => {
+  const oldHotel = old.hid != null ? db().get("hotels", old.hid) : null;
   const a = old.equivalence || {
     propertyKey: String(old.hid ?? old.propertyKey ?? ""),
     roomKey: String(old.room ?? old.roomKey ?? ""),
-    boardKey: String(old.board ?? old.boardKey ?? ""),
+    boardKey: String(old.board ?? old.boardKey ?? (oldHotel && oldHotel.board) ?? ""),
     checkIn: old.a ?? old.checkIn ?? "",
     checkOut: old.b ?? old.checkOut ?? "",
     occupancyKey: JSON.stringify([...(old.guests || [])].sort()),
