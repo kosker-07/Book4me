@@ -5,6 +5,7 @@
 const B4M_BED = B4M.bed4book = {};
 const db = () => B4M.db;
 const now = () => U.now();
+const nowMs = () => Date.parse(now().replace(" ", "T") + ":00Z");
 const r2 = n => U.r2(+n || 0);
 const eur = (amount, currency) => r2(B4M.price.cv(+amount || 0, currency || "EUR", "EUR"));
 const result = (ok, msg, data) => ({ ok, msg, ...(data || {}) });
@@ -119,7 +120,7 @@ RR.create = (bookingId, opts = {}) => {
   if (existing) return result(false, "An open RateRelay pool already exists.", { pool: existing });
   const pool = db().add("rateRelayPools", {
     bookingId, state: "open", createdAt: now(), firstOfferAt: null, closesAt: null,
-    safetyCloseAt: b.dl ? Date.parse(b.dl + "T23:59:59") - B4M_BED.config.rateRelaySafetyBufferMs : null,
+    safetyCloseAt: b.dl ? Date.parse(b.dl + "T23:59:59Z") - B4M_BED.config.rateRelaySafetyBufferMs : null,
     equivalence: U.clone(opts.equivalence || {
       propertyKey: String(b.hid), roomKey: String(b.room), boardKey: String(b.board || ""),
       checkIn: b.a, checkOut: b.b, occupancyKey: JSON.stringify([...(b.guests || [])].sort()),
@@ -138,7 +139,7 @@ RR.publicPool = id => {
 RR.submit = (poolId, supplierId, offer) => {
   const p = db().get("rateRelayPools", poolId);
   if (!p || p.state !== "open") return result(false, "RateRelay pool is not open.");
-  if (p.safetyCloseAt && now() >= p.safetyCloseAt) { p.state = "closed_safety"; return result(false, "Safety cutoff reached."); }
+  if (p.safetyCloseAt && nowMs() >= p.safetyCloseAt) { p.state = "closed_safety"; return result(false, "Safety cutoff reached."); }
   if (!B4M_BED.sameTerms({ equivalence: p.equivalence }, offer) || offer.available !== true || !(+offer.total > 0) || !offer.currency)
     return result(false, "Offer does not match the required product and terms.");
   const totalEur = eur(offer.total, offer.currency);
@@ -147,9 +148,9 @@ RR.submit = (poolId, supplierId, offer) => {
   prior.forEach(x => x.state = "superseded");
   const bid = db().add("rateRelayBids", { poolId, supplierId: String(supplierId), total: +offer.total, currency: offer.currency, totalEur, state: "valid", createdAt: now(), offer: U.clone(offer) });
   const first = !p.firstOfferAt;
-  if (first) { p.firstOfferAt = now(); p.closesAt = now() + B4M_BED.config.rateRelayWindowMs; }
-  else if (p.closesAt - now() <= B4M_BED.config.rateRelayExtendWithinMs) {
-    p.closesAt = Math.min(now() + B4M_BED.config.rateRelayExtensionMs, p.safetyCloseAt || Infinity);
+  if (first) { p.firstOfferAt = now(); p.closesAt = nowMs() + B4M_BED.config.rateRelayWindowMs; }
+  else if (p.closesAt - nowMs() <= B4M_BED.config.rateRelayExtendWithinMs) {
+    p.closesAt = Math.min(nowMs() + B4M_BED.config.rateRelayExtensionMs, p.safetyCloseAt || Infinity);
   }
   p.version++;
   B4M_BED.audit("raterelay.bid_received", poolId, { bidId: bid.id, version: p.version });
@@ -158,7 +159,7 @@ RR.submit = (poolId, supplierId, offer) => {
 RR.close = poolId => {
   const p = db().get("rateRelayPools", poolId);
   if (!p || p.state !== "open") return result(false, "RateRelay pool is not open.");
-  if (p.closesAt && now() < p.closesAt && !(p.safetyCloseAt && now() >= p.safetyCloseAt)) return result(false, "Offer window is still open.");
+  if (p.closesAt && nowMs() < p.closesAt && !(p.safetyCloseAt && nowMs() >= p.safetyCloseAt)) return result(false, "Offer window is still open.");
   const bids = db().where("rateRelayBids", x => x.poolId === poolId && x.state === "valid").sort((a,b) => a.totalEur - b.totalEur || a.id - b.id);
   if (!bids.length) { p.state = "closed_no_offer"; p.closedAt = now(); return result(true, "Pool closed without a valid offer."); }
   p.winnerBidId = bids[0].id; p.state = "closed_winner"; p.closedAt = now();
@@ -174,7 +175,7 @@ RR.winnerForBackOffice = poolId => {
 };
 RR.sweep = () => {
   let closed = 0;
-  db().where("rateRelayPools", p => p.state === "open" && ((p.closesAt && now() >= p.closesAt) || (p.safetyCloseAt && now() >= p.safetyCloseAt))).forEach(p => { if (RR.close(p.id).ok) closed++; });
+  db().where("rateRelayPools", p => p.state === "open" && ((p.closesAt && nowMs() >= p.closesAt) || (p.safetyCloseAt && nowMs() >= p.safetyCloseAt))).forEach(p => { if (RR.close(p.id).ok) closed++; });
   return closed;
 };
 RR.publicBids = poolId => db().where("rateRelayBids", x => x.poolId === poolId && x.state === "valid").map(x => ({ total: x.total, currency: x.currency, totalEur: x.totalEur, createdAt: x.createdAt }));
