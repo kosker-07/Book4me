@@ -10,7 +10,7 @@ import { audit, authenticate, AuthedRequest, httpError, isPlatformWide, requireA
 import { adminRouter } from "./admin-routes";
 import { renderVoucher } from "./voucher";
 import { LOGIN_WINDOW_MINUTES, loginThrottled, parseTrustProxy } from "./login-guard";
-import { newOtpChallenge, verifyOtpDigest, sendEmailOtp, OTP_MAX_ATTEMPTS, OTP_RESEND_MS, OTP_SESSION_TTL_SECONDS } from "./email-otp";
+import { newOtpChallenge, verifyOtpDigest, sendEmailOtp, OTP_MAX_ATTEMPTS, OTP_SESSION_TTL_SECONDS } from "./email-otp";
 
 const app = express();
 app.disable("x-powered-by");
@@ -59,6 +59,10 @@ app.post("/api/auth/login", async (req, res, next) => {
     const allowed = !!user && passwordOk && user.active && (!user.agency_id || user.agency_active);
     await pool.query("INSERT INTO login_attempts(email_lower, ip, success) VALUES ($1,$2,$3)", [email, ip, allowed]);
     if (!allowed) return res.status(401).json({ error: "INVALID_CREDENTIALS" });
+    // Limit challenge creation to reduce mailbox flooding and invalidate older challenges.
+    const recentOtp = await pool.query("SELECT count(*)::int AS n FROM email_otp_challenges WHERE user_id=$1 AND created_at > now() - interval '15 minutes'",[user.id]);
+    if (recentOtp.rows[0].n >= 5) return res.status(429).json({error:"OTP_RATE_LIMITED"});
+    await pool.query("UPDATE email_otp_challenges SET consumed_at=now() WHERE user_id=$1 AND consumed_at IS NULL",[user.id]);
     // Never issue a bearer token before successful email OTP verification.
     const secret = process.env.OTP_SECRET || "";
     const challenge = newOtpChallenge(user.id, secret);
