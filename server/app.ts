@@ -10,6 +10,7 @@ import { audit, authenticate, AuthedRequest, httpError, isPlatformWide, requireA
 import { adminRouter } from "./admin-routes";
 import { renderVoucher } from "./voucher";
 import { LOGIN_WINDOW_MINUTES, loginThrottled, parseTrustProxy } from "./login-guard";
+import { newOtpChallenge, verifyOtpDigest, sendEmailOtp, OTP_MAX_ATTEMPTS, OTP_RESEND_MS, OTP_SESSION_TTL_SECONDS } from "./email-otp";
 
 const app = express();
 app.disable("x-powered-by");
@@ -58,10 +59,57 @@ app.post("/api/auth/login", async (req, res, next) => {
     const allowed = !!user && passwordOk && user.active && (!user.agency_id || user.agency_active);
     await pool.query("INSERT INTO login_attempts(email_lower, ip, success) VALUES ($1,$2,$3)", [email, ip, allowed]);
     if (!allowed) return res.status(401).json({ error: "INVALID_CREDENTIALS" });
-    await audit(pool, user.id, user.agency_id, "auth.login", "user", user.id);
-    const token = issueSession({ sub: user.id, role: user.role, agencyId: user.agency_id, ver: user.token_version }, sessionSecret());
-    res.json({ token, tokenType: "Bearer", expiresIn: 28800, user: { id: user.id, email: user.email, role: user.role, agencyId: user.agency_id } });
+    // Never issue a bearer token before successful email OTP verification.
+    const secret = process.env.OTP_SECRET || "";
+    const challenge = newOtpChallenge(user.id, secret);
+    await pool.query(
+      "INSERT INTO email_otp_challenges(id,user_id,code_digest,expires_at) VALUES ($1,$2,$3,$4)",
+      [challenge.id,user.id,challenge.digest,challenge.expiresAt]
+    );
+    try { await sendEmailOtp(user.email,challenge.code); }
+    catch (err) {
+      await pool.query("DELETE FROM email_otp_challenges WHERE id=$1",[challenge.id]);
+      throw err;
+    }
+    res.json({ requiresOtp: true, challengeId: challenge.id, expiresIn: 300 });
   } catch (error) { next(error); }
+});
+
+// OTP verification uses a row lock to prevent concurrent reuse of the same challenge.
+app.post("/api/auth/verify-email", async (req,res,next) => {
+  try {
+    const challengeId = String(req.body?.challengeId || "");
+    const code = String(req.body?.code || "");
+    if (!/^[0-9a-f-]{36}$/i.test(challengeId) || !/^\\d{6}$/.test(code))
+      return res.status(400).json({error:"INVALID_OTP"});
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+      const found = (await client.query(
+        `SELECT c.id,c.user_id,c.code_digest,c.expires_at,c.attempts,c.consumed_at,
+                u.email,u.role,u.agency_id,u.active,u.token_version,a.active AS agency_active
+           FROM email_otp_challenges c JOIN users u ON u.id=c.user_id
+           LEFT JOIN agencies a ON a.id=u.agency_id WHERE c.id=$1 FOR UPDATE OF c`,
+        [challengeId])).rows[0];
+      if (!found || found.consumed_at || new Date(found.expires_at).getTime() <= Date.now()
+          || found.attempts >= OTP_MAX_ATTEMPTS || !found.active
+          || (found.agency_id && !found.agency_active)) {
+        await client.query("COMMIT");
+        return res.status(401).json({error:"INVALID_OTP"});
+      }
+      const ok = verifyOtpDigest(challengeId,code,found.code_digest,process.env.OTP_SECRET||"");
+      await client.query("UPDATE email_otp_challenges SET attempts=attempts+1,consumed_at=CASE WHEN $2 THEN now() ELSE consumed_at END WHERE id=$1",[challengeId,ok]);
+      if (!ok) {
+        await client.query("COMMIT");
+        return res.status(401).json({error:"INVALID_OTP"});
+      }
+      await audit(client,found.user_id,found.agency_id,"auth.email_otp_verified","user",found.user_id);
+      await client.query("COMMIT");
+      const token = issueSession({sub:found.user_id,role:found.role,agencyId:found.agency_id,ver:found.token_version},sessionSecret(),Date.now(),OTP_SESSION_TTL_SECONDS);
+      return res.json({token,tokenType:"Bearer",expiresIn:OTP_SESSION_TTL_SECONDS,user:{id:found.user_id,email:found.email,role:found.role,agencyId:found.agency_id}});
+    } catch(err) { await client.query("ROLLBACK"); throw err; }
+    finally {client.release();}
+  } catch(err) {next(err);}
 });
 
 // Logout revokes every session of the user (token_version is bumped).
