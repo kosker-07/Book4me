@@ -3,11 +3,14 @@ name: BED4BOOK v1 server checks
 on:
   push:
     branches:
+      - main
       - feature/bed4book-v1-server-foundation
+      - "fix/**"
     paths:
       - "server/**"
       - "tests/server/**"
       - "package.json"
+      - "package-lock.json"
       - "tsconfig.server.json"
       - ".github/workflows/bed4book-v1-server.yml"
   pull_request:
@@ -15,17 +18,38 @@ on:
       - "server/**"
       - "tests/server/**"
       - "package.json"
+      - "package-lock.json"
       - "tsconfig.server.json"
       - ".github/workflows/bed4book-v1-server.yml"
 
 jobs:
   server:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: bed4book
+          POSTGRES_PASSWORD: bed4book_test
+          POSTGRES_DB: bed4book_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U bed4book -d bed4book_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgres://bed4book:bed4book_test@localhost:5432/bed4book_test
+      SESSION_SECRET: integration-test-secret-at-least-32-characters
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+      # Temporary bootstrap until the committed npm lockfile is generated.
       - run: npm install
+      - name: Apply PostgreSQL 16 schema
+        run: psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f server/migrations/001_initial.sql -f server/migrations/002_booking_pricing_and_integrity.sql
       - run: npm run build:server
       - run: npm run test:server

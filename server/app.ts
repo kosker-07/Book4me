@@ -147,7 +147,11 @@ app.post("/api/agency/bookings", authenticate, roles("sub_agency"), requireAgenc
         );
         if (!inventory.rowCount || inventory.rows[0].allotment - inventory.rows[0].reserved < rooms)
           throw Object.assign(new Error("ALLOTMENT_UNAVAILABLE"), { status: 409 });
-        await client.query("UPDATE inventory_daily SET reserved=reserved+$3 WHERE id=$1 AND allotment-reserved >= $3", [inventory.rows[0].id, date, rooms]);
+        const upd = await client.query(
+          "UPDATE inventory_daily SET reserved = reserved + $2 WHERE id = $1 AND allotment - reserved >= $2",
+          [inventory.rows[0].id, rooms]
+        );
+        if (upd.rowCount !== 1) throw Object.assign(new Error("ALLOTMENT_UNAVAILABLE"), { status: 409 });
       }
       const bookingId = randomUUID(), bookingNo = `B4B-${Date.now().toString(36).toUpperCase()}`;
       const total = Number(sale.rows[0].sell_price) * rooms * nights;
