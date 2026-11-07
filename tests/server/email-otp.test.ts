@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { generateEmailOtp, newOtpChallenge, otpDigest, verifyOtpDigest, OTP_TTL_MS, OTP_SESSION_TTL_SECONDS } from "../../server/email-otp";
 const secret = "test-secret-with-at-least-thirty-two-characters";
-test("OTP is exactly six decimal digits", () => { for(let i=0;i<100;i++) assert.match(generateEmailOtp(), /^\\d{6}$/); });
+test("OTP is exactly six decimal digits", () => { for(let i=0;i<100;i++) assert.match(generateEmailOtp(), /^[0-9]{6}$/); });
 test("OTP digest is challenge-specific and does not contain code", () => {
   const a = newOtpChallenge("user1",secret,1000);
   assert.equal(a.expiresAt.getTime(),1000+OTP_TTL_MS);
