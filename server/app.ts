@@ -84,7 +84,7 @@ app.post("/api/auth/verify-email", async (req,res,next) => {
   try {
     const challengeId = String(req.body?.challengeId || "");
     const code = String(req.body?.code || "");
-    if (!/^[0-9a-f-]{36}$/i.test(challengeId) || !/^\\d{6}$/.test(code))
+    if (!/^[0-9a-f-]{36}$/i.test(challengeId) || !/^[0-9]{6}$/.test(code))
       return res.status(400).json({error:"INVALID_OTP"});
     const client = await pool.connect();
     try {
