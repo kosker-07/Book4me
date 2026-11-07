@@ -9,6 +9,9 @@ BEGIN
   IF (SELECT markup_type || ':' || markup_value FROM agency_hotel_sales) <> 'percent:0.00' THEN
     RAISE EXCEPTION 'unexpected markup defaults'; END IF;
   IF (SELECT sum(reserved) FROM inventory_daily) <> 4 THEN RAISE EXCEPTION 'inventory changed by migration'; END IF;
+  IF (SELECT count(*) FROM idempotency_keys WHERE key = 'legacy-key-1' AND request_hash IS NULL
+        AND response->>'id' = '66666666-6666-6666-6666-666666666666') <> 1 THEN
+    RAISE EXCEPTION 'legacy idempotency key changed or lost'; END IF;
   BEGIN
     INSERT INTO users(email,password_hash,role,agency_id) VALUES ('bad@x','x','master_agency','22222222-2222-2222-2222-222222222222');
     RAISE EXCEPTION 'trigger did not reject master_agency under a sub agency';

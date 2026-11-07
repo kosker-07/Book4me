@@ -12,6 +12,7 @@ import type { AddressInfo } from "node:net";
 import type { Server } from "node:http";
 
 const DB_URL = process.env.DATABASE_URL;
+delete process.env.TRUST_PROXY; // D1d checks the default (X-Forwarded-For ignored)
 process.env.SESSION_SECRET = process.env.SESSION_SECRET || "integration-test-secret-at-least-32-chars";
 if (!DB_URL && process.env.CI) throw new Error("DATABASE_URL is required for integration tests in CI.");
 const skip = DB_URL ? false : "DATABASE_URL not set; integration tests skipped locally";
@@ -245,7 +246,7 @@ test("C3 deactivating a publication, rate plan or hotel removes it from search i
 });
 
 // ---------------------------------------------------------------- authentication hardening
-test("D1 login throttling: 5 failures lock the e-mail for 15 minutes, even with the correct password", { skip }, async () => {
+test("D1 login throttling: 5 failures lock the account from that IP for 15 minutes, even with the correct password", { skip }, async () => {
   await setupViaApi();
   for (let i = 0; i < 5; i++) assert.equal((await login("a@test.local", "wrong-password-xx")).status, 401);
   const locked = await login("a@test.local");
@@ -253,6 +254,43 @@ test("D1 login throttling: 5 failures lock the e-mail for 15 minutes, even with 
   assert.equal((await login("b@test.local")).status, 200, "other accounts are not affected");
   assert.equal((await login("nobody@test.local", "whatever-password")).status, 401);
   assert.equal(await count("SELECT count(*)::int AS c FROM login_attempts WHERE email_lower='nobody@test.local' AND NOT success"), 1);
+});
+
+test("D1b account lockout attack: failures from other IPs do not lock the victim; a distributed attack is capped", { skip }, async () => {
+  await setupViaApi();
+  // The attacker typed the victim's e-mail 5 times from another address (rows as the login endpoint writes them).
+  await pool.query("INSERT INTO login_attempts(email_lower, ip, success) SELECT 'a@test.local', '203.0.113.9', false FROM generate_series(1,5)");
+  assert.equal((await login("a@test.local")).status, 200, "victim on its own IP still logs in");
+  // 19 more attacker addresses (5 failures each): 100 failures on the account in the window.
+  await pool.query("INSERT INTO login_attempts(email_lower, ip, success) SELECT 'a@test.local', '198.51.100.' || (g / 5), false FROM generate_series(0,94) g");
+  const capped = await login("a@test.local");
+  assert.equal(capped.status, 429, "distributed brute force throttles the account");
+  assert.deepEqual(capped.body, { error: "TOO_MANY_LOGIN_ATTEMPTS" });
+  assert.equal((await login("b@test.local")).status, 200, "other accounts are not affected");
+  // Failures older than the window do not count.
+  await pool.query("UPDATE login_attempts SET at = now() - interval '16 minutes' WHERE email_lower = 'a@test.local'");
+  assert.equal((await login("a@test.local")).status, 200);
+});
+
+test("D1c login responses do not reveal whether an account exists", { skip }, async () => {
+  await setupViaApi();
+  const known = await login("a@test.local", "wrong-password-xx"), unknown = await login("nobody@test.local", "wrong-password-xx");
+  assert.equal(known.status, 401); assert.equal(unknown.status, 401);
+  assert.deepEqual(known.body, unknown.body);
+  for (let i = 0; i < 4; i++) { await login("a@test.local", "wrong-password-xx"); await login("nobody@test.local", "wrong-password-xx"); }
+  const k = await login("a@test.local"), u = await login("nobody@test.local", "whatever-password");
+  assert.equal(k.status, 429); assert.equal(u.status, 429, "unknown e-mails are throttled the same way");
+  assert.deepEqual(k.body, u.body);
+});
+
+test("D1d X-Forwarded-For is ignored without TRUST_PROXY: a client cannot rotate its IP to bypass the IP limit", { skip }, async () => {
+  await setupViaApi();
+  const spoofed = (n: number) => call("POST", "/api/auth/login", { email: `spray${n}@test.local`, password: "wrong-password-xx" }, undefined,
+    { "x-forwarded-for": `192.0.2.${n}`, "x-real-ip": `192.0.2.${n}` });
+  for (let i = 0; i < 20; i++) assert.equal((await spoofed(i)).status, 401);
+  assert.equal((await spoofed(99)).status, 429, "21st attempt from the same TCP peer is throttled despite a new X-Forwarded-For");
+  assert.equal(await count("SELECT count(DISTINCT ip)::int AS c FROM login_attempts WHERE email_lower LIKE 'spray%'"), 1, "spoofed header not recorded as IP");
+  assert.equal(await count("SELECT count(*)::int AS c FROM login_attempts WHERE ip LIKE '192.0.2.%'"), 0);
 });
 
 test("D2 logout, user deactivation and agency deactivation revoke existing sessions", { skip }, async () => {

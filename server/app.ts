@@ -9,9 +9,12 @@ import { signQuote, verifyQuote } from "./quotes";
 import { audit, authenticate, AuthedRequest, httpError, isPlatformWide, requireAgency, roles, sessionSecret, uuidParam } from "./http";
 import { adminRouter } from "./admin-routes";
 import { renderVoucher } from "./voucher";
+import { LOGIN_WINDOW_MINUTES, loginThrottled, parseTrustProxy } from "./login-guard";
 
 const app = express();
 app.disable("x-powered-by");
+// Reverse-proxy trust is explicit (B4B-02): by default X-Forwarded-For is ignored and req.ip is the TCP peer.
+app.set("trust proxy", parseTrustProxy(process.env.TRUST_PROXY, process.env.NODE_ENV));
 app.use((_req, res, next) => {
   res.setHeader("X-Content-Type-Options", "nosniff");
   res.setHeader("X-Frame-Options", "DENY");
@@ -28,9 +31,9 @@ app.get("/ready", async (_req, res) => {
 });
 
 // ---------------------------------------------------------------------------------------------
-// Authentication. Failed attempts are throttled per e-mail and per IP; every attempt is recorded.
+// Authentication. Failed attempts are throttled per account+IP, per IP and per account (see login-guard.ts);
+// every attempt is recorded, also for unknown e-mails. The response never reveals whether an account exists.
 // ---------------------------------------------------------------------------------------------
-const LOGIN_WINDOW = "15 minutes", MAX_FAILURES_PER_EMAIL = 5, MAX_FAILURES_PER_IP = 20;
 const DUMMY_HASH = hashPassword("timing-equalisation-dummy-password"); // verify against it when the user does not exist
 
 app.post("/api/auth/login", async (req, res, next) => {
@@ -40,10 +43,13 @@ app.post("/api/auth/login", async (req, res, next) => {
     if (!email || !password) return res.status(400).json({ error: "EMAIL_AND_PASSWORD_REQUIRED" });
     const ip = req.ip || req.socket.remoteAddress || "unknown";
     const recent = (await pool.query(
-      `SELECT count(*) FILTER (WHERE email_lower = $1)::int AS by_email, count(*) FILTER (WHERE ip = $2)::int AS by_ip
-         FROM login_attempts WHERE NOT success AND at > now() - interval '${LOGIN_WINDOW}' AND (email_lower = $1 OR ip = $2)`,
-      [email, ip])).rows[0];
-    if (recent.by_email >= MAX_FAILURES_PER_EMAIL || recent.by_ip >= MAX_FAILURES_PER_IP)
+      `SELECT count(*) FILTER (WHERE email_lower = $1 AND ip = $2)::int AS account_and_ip,
+              count(*) FILTER (WHERE ip = $2)::int AS ip,
+              count(*) FILTER (WHERE email_lower = $1)::int AS account
+         FROM login_attempts
+        WHERE NOT success AND at > now() - make_interval(mins => $3) AND (email_lower = $1 OR ip = $2)`,
+      [email, ip, LOGIN_WINDOW_MINUTES])).rows[0];
+    if (loginThrottled({ accountAndIp: recent.account_and_ip, ip: recent.ip, account: recent.account }))
       return res.status(429).json({ error: "TOO_MANY_LOGIN_ATTEMPTS" });
     const user = (await pool.query(
       `SELECT u.id, u.email, u.password_hash, u.role, u.agency_id, u.active, u.token_version, a.active AS agency_active
@@ -93,7 +99,7 @@ app.get("/api/agency/hotels", authenticate, roles("sub_agency"), requireAgency, 
 // Returns exactly one winner per equivalence key; losing offers are discarded and never returned.
 // ---------------------------------------------------------------------------------------------
 interface CandidateRow {
-  rate_plan_id: string; board_name: string; currency: string; cancellation_policy: unknown; payment_terms: unknown;
+  rate_plan_id: string; board_name: string; currency: string; cancellation_policy: unknown; payment_terms: unknown; sales_conditions: unknown;
   room_id: string; room_name: string; max_adults: number; max_children: number;
   hotel_id: string; hotel_name: string; location: string; category: string | null;
   markup_type: "percent" | "fixed"; markup_value: string; nights: { date: string; price: string }[];
@@ -103,7 +109,7 @@ interface CandidateRow {
 async function loadCandidates(db: { query: PoolClient["query"] }, agencyId: string, checkIn: string, checkOut: string, rooms: number) {
   const nights = nightsBetween(checkIn, checkOut).length;
   const result = await db.query(
-    `SELECT rp.id AS rate_plan_id, rp.board_name, rp.currency, rp.cancellation_policy, rp.payment_terms,
+    `SELECT rp.id AS rate_plan_id, rp.board_name, rp.currency, rp.cancellation_policy, rp.payment_terms, rp.sales_conditions,
             r.id AS room_id, r.name AS room_name, r.max_adults, r.max_children,
             h.id AS hotel_id, h.name AS hotel_name, h.location, h.category,
             s.markup_type, s.markup_value::text AS markup_value,
@@ -129,7 +135,8 @@ const fitsOccupancy = (row: { max_adults: number; max_children: number }, rooms:
 
 const toCandidate = (row: CandidateRow): Candidate => ({
   ratePlanId: row.rate_plan_id, hotelId: row.hotel_id, roomId: row.room_id, board: row.board_name,
-  cancellationPolicy: row.cancellation_policy, paymentTerms: row.payment_terms, currency: row.currency.trim(),
+  cancellationPolicy: row.cancellation_policy, paymentTerms: row.payment_terms, salesConditions: row.sales_conditions,
+  currency: row.currency.trim(),
   markup: { type: row.markup_type, value: row.markup_value },
   nights: row.nights.map(n => ({ date: n.date, netPrice: n.price }))
 });
@@ -255,7 +262,22 @@ app.post("/api/agency/bookings", authenticate, roles("sub_agency"), requireAgenc
         [agencyId, idempotencyKey, requestHash]);
       if (claim.rowCount === 0) {
         const row = (await client.query("SELECT response, request_hash FROM idempotency_keys WHERE agency_id=$1 AND key=$2", [agencyId, idempotencyKey])).rows[0];
-        if (row.request_hash && row.request_hash !== requestHash) throw httpError(422, "IDEMPOTENCY_KEY_REUSED");
+        if (row.request_hash === null || row.request_hash === undefined) {
+          // B4B-04: key stored before migration 002 (no fingerprint). Never create a second booking under it.
+          // Replay only if the stored booking matches this request (same rate plan, dates, rooms, guest);
+          // otherwise the key is being reused for different content. A match binds the fingerprint so later
+          // requests with this key take the normal path.
+          const legacyId = row.response && typeof row.response === "object" ? row.response.id : undefined;
+          const same = typeof legacyId === "string" && (await client.query(
+            `SELECT 1 FROM bookings WHERE id::text = $1 AND agency_id = $2 AND rate_plan_id = $3 AND check_in = $4::date
+                AND check_out = $5::date AND room_count = $6 AND lower(guest_first_name) = lower($7) AND lower(guest_last_name) = lower($8)`,
+            [legacyId, agencyId, q.ratePlanId, q.checkIn, q.checkOut, q.rooms, guest.firstName, guest.lastName])).rowCount === 1;
+          if (!same) throw httpError(422, "IDEMPOTENCY_KEY_REUSED");
+          await client.query("UPDATE idempotency_keys SET request_hash=$3 WHERE agency_id=$1 AND key=$2 AND request_hash IS NULL",
+            [agencyId, idempotencyKey, requestHash]);
+          return { status: 201, body: row.response };
+        }
+        if (row.request_hash !== requestHash) throw httpError(422, "IDEMPOTENCY_KEY_REUSED");
         return { status: 201, body: row.response };
       }
 

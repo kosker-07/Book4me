@@ -24,6 +24,8 @@ export interface Candidate {
   board: string;
   cancellationPolicy: unknown;
   paymentTerms: unknown;
+  /** rate_plans.sales_conditions: supplier sales conditions; offers with different conditions are different products. */
+  salesConditions?: unknown;
   currency: string;
   markup: Markup;
   nights: CandidateNight[];
@@ -47,11 +49,13 @@ export function canonicalJson(value: unknown): string {
   return JSON.stringify(value ?? null);
 }
 
-/** Offers compete only when every component of this key is equal. */
+/** Offers compete only when every component of this key is equal. Market/nationality are not in the v1 data
+ *  model and therefore not in the key (see roadmap §2.3); any such condition stored in sales_conditions splits
+ *  the group instead of being compared away. */
 export function equivalenceKey(c: Candidate, occupancy: Occupancy, checkIn: string, checkOut: string, rooms: number): string {
   return canonicalJson([
     c.hotelId, c.roomId, c.board.trim().toLowerCase(),
-    c.cancellationPolicy ?? {}, c.paymentTerms ?? {},
+    c.cancellationPolicy ?? {}, c.paymentTerms ?? {}, c.salesConditions ?? {},
     occupancy.adults, occupancy.children, [...occupancy.childAges].sort((a, b) => a - b),
     checkIn, checkOut, rooms
   ]);

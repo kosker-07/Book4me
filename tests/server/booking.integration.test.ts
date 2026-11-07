@@ -175,6 +175,37 @@ test("05b the same Idempotency-Key with a different payload is rejected with 422
   assert.equal(await count("bookings"), 1);
 });
 
+test("05c legacy Idempotency-Key without request_hash (pre-002): matching retry replays, other content is 422, never a 2nd booking", { skip }, async () => {
+  const q = await winnerQuote(tok.a!), key = randomUUID();
+  const first = await book(tok.a!, q.quoteId, key);
+  assert.equal(first.status, 201, first.raw);
+  // Simulate a key stored before migration 002: fingerprint missing.
+  await pool.query("UPDATE idempotency_keys SET request_hash = NULL WHERE key = $1", [key]);
+  // Different content (another guest) under the legacy key → 422, nothing created, fingerprint still unbound.
+  const other = await book(tok.a!, q.quoteId, key, { guest: { ...GUEST, firstName: "Başka" } });
+  assert.equal(other.status, 422, other.raw);
+  assert.equal(other.body.error, "IDEMPOTENCY_KEY_REUSED");
+  assert.equal((await pool.query("SELECT request_hash FROM idempotency_keys WHERE key=$1", [key])).rows[0].request_hash, null);
+  // Concurrent matching retries → the original booking is replayed, fingerprint bound once.
+  const retries = await Promise.all(Array.from({ length: 5 }, () => book(tok.a!, q.quoteId, key)));
+  assert.deepEqual(retries.map(r => r.status), Array(5).fill(201), retries.map(r => r.raw).join("\n"));
+  assert.ok(retries.every(r => r.body.id === first.body.id));
+  assert.notEqual((await pool.query("SELECT request_hash FROM idempotency_keys WHERE key=$1", [key])).rows[0].request_hash, null);
+  // After binding, the normal rule applies.
+  assert.equal((await book(tok.a!, q.quoteId, key, { operationNote: "Different note" })).status, 422);
+  assert.equal(await count("bookings"), 1);
+  assert.deepEqual(await reserved(RP1), [1, 1], "allotment decremented exactly once");
+});
+
+test("05d legacy key whose stored response has no booking id is refused (422), never re-executed", { skip }, async () => {
+  const q = await winnerQuote(tok.a!), key = randomUUID();
+  await pool.query("INSERT INTO idempotency_keys(agency_id, key, response, request_hash) VALUES ($1,$2,'{}'::jsonb,NULL)", [SA, key]);
+  const r = await book(tok.a!, q.quoteId, key);
+  assert.equal(r.status, 422, r.raw);
+  assert.equal(await count("bookings"), 0);
+  assert.deepEqual(await reserved(RP1), [0, 0]);
+});
+
 // ---------------------------------------------------------------- 6-12. authorization and cancellation
 async function createBooking(token: string, hotelId = H1) {
   const q = await winnerQuote(token, hotelId);
@@ -337,6 +368,20 @@ test("15b an offer without an exchange rate is not evaluated; with a rate it is"
   assert.equal(withRate.length, 1);
   assert.equal(withRate[0].currency, "USD");
   assert.equal(withRate[0].total, "110.00"); // (50 + 10%) x 2 in USD
+});
+
+test("15c different sales conditions are separate products; conditions are not exposed (B4B-03)", { skip }, async () => {
+  // RP2 (net 120) gets its own sales conditions: it no longer competes with RP1 (net 100) and is shown separately.
+  await pool.query(`UPDATE rate_plans SET sales_conditions = '{"minStay": 2, "markets": ["UK"]}'::jsonb WHERE id = $1`, [RP2]);
+  const s = await search(tok.a!);
+  assert.equal(s.status, 200, s.raw);
+  const ai = findResult(s.body.results, H1, "AI");
+  assert.deepEqual(ai.map((r: any) => r.total).sort(), ["220.00", "264.00"], "both offers returned, each its own group");
+  assert.ok(!s.raw.includes("minStay") && !s.raw.includes("markets"), "sales conditions are not leaked in the search response");
+  // Same conditions on both (other key order): one group again, the cheaper one wins.
+  await pool.query(`UPDATE rate_plans SET sales_conditions = '{"markets": ["UK"], "minStay": 2}'::jsonb WHERE id = $1`, [RP1]);
+  const again = findResult((await search(tok.a!)).body.results, H1, "AI");
+  assert.deepEqual(again.map((r: any) => r.total), ["220.00"]);
 });
 
 test("16 competitor offers and other agencies' data do not leak into a participant's response", { skip }, async () => {

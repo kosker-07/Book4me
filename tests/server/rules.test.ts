@@ -36,6 +36,19 @@ test("winner: policy key order does not split equivalence; different policies do
   assert.equal(w2.length, 2);
 });
 
+test("winner: different sales conditions are different products (B4B-03); key order does not split", () => {
+  const uk = { markets: ["UK"], minStay: 2 };
+  // A cheaper offer with other sales conditions must not hide the offer without them, and vice versa.
+  const w = chooseWinners([price(cand("cond", 80, { salesConditions: uk })), price(cand("open", 100, { salesConditions: {} }))]);
+  assert.deepEqual(w.map(o => o.ratePlanId).sort(), ["cond", "open"]);
+  // Same conditions with keys in another order: still one group, lowest price wins.
+  const w2 = chooseWinners([price(cand("a", 100, { salesConditions: { minStay: 2, markets: ["UK"] } })), price(cand("b", 90, { salesConditions: uk }))]);
+  assert.deepEqual(w2.map(o => o.ratePlanId), ["b"]);
+  // Missing and empty sales conditions are equivalent (rate plans created before the field was used).
+  const w3 = chooseWinners([price(cand("legacy", 100)), price(cand("empty", 90, { salesConditions: {} }))]);
+  assert.deepEqual(w3.map(o => o.ratePlanId), ["empty"]);
+});
+
 test("winner: an offer without an exchange rate is excluded, not treated as rate 1", () => {
   assert.deepEqual(chooseWinners([price(cand("usd", 1, { currency: "USD" }))]), []);
   const fx = new Map([["USD", 0.9]]);

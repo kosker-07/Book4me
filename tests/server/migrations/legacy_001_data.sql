@@ -14,3 +14,6 @@ INSERT INTO agency_hotel_sales(agency_id,hotel_id,rate_plan_id,sell_price,sell_c
 INSERT INTO bookings(id,booking_no,agency_id,hotel_id,rate_plan_id,check_in,check_out,room_count,total,currency,status,guest_first_name,guest_last_name)
   VALUES ('66666666-6666-6666-6666-666666666666','B4B-LEGACY','22222222-2222-2222-2222-222222222222','33333333-3333-3333-3333-333333333333',
           '55555555-5555-5555-5555-555555555555','2030-06-01','2030-06-03',2,480,'EUR','pending','Old','Booking');
+-- Idempotency key written by the pre-002 API (no request_hash column yet).
+INSERT INTO idempotency_keys(agency_id,key,response) VALUES
+  ('22222222-2222-2222-2222-222222222222','legacy-key-1','{"id":"66666666-6666-6666-6666-666666666666","bookingNo":"B4B-LEGACY","status":"pending"}');
