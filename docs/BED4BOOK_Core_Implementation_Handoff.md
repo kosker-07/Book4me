@@ -39,3 +39,20 @@ The adapter contract requires `quote(oldBooking)`, `recheck(offer, oldBooking)`,
 - The existing full suite `node tests/unit.js` was not run by this focused workflow and remains to be independently verified.
 - CI run: https://github.com/kosker-07/Book4me/actions/runs/42369780380
 - Passing focused tests do not establish live supplier connectivity or production readiness.
+
+
+## Project-owner specification received — 2026-11-07
+
+The project owner has now supplied the original:
+- `BED4BOOK_Teknik_Sartname.pdf`
+- `BED4BOOK_Proje_Sartnamesi.pdf`
+
+Faithful Markdown versions are committed as:
+- `docs/BED4BOOK_Teknik_Sartname.md`
+- `docs/BED4BOOK_Proje_Sartnamesi.md`
+
+**Scope clarification:** the supplied v1.0 documents define the first commercial release as a manual-inventory, sub-agency B2B hotel platform with responsive web UI, admin/content management, sub-agency panel, Back Office, reservation lifecycle, PDF voucher, role/agency isolation, security and backup/restore. They explicitly place supplier API/XML, payments, mobile apps, accounting/e-invoice and advanced automation in later phases.
+
+Rebooking and RateRelay are not identified as first-release modules in these source documents. The existing `u0030-bed4book-core.js` remains in the repository as a separate implementation scaffold; its inclusion in v1 is not established by the supplied PDFs. Cloud must report this scope distinction and must not treat this module as a v1 acceptance requirement without a separate project-owner decision.
+
+The technical specification states that the document alone does not authorize source-code or live-server changes. The project plan also requires explicit approval for live deployment and critical changes. Cloud review must respect those change-control boundaries.
