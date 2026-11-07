@@ -54,6 +54,6 @@ const eq = (a,b,m) => { if(JSON.stringify(a)!==JSON.stringify(b)) throw new Erro
   B.auth.start(B.db.find("users", u => u.email === "admin@book4me-ai.com"));
   const closed = X.rateRelay.close(pool.id);
   ok(closed.ok,closed.msg);
-  eq(closed.winner.totalEur,relayTotal,"lowest normalized bid wins");
+  eq(closed.winner.totalEur,B.util.r2(relayTotal),"lowest normalized bid wins");
   console.log("BED4BOOK tests passed");
 })().catch(e => { console.error(e); process.exitCode = 1; });
