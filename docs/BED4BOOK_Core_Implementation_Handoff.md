@@ -34,8 +34,8 @@ The adapter contract requires `quote(oldBooking)`, `recheck(offer, oldBooking)`,
 - The source PDF was not available in the current file workspace at implementation time. This handoff uses the PDF requirements previously summarized in the conversation; exact field-by-field conformance must be checked against the PDF itself.
 
 ## Verification status
-- The test file is committed as a focused test suite but has not been executed in a Node runtime in this session.
-- Run: `node tests/bed4book.js`
-- Run the existing suite: `node tests/unit.js`
-- Build: `node tools/build.js`
-- Do not report these as passed until CI or a local runtime records successful output.
+- `node tests/bed4book.js` passed in GitHub Actions on commit `bb68a9f59416787921df6a2e7768d321e7383985`.
+- `node tools/build.js` passed in the same GitHub Actions run.
+- The existing full suite `node tests/unit.js` was not run by this focused workflow and remains to be independently verified.
+- CI run: https://github.com/kosker-07/Book4me/actions/runs/42369780380
+- Passing focused tests do not establish live supplier connectivity or production readiness.
