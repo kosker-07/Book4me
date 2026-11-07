@@ -2,72 +2,68 @@ import express, { NextFunction, Request, Response } from "express";
 import type { PoolClient } from "pg";
 import { createHash, randomUUID } from "node:crypto";
 import { pool, withTransaction } from "./db";
-import { issueSession, SessionClaims, verifyPassword, verifySession } from "./security";
-import { Candidate, chooseWinners, fromCents, nightlySellCents, priceCandidate, toCents } from "./pricing";
-import { FieldErrors, nightsBetween, UUID_RE, validateGuest, validateOccupancy, validateStay } from "./validation";
+import { hashPassword, issueSession, verifyPassword } from "./security";
+import { Candidate, chooseWinners, fromCents, Markup, nightlySellCents, priceCandidate, toCents } from "./pricing";
+import { FieldErrors, nightsBetween, validateGuest, validateOccupancy, validateStay } from "./validation";
 import { signQuote, verifyQuote } from "./quotes";
+import { audit, authenticate, AuthedRequest, httpError, isPlatformWide, requireAgency, roles, sessionSecret, uuidParam } from "./http";
+import { adminRouter } from "./admin-routes";
+import { renderVoucher } from "./voucher";
 
 const app = express();
 app.disable("x-powered-by");
+app.use((_req, res, next) => {
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  res.setHeader("X-Frame-Options", "DENY");
+  res.setHeader("Referrer-Policy", "no-referrer");
+  res.setHeader("Cache-Control", "no-store");
+  next();
+});
 app.use(express.json({ limit: "1mb" }));
 
-const sessionSecret = process.env.SESSION_SECRET || "";
-type Role = SessionClaims["role"];
-type AuthedRequest = Request & { auth?: SessionClaims };
-const httpError = (status: number, message: string, extra?: object) => Object.assign(new Error(message), { status, extra });
-
-const roles = (...allowed: Role[]) => (req: AuthedRequest, res: Response, next: NextFunction) => {
-  if (!req.auth || !allowed.includes(req.auth.role)) return res.status(403).json({ error: "FORBIDDEN" });
-  next();
-};
-const authenticate = async (req: AuthedRequest, res: Response, next: NextFunction) => {
-  const token = (req.headers.authorization || "").replace(/^Bearer\s+/i, "");
-  const claims = verifySession(token, sessionSecret);
-  if (!claims) return res.status(401).json({ error: "UNAUTHENTICATED" });
-  try {
-    const result = await pool.query("SELECT id, role, agency_id, active FROM users WHERE id = $1", [claims.sub]);
-    const user = result.rows[0];
-    if (!user || !user.active || user.role !== claims.role || user.agency_id !== claims.agencyId)
-      return res.status(401).json({ error: "SESSION_REVOKED" });
-    req.auth = claims;
-    next();
-  } catch (error) { next(error); }
-};
-const requireAgency = (req: AuthedRequest, res: Response, next: NextFunction) => {
-  if (!req.auth || !req.auth.agencyId) return res.status(403).json({ error: "AGENCY_CONTEXT_REQUIRED" });
-  next();
-};
-const uuidParam = (req: Request) => {
-  const id = String(req.params.id || "");
-  if (!UUID_RE.test(id)) throw httpError(404, "BOOKING_NOT_FOUND");
-  return id;
-};
-/** Platform-wide roles: system administrator and Back Office (not bound to any agency tenant). */
-const isPlatformWide = (role: Role) => role === "system_admin" || role === "back_office";
-
-const audit = async (client: any, actorId: string, agencyId: string | null, action: string, entityType: string, entityId: string) => {
-  await client.query(
-    "INSERT INTO audit_logs(actor_id, agency_id, action, entity_type, entity_id) VALUES ($1,$2,$3,$4,$5)",
-    [actorId, agencyId, action, entityType, entityId]
-  );
-};
-
 app.get("/health", (_req, res) => res.json({ ok: true, service: "bed4book-api" }));
+app.get("/ready", async (_req, res) => {
+  try { await pool.query("SELECT 1"); res.json({ ok: true, database: "up" }); }
+  catch { res.status(503).json({ ok: false, database: "down" }); }
+});
+
+// ---------------------------------------------------------------------------------------------
+// Authentication. Failed attempts are throttled per e-mail and per IP; every attempt is recorded.
+// ---------------------------------------------------------------------------------------------
+const LOGIN_WINDOW = "15 minutes", MAX_FAILURES_PER_EMAIL = 5, MAX_FAILURES_PER_IP = 20;
+const DUMMY_HASH = hashPassword("timing-equalisation-dummy-password"); // verify against it when the user does not exist
 
 app.post("/api/auth/login", async (req, res, next) => {
   try {
     const email = String(req.body?.email || "").trim().toLowerCase();
     const password = String(req.body?.password || "");
     if (!email || !password) return res.status(400).json({ error: "EMAIL_AND_PASSWORD_REQUIRED" });
-    const result = await pool.query(
-      "SELECT id, email, password_hash, role, agency_id, active FROM users WHERE lower(email) = $1 LIMIT 1",
-      [email]
-    );
-    const user = result.rows[0];
-    if (!user || !user.active || !verifyPassword(password, user.password_hash))
-      return res.status(401).json({ error: "INVALID_CREDENTIALS" });
-    const token = issueSession({ sub: user.id, role: user.role, agencyId: user.agency_id }, sessionSecret);
+    const ip = req.ip || req.socket.remoteAddress || "unknown";
+    const recent = (await pool.query(
+      `SELECT count(*) FILTER (WHERE email_lower = $1)::int AS by_email, count(*) FILTER (WHERE ip = $2)::int AS by_ip
+         FROM login_attempts WHERE NOT success AND at > now() - interval '${LOGIN_WINDOW}' AND (email_lower = $1 OR ip = $2)`,
+      [email, ip])).rows[0];
+    if (recent.by_email >= MAX_FAILURES_PER_EMAIL || recent.by_ip >= MAX_FAILURES_PER_IP)
+      return res.status(429).json({ error: "TOO_MANY_LOGIN_ATTEMPTS" });
+    const user = (await pool.query(
+      `SELECT u.id, u.email, u.password_hash, u.role, u.agency_id, u.active, u.token_version, a.active AS agency_active
+         FROM users u LEFT JOIN agencies a ON a.id = u.agency_id WHERE lower(u.email) = $1 LIMIT 1`, [email])).rows[0];
+    const passwordOk = verifyPassword(password, user ? user.password_hash : DUMMY_HASH);
+    const allowed = !!user && passwordOk && user.active && (!user.agency_id || user.agency_active);
+    await pool.query("INSERT INTO login_attempts(email_lower, ip, success) VALUES ($1,$2,$3)", [email, ip, allowed]);
+    if (!allowed) return res.status(401).json({ error: "INVALID_CREDENTIALS" });
+    await audit(pool, user.id, user.agency_id, "auth.login", "user", user.id);
+    const token = issueSession({ sub: user.id, role: user.role, agencyId: user.agency_id, ver: user.token_version }, sessionSecret());
     res.json({ token, tokenType: "Bearer", expiresIn: 28800, user: { id: user.id, email: user.email, role: user.role, agencyId: user.agency_id } });
+  } catch (error) { next(error); }
+});
+
+// Logout revokes every session of the user (token_version is bumped).
+app.post("/api/auth/logout", authenticate, async (req: AuthedRequest, res, next) => {
+  try {
+    await pool.query("UPDATE users SET token_version = token_version + 1 WHERE id = $1", [req.auth!.sub]);
+    await audit(pool, req.auth!.sub, req.auth!.agencyId, "auth.logout", "user", req.auth!.sub);
+    res.json({ ok: true });
   } catch (error) { next(error); }
 });
 
@@ -75,41 +71,7 @@ app.get("/api/me", authenticate, (req: AuthedRequest, res) => {
   res.json({ userId: req.auth!.sub, role: req.auth!.role, agencyId: req.auth!.agencyId });
 });
 
-// Platform administrators create agencies and user accounts. Passwords are provisioned out-of-band.
-app.post("/api/admin/agencies", authenticate, roles("system_admin"), async (req: AuthedRequest, res, next) => {
-  try {
-    const { name, type } = req.body || {};
-    if (typeof name !== "string" || !name.trim() || !["master", "sub"].includes(type))
-      return res.status(400).json({ error: "INVALID_AGENCY" });
-    const id = randomUUID();
-    await withTransaction(async client => {
-      await client.query("INSERT INTO agencies(id,name,type) VALUES ($1,$2,$3)", [id, name.trim(), type]);
-      await audit(client, req.auth!.sub, null, "agency.created", "agency", id);
-    });
-    res.status(201).json({ id, name: name.trim(), type });
-  } catch (error) { next(error); }
-});
-
-// Master agency and platform admin can create hotel records. Tenant ownership is server-derived.
-app.post("/api/admin/hotels", authenticate, roles("system_admin", "master_agency"), async (req: AuthedRequest, res, next) => {
-  try {
-    const { name, location, category, description, amenities, images, operationalNotes } = req.body || {};
-    if (typeof name !== "string" || !name.trim() || typeof location !== "string" || !location.trim())
-      return res.status(400).json({ error: "HOTEL_NAME_AND_LOCATION_REQUIRED" });
-    const ownerAgencyId = req.auth!.role === "system_admin" ? req.body.ownerAgencyId : req.auth!.agencyId;
-    if (!ownerAgencyId) return res.status(400).json({ error: "OWNER_AGENCY_REQUIRED" });
-    const id = randomUUID();
-    await withTransaction(async client => {
-      await client.query(
-        `INSERT INTO hotels(id, owner_agency_id, name, location, category, description, amenities, images, operational_notes)
-         VALUES ($1,$2,$3,$4,$5,$6,$7::jsonb,$8::jsonb,$9)`,
-        [id, ownerAgencyId, name.trim(), location.trim(), category || null, description || "", JSON.stringify(amenities || []), JSON.stringify(images || []), operationalNotes || ""]
-      );
-      await audit(client, req.auth!.sub, ownerAgencyId, "hotel.created", "hotel", id);
-    }, ownerAgencyId);
-    res.status(201).json({ id, ownerAgencyId, name: name.trim(), status: "draft" });
-  } catch (error) { next(error); }
-});
+app.use(adminRouter);
 
 // A sub-agency sees only hotels explicitly published to that agency.
 app.get("/api/agency/hotels", authenticate, roles("sub_agency"), requireAgency, async (req: AuthedRequest, res, next) => {
@@ -137,8 +99,8 @@ interface CandidateRow {
   markup_type: "percent" | "fixed"; markup_value: string; nights: { date: string; price: string }[];
 }
 
-/** Published, active, bookable rate plans for an agency with allotment for every night. Optionally one rate plan only. */
-async function loadCandidates(db: { query: PoolClient["query"] }, agencyId: string, checkIn: string, checkOut: string, rooms: number, onlyRatePlanId?: string) {
+/** Published, active, bookable rate plans for an agency with allotment for every night. */
+async function loadCandidates(db: { query: PoolClient["query"] }, agencyId: string, checkIn: string, checkOut: string, rooms: number) {
   const nights = nightsBetween(checkIn, checkOut).length;
   const result = await db.query(
     `SELECT rp.id AS rate_plan_id, rp.board_name, rp.currency, rp.cancellation_policy, rp.payment_terms,
@@ -151,17 +113,18 @@ async function loadCandidates(db: { query: PoolClient["query"] }, agencyId: stri
        JOIN rate_plans rp ON rp.id = s.rate_plan_id AND rp.active
        JOIN rooms r ON r.id = rp.room_id AND r.active
        JOIN hotels h ON h.id = r.hotel_id AND h.status = 'active'
+       JOIN agencies oa ON oa.id = h.owner_agency_id AND oa.active
        JOIN inventory_daily d ON d.rate_plan_id = rp.id
             AND d.stay_date >= $2::date AND d.stay_date < $3::date AND d.allotment - d.reserved >= $4
-      WHERE s.agency_id = $1 AND s.active AND ($6::uuid IS NULL OR rp.id = $6::uuid)
+      WHERE s.agency_id = $1 AND s.active
       GROUP BY rp.id, r.id, h.id, s.markup_type, s.markup_value
      HAVING count(*) = $5`,
-    [agencyId, checkIn, checkOut, rooms, nights, onlyRatePlanId ?? null]
+    [agencyId, checkIn, checkOut, rooms, nights]
   );
   return result.rows as CandidateRow[];
 }
 
-const fitsOccupancy = (row: CandidateRow, rooms: number, adults: number, children: number) =>
+const fitsOccupancy = (row: { max_adults: number; max_children: number }, rooms: number, adults: number, children: number) =>
   adults <= row.max_adults * rooms && children <= row.max_children * rooms;
 
 const toCandidate = (row: CandidateRow): Candidate => ({
@@ -194,7 +157,7 @@ app.post("/api/agency/searches", authenticate, roles("sub_agency"), requireAgenc
     const results = chooseWinners(offers).map(w => {
       const row = byRatePlan.get(w.ratePlanId)!;
       return {
-        quoteId: signQuote({ agencyId, ratePlanId: w.ratePlanId, ...stay, totalCents: w.totalCents, currency: w.currency }, sessionSecret),
+        quoteId: signQuote({ agencyId, ratePlanId: w.ratePlanId, ...stay, totalCents: w.totalCents, currency: w.currency }, sessionSecret()),
         hotel: { id: row.hotel_id, name: row.hotel_name, location: row.location, category: row.category },
         room: { name: row.room_name },
         board: row.board_name,
@@ -211,11 +174,54 @@ app.post("/api/agency/searches", authenticate, roles("sub_agency"), requireAgenc
 });
 
 // ---------------------------------------------------------------------------------------------
-// Booking creation. No explicit inventory lock or hold: each night is decremented with one atomic
-// conditional UPDATE, in ascending date order; any failure rolls the whole transaction back.
+// Booking creation and submission. No explicit inventory lock or hold: each night is decremented with
+// one atomic conditional UPDATE, in ascending date order; any failure rolls the whole transaction back.
 // Only the quoted (winning) rate plan is re-checked; no other offer is ever tried.
-// Current product behaviour: allotment is decremented when the booking request is created (pending).
+// Current product behaviour: allotment is decremented when a booking becomes "pending" (on creation, or
+// on submission of a draft). A draft ("Taslak") never consumes allotment.
 // ---------------------------------------------------------------------------------------------
+interface Sale { markup: Markup; currency: string; hotelId: string; maxAdults: number; maxChildren: number }
+
+/** The agency's active publication of exactly this rate plan, or 404. */
+async function publishedSale(client: PoolClient, agencyId: string, ratePlanId: string): Promise<Sale> {
+  const row = (await client.query(
+    `SELECT s.markup_type, s.markup_value::text AS markup_value, rp.currency, h.id AS hotel_id, r.max_adults, r.max_children
+       FROM agency_hotel_sales s
+       JOIN agencies sa ON sa.id = s.agency_id AND sa.active
+       JOIN rate_plans rp ON rp.id = s.rate_plan_id AND rp.active
+       JOIN rooms r ON r.id = rp.room_id AND r.active
+       JOIN hotels h ON h.id = r.hotel_id AND h.status = 'active'
+       JOIN agencies oa ON oa.id = h.owner_agency_id AND oa.active
+      WHERE s.agency_id = $1 AND s.rate_plan_id = $2 AND s.active`,
+    [agencyId, ratePlanId])).rows[0];
+  if (!row) throw httpError(404, "PRODUCT_NOT_PUBLISHED");
+  return { markup: { type: row.markup_type, value: row.markup_value }, currency: String(row.currency).trim(), hotelId: row.hotel_id, maxAdults: row.max_adults, maxChildren: row.max_children };
+}
+
+/** Atomically decrements every night and writes the nightly price snapshot. Throws 409 on any failure. */
+async function reserveNights(client: PoolClient, bookingId: string, ratePlanId: string, checkIn: string, checkOut: string,
+                             rooms: number, sale: Sale, expectedTotalCents: number) {
+  const nights: { date: string; inventoryId: string; netCents: number; sellCents: number }[] = [];
+  for (const date of nightsBetween(checkIn, checkOut)) {
+    const updated = await client.query(
+      `UPDATE inventory_daily SET reserved = reserved + $3
+        WHERE rate_plan_id = $1 AND stay_date = $2::date AND allotment - reserved >= $3
+      RETURNING id, price::text AS price`,
+      [ratePlanId, date, rooms]);
+    if (updated.rowCount !== 1) throw httpError(409, "ALLOTMENT_UNAVAILABLE");
+    const netCents = toCents(updated.rows[0].price);
+    nights.push({ date, inventoryId: updated.rows[0].id, netCents, sellCents: nightlySellCents(netCents, sale.markup) });
+  }
+  const totalCents = nights.reduce((s, n) => s + n.sellCents, 0) * rooms;
+  if (totalCents !== expectedTotalCents) throw httpError(409, "PRICE_CHANGED");
+  for (const n of nights)
+    await client.query(
+      `INSERT INTO booking_nights(booking_id, stay_date, inventory_id, rooms, net_price, markup_type, markup_value, sell_price, currency)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+      [bookingId, n.date, n.inventoryId, rooms, fromCents(n.netCents), sale.markup.type, sale.markup.value, fromCents(n.sellCents), sale.currency]);
+  return totalCents;
+}
+
 app.post("/api/agency/bookings", authenticate, roles("sub_agency"), requireAgency, async (req: AuthedRequest, res, next) => {
   const agencyId = req.auth!.agencyId!;
   const idempotencyKey = String(req.header("Idempotency-Key") || "");
@@ -226,10 +232,12 @@ app.post("/api/agency/bookings", authenticate, roles("sub_agency"), requireAgenc
   const guest = validateGuest(req.body, errors);
   const occupancy = validateOccupancy(req.body?.guest, errors, "guest.");
   if (!req.body?.quoteId) errors.quoteId = "REQUIRED";
+  if (req.body?.draft !== undefined && typeof req.body.draft !== "boolean") errors.draft = "BOOLEAN";
   if (!guest || !occupancy || Object.keys(errors).length) return res.status(400).json({ error: "VALIDATION_FAILED", fields: errors });
   const { adults, children, childAges } = occupancy;
+  const asDraft = req.body.draft === true;
 
-  const checked = verifyQuote(req.body.quoteId, sessionSecret);
+  const checked = verifyQuote(req.body.quoteId, sessionSecret());
   if (!checked.ok) return res.status(checked.error === "QUOTE_EXPIRED" ? 409 : 400).json({ error: checked.error });
   const q = checked.quote;
   if (q.agencyId !== agencyId) return res.status(404).json({ error: "PRODUCT_NOT_PUBLISHED" });
@@ -237,72 +245,40 @@ app.post("/api/agency/bookings", authenticate, roles("sub_agency"), requireAgenc
   if (adults !== q.adults || children !== q.children || !sameAges)
     return res.status(409).json({ error: "QUOTE_OCCUPANCY_MISMATCH" });
 
-  const requestHash = createHash("sha256").update(JSON.stringify({ quoteId: req.body.quoteId, guest: req.body.guest, operationNote: req.body.operationNote })).digest("hex");
+  const requestHash = createHash("sha256").update(JSON.stringify({ quoteId: req.body.quoteId, guest: req.body.guest, operationNote: req.body.operationNote, draft: asDraft })).digest("hex");
   try {
     const result = await withTransaction(async client => {
       // Claim the idempotency key first. A concurrent request with the same key waits on the unique
       // index and then replays the committed response instead of creating a second booking.
       const claim = await client.query(
         "INSERT INTO idempotency_keys(agency_id, key, response, request_hash) VALUES ($1,$2,'{}'::jsonb,$3) ON CONFLICT DO NOTHING",
-        [agencyId, idempotencyKey, requestHash]
-      );
+        [agencyId, idempotencyKey, requestHash]);
       if (claim.rowCount === 0) {
-        const prior = await client.query("SELECT response, request_hash FROM idempotency_keys WHERE agency_id=$1 AND key=$2", [agencyId, idempotencyKey]);
-        const row = prior.rows[0];
+        const row = (await client.query("SELECT response, request_hash FROM idempotency_keys WHERE agency_id=$1 AND key=$2", [agencyId, idempotencyKey])).rows[0];
         if (row.request_hash && row.request_hash !== requestHash) throw httpError(422, "IDEMPOTENCY_KEY_REUSED");
         return { status: 201, body: row.response };
       }
 
-      // Re-check only the quoted winner; never fall back to another rate plan.
-      const sale = (await client.query(
-        `SELECT s.markup_type, s.markup_value::text AS markup_value, rp.currency, h.id AS hotel_id, r.max_adults, r.max_children
-           FROM agency_hotel_sales s
-           JOIN agencies sa ON sa.id = s.agency_id AND sa.active
-           JOIN rate_plans rp ON rp.id = s.rate_plan_id AND rp.active
-           JOIN rooms r ON r.id = rp.room_id AND r.active
-           JOIN hotels h ON h.id = r.hotel_id AND h.status = 'active'
-          WHERE s.agency_id = $1 AND s.rate_plan_id = $2 AND s.active`,
-        [agencyId, q.ratePlanId]
-      )).rows[0];
-      if (!sale) throw httpError(404, "PRODUCT_NOT_PUBLISHED");
-      if (adults > sale.max_adults * q.rooms || children > sale.max_children * q.rooms) throw httpError(409, "OCCUPANCY_EXCEEDS_CAPACITY");
-
-      const markup = { type: sale.markup_type, value: sale.markup_value };
-      const nights: { date: string; inventoryId: string; netCents: number; sellCents: number }[] = [];
-      for (const date of nightsBetween(q.checkIn, q.checkOut)) {
-        const updated = await client.query(
-          `UPDATE inventory_daily SET reserved = reserved + $3
-            WHERE rate_plan_id = $1 AND stay_date = $2::date AND allotment - reserved >= $3
-          RETURNING id, price::text AS price`,
-          [q.ratePlanId, date, q.rooms]
-        );
-        if (updated.rowCount !== 1) throw httpError(409, "ALLOTMENT_UNAVAILABLE");
-        const netCents = toCents(updated.rows[0].price);
-        nights.push({ date, inventoryId: updated.rows[0].id, netCents, sellCents: nightlySellCents(netCents, markup) });
-      }
-      const totalCents = nights.reduce((s, n) => s + n.sellCents, 0) * q.rooms;
-      if (totalCents !== q.totalCents || String(sale.currency).trim() !== q.currency) throw httpError(409, "PRICE_CHANGED");
+      const sale = await publishedSale(client, agencyId, q.ratePlanId); // re-check only the quoted winner
+      if (sale.currency !== q.currency) throw httpError(409, "PRICE_CHANGED");
+      if (adults > sale.maxAdults * q.rooms || children > sale.maxChildren * q.rooms) throw httpError(409, "OCCUPANCY_EXCEEDS_CAPACITY");
 
       const bookingId = randomUUID();
       const seq = (await client.query("SELECT nextval('booking_no_seq') AS n")).rows[0].n;
       const bookingNo = `B4B-${String(seq).padStart(8, "0")}`;
-      const total = fromCents(totalCents);
+      const status = asDraft ? "draft" : "pending";
+      const quotedTotal = fromCents(q.totalCents);
       await client.query(
-        `INSERT INTO bookings(id, booking_no, agency_id, hotel_id, rate_plan_id, check_in, check_out, room_count, total, currency, status,
-                              guest_first_name, guest_last_name, guest_email, guest_phone, guest_nationality, adults, children, child_ages, operation_note)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'pending',$11,$12,$13,$14,$15,$16,$17,$18,$19)`,
-        [bookingId, bookingNo, agencyId, sale.hotel_id, q.ratePlanId, q.checkIn, q.checkOut, q.rooms, total, q.currency,
-         guest.firstName, guest.lastName, guest.email, guest.phone, guest.nationality, adults, children, childAges, guest.operationNote]
-      );
-      for (const n of nights)
-        await client.query(
-          `INSERT INTO booking_nights(booking_id, stay_date, inventory_id, rooms, net_price, markup_type, markup_value, sell_price, currency)
-           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
-          [bookingId, n.date, n.inventoryId, q.rooms, fromCents(n.netCents), markup.type, markup.value, fromCents(n.sellCents), q.currency]
-        );
-      await client.query("INSERT INTO booking_status_history(booking_id,from_status,to_status,actor_id,note) VALUES ($1,NULL,'pending',$2,'Created by sub-agency')", [bookingId, req.auth!.sub]);
-      await audit(client, req.auth!.sub, agencyId, "booking.created", "booking", bookingId);
-      const response = { id: bookingId, bookingNo, status: "pending", total, currency: q.currency };
+        `INSERT INTO bookings(id, booking_no, agency_id, hotel_id, rate_plan_id, check_in, check_out, room_count, total, quoted_total, currency, status,
+                              submitted_at, guest_first_name, guest_last_name, guest_email, guest_phone, guest_nationality, adults, children, child_ages, operation_note)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$9,$10,$11, CASE WHEN $11 = 'pending' THEN now() END, $12,$13,$14,$15,$16,$17,$18,$19,$20)`,
+        [bookingId, bookingNo, agencyId, sale.hotelId, q.ratePlanId, q.checkIn, q.checkOut, q.rooms, quotedTotal, q.currency, status,
+         guest.firstName, guest.lastName, guest.email, guest.phone, guest.nationality, adults, children, childAges, guest.operationNote]);
+      if (!asDraft) await reserveNights(client, bookingId, q.ratePlanId, q.checkIn, q.checkOut, q.rooms, sale, q.totalCents);
+      await client.query("INSERT INTO booking_status_history(booking_id,from_status,to_status,actor_id,note) VALUES ($1,NULL,$2,$3,'Created by sub-agency')",
+        [bookingId, status, req.auth!.sub]);
+      await audit(client, req.auth!.sub, agencyId, asDraft ? "booking.draft_created" : "booking.created", "booking", bookingId);
+      const response = { id: bookingId, bookingNo, status, total: quotedTotal, currency: q.currency };
       await client.query("UPDATE idempotency_keys SET response=$3::jsonb WHERE agency_id=$1 AND key=$2", [agencyId, idempotencyKey, JSON.stringify(response)]);
       return { status: 201, body: response };
     }, agencyId);
@@ -310,14 +286,44 @@ app.post("/api/agency/bookings", authenticate, roles("sub_agency"), requireAgenc
   } catch (error) { next(error); }
 });
 
+// Submitting a draft: draft -> pending. Re-checks the quoted price and decrements allotment atomically;
+// on failure the booking stays a draft and nothing changes.
+app.post("/api/agency/bookings/:id/submit", authenticate, roles("sub_agency"), requireAgency, async (req: AuthedRequest, res, next) => {
+  try {
+    const bookingId = uuidParam(req, "BOOKING_NOT_FOUND"), agencyId = req.auth!.agencyId!;
+    const result = await withTransaction(async client => {
+      const b = (await client.query(
+        `UPDATE bookings SET status = 'pending', submitted_at = now(), updated_at = now()
+          WHERE id = $1 AND agency_id = $2 AND status = 'draft'
+        RETURNING rate_plan_id, check_in::text AS check_in, check_out::text AS check_out, room_count, quoted_total::text AS quoted_total, currency, adults, children`,
+        [bookingId, agencyId])).rows[0];
+      if (!b) {
+        const own = await client.query("SELECT status FROM bookings WHERE id=$1 AND agency_id=$2", [bookingId, agencyId]);
+        if (!own.rowCount) throw httpError(404, "BOOKING_NOT_FOUND");
+        throw httpError(409, "ONLY_DRAFT_CAN_BE_SUBMITTED", { status: own.rows[0].status });
+      }
+      const sale = await publishedSale(client, agencyId, b.rate_plan_id);
+      if (sale.currency !== String(b.currency).trim()) throw httpError(409, "PRICE_CHANGED");
+      if (b.adults > sale.maxAdults * b.room_count || b.children > sale.maxChildren * b.room_count) throw httpError(409, "OCCUPANCY_EXCEEDS_CAPACITY");
+      await reserveNights(client, bookingId, b.rate_plan_id, b.check_in, b.check_out, b.room_count, sale, toCents(b.quoted_total));
+      await client.query("INSERT INTO booking_status_history(booking_id,from_status,to_status,actor_id,note) VALUES ($1,'draft','pending',$2,'Submitted by sub-agency')",
+        [bookingId, req.auth!.sub]);
+      await audit(client, req.auth!.sub, agencyId, "booking.submitted", "booking", bookingId);
+      return { id: bookingId, status: "pending" };
+    }, agencyId);
+    res.json(result);
+  } catch (error) { next(error); }
+});
+
 // ---------------------------------------------------------------------------------------------
 // Booking state changes. No SELECT ... FOR UPDATE: each transition is one conditional UPDATE that
 // succeeds only from the expected status, so a booking can be released at most once.
 // ---------------------------------------------------------------------------------------------
+const CONSUMES_INVENTORY = new Set(["pending", "approved"]);
 const RELEASING = new Set(["rejected", "cancelled"]);
 
-/** Returns allotment of a booking that consumed inventory (pending/approved). Uses the nightly snapshot;
- *  bookings created before migration 002 have no snapshot and are released from their date range. */
+/** Returns allotment of a booking that consumed inventory. Uses the nightly snapshot; bookings created
+ *  before migration 002 have no snapshot and are released from their date range. */
 async function releaseInventory(client: PoolClient, bookingId: string) {
   await client.query(
     `UPDATE inventory_daily d SET reserved = d.reserved - n.rooms
@@ -329,7 +335,7 @@ async function releaseInventory(client: PoolClient, bookingId: string) {
         AND NOT EXISTS (SELECT 1 FROM booking_nights n WHERE n.booking_id = b.id)`, [bookingId]);
 }
 
-/** Tries each allowed source status with a conditional UPDATE. `scope` limits which bookings the actor may touch. */
+/** Tries each allowed source status with a conditional UPDATE. The scope limits which bookings the actor may touch. */
 async function transition(client: PoolClient, opts: {
   bookingId: string; to: string; from: string[]; scopeSql: string; scopeParams: unknown[]; actorId: string; note: string;
 }) {
@@ -338,10 +344,9 @@ async function transition(client: PoolClient, opts: {
       `UPDATE bookings b SET status = $2, updated_at = now()
         WHERE b.id = $1 AND b.status = $3 AND ${opts.scopeSql}
       RETURNING b.agency_id`,
-      [opts.bookingId, opts.to, from, ...opts.scopeParams]
-    );
+      [opts.bookingId, opts.to, from, ...opts.scopeParams]);
     if (updated.rowCount === 1) {
-      if (RELEASING.has(opts.to)) await releaseInventory(client, opts.bookingId);
+      if (RELEASING.has(opts.to) && CONSUMES_INVENTORY.has(from)) await releaseInventory(client, opts.bookingId);
       await client.query("INSERT INTO booking_status_history(booking_id,from_status,to_status,actor_id,note) VALUES ($1,$2,$3,$4,$5)",
         [opts.bookingId, from, opts.to, opts.actorId, opts.note]);
       await audit(client, opts.actorId, updated.rows[0].agency_id, `booking.${opts.to}`, "booking", opts.bookingId);
@@ -364,10 +369,13 @@ app.get("/api/agency/bookings", authenticate, roles("sub_agency"), requireAgency
 
 async function bookingDetail(bookingId: string, scopeSql: string, scopeParams: unknown[]) {
   const b = (await pool.query(
-    `SELECT b.id, b.booking_no, b.status, b.agency_id, b.hotel_id, b.rate_plan_id, b.check_in::text, b.check_out::text, b.room_count,
-            b.total, b.currency, b.guest_first_name, b.guest_last_name, b.guest_email, b.guest_phone, b.guest_nationality,
-            b.adults, b.children, b.child_ages, b.operation_note, b.created_at, b.updated_at, h.name AS hotel_name
-       FROM bookings b JOIN hotels h ON h.id = b.hotel_id
+    `SELECT b.id, b.booking_no, b.status, b.agency_id, a.name AS agency_name, b.hotel_id, b.rate_plan_id,
+            b.check_in::text, b.check_out::text, b.room_count, b.total, b.currency,
+            b.guest_first_name, b.guest_last_name, b.guest_email, b.guest_phone, b.guest_nationality,
+            b.adults, b.children, b.child_ages, b.operation_note, b.created_at, b.updated_at,
+            h.name AS hotel_name, h.location AS hotel_location, r.name AS room_name, rp.board_name
+       FROM bookings b JOIN hotels h ON h.id = b.hotel_id JOIN agencies a ON a.id = b.agency_id
+       JOIN rate_plans rp ON rp.id = b.rate_plan_id JOIN rooms r ON r.id = rp.room_id
       WHERE b.id = $1 AND ${scopeSql}`, [bookingId, ...scopeParams])).rows[0];
   if (!b) return null;
   const nights = (await pool.query(
@@ -379,22 +387,22 @@ async function bookingDetail(bookingId: string, scopeSql: string, scopeParams: u
 
 app.get("/api/agency/bookings/:id", authenticate, roles("sub_agency"), requireAgency, async (req: AuthedRequest, res, next) => {
   try {
-    const detail = await bookingDetail(uuidParam(req), "b.agency_id = $2", [req.auth!.agencyId]);
+    const detail = await bookingDetail(uuidParam(req, "BOOKING_NOT_FOUND"), "b.agency_id = $2", [req.auth!.agencyId]);
     if (!detail) return res.status(404).json({ error: "BOOKING_NOT_FOUND" });
     res.json(detail);
   } catch (error) { next(error); }
 });
 
-// Sub-agency may cancel only its own booking, and only while it is pending.
+// Sub-agency may cancel only its own booking, and only while it is a draft or pending.
 app.post("/api/agency/bookings/:id/cancel", authenticate, roles("sub_agency"), requireAgency, async (req: AuthedRequest, res, next) => {
   try {
-    const bookingId = uuidParam(req);
+    const bookingId = uuidParam(req, "BOOKING_NOT_FOUND");
     const result = await withTransaction(async client => {
       const from = await transition(client, {
-        bookingId, to: "cancelled", from: ["pending"], scopeSql: "b.agency_id = $4", scopeParams: [req.auth!.agencyId],
+        bookingId, to: "cancelled", from: ["draft", "pending"], scopeSql: "b.agency_id = $4", scopeParams: [req.auth!.agencyId],
         actorId: req.auth!.sub, note: String(req.body?.note || "Cancelled by sub-agency")
       });
-      if (from) return { id: bookingId, status: "cancelled" };
+      if (from) return { id: bookingId, status: "cancelled", previousStatus: from };
       const own = await client.query("SELECT status FROM bookings WHERE id=$1 AND agency_id=$2", [bookingId, req.auth!.agencyId]);
       if (!own.rowCount) throw httpError(404, "BOOKING_NOT_FOUND");
       throw httpError(409, "CANCEL_NOT_ALLOWED", { status: own.rows[0].status });
@@ -408,8 +416,9 @@ const backofficeScope = (req: AuthedRequest) => isPlatformWide(req.auth!.role)
   ? { sql: "true", params: [] as unknown[] }
   : { sql: "EXISTS (SELECT 1 FROM hotels hs WHERE hs.id = b.hotel_id AND hs.owner_agency_id = $X)", params: [req.auth!.agencyId] as unknown[] };
 const withParamIndex = (sql: string, index: number) => sql.replace("$X", `$${index}`);
+const backoffice = [authenticate, roles("system_admin", "back_office", "master_agency")] as const;
 
-app.get("/api/backoffice/bookings", authenticate, roles("system_admin", "back_office", "master_agency"), async (req: AuthedRequest, res, next) => {
+app.get("/api/backoffice/bookings", ...backoffice, async (req: AuthedRequest, res, next) => {
   try {
     const scope = backofficeScope(req);
     const result = await pool.query(
@@ -422,16 +431,16 @@ app.get("/api/backoffice/bookings", authenticate, roles("system_admin", "back_of
   } catch (error) { next(error); }
 });
 
-app.get("/api/backoffice/bookings/:id", authenticate, roles("system_admin", "back_office", "master_agency"), async (req: AuthedRequest, res, next) => {
+app.get("/api/backoffice/bookings/:id", ...backoffice, async (req: AuthedRequest, res, next) => {
   try {
     const scope = backofficeScope(req);
-    const detail = await bookingDetail(uuidParam(req), withParamIndex(scope.sql, 2), scope.params);
+    const detail = await bookingDetail(uuidParam(req, "BOOKING_NOT_FOUND"), withParamIndex(scope.sql, 2), scope.params);
     if (!detail) return res.status(404).json({ error: "BOOKING_NOT_FOUND" });
     res.json(detail);
   } catch (error) { next(error); }
 });
 
-app.get("/api/backoffice/hotels", authenticate, roles("system_admin", "back_office", "master_agency"), async (req: AuthedRequest, res, next) => {
+app.get("/api/backoffice/hotels", ...backoffice, async (req: AuthedRequest, res, next) => {
   try {
     const platform = isPlatformWide(req.auth!.role);
     const result = await pool.query(
@@ -443,18 +452,18 @@ app.get("/api/backoffice/hotels", authenticate, roles("system_admin", "back_offi
   } catch (error) { next(error); }
 });
 
-// Status changes. approve/reject: Back Office, system admin, master agency (own hotels).
-// cancel: Back Office and system admin only (pending or approved). Master agency has no cancel right.
-app.patch("/api/backoffice/bookings/:id/status", authenticate, roles("system_admin", "back_office", "master_agency"), async (req: AuthedRequest, res, next) => {
+// Status changes. approve/reject (pending only): Back Office, system admin, master agency (own hotels).
+// cancel (draft, pending or approved): Back Office and system admin only. Master agency has no cancel right.
+app.patch("/api/backoffice/bookings/:id/status", ...backoffice, async (req: AuthedRequest, res, next) => {
   try {
-    const bookingId = uuidParam(req);
+    const bookingId = uuidParam(req, "BOOKING_NOT_FOUND");
     const nextStatus = req.body?.status;
     if (!["approved", "rejected", "cancelled"].includes(nextStatus)) return res.status(400).json({ error: "INVALID_STATUS" });
     if (nextStatus === "cancelled" && !isPlatformWide(req.auth!.role)) return res.status(403).json({ error: "CANCEL_NOT_ALLOWED" });
     const scope = backofficeScope(req);
     const result = await withTransaction(async client => {
       const from = await transition(client, {
-        bookingId, to: nextStatus, from: nextStatus === "cancelled" ? ["pending", "approved"] : ["pending"],
+        bookingId, to: nextStatus, from: nextStatus === "cancelled" ? ["draft", "pending", "approved"] : ["pending"],
         scopeSql: withParamIndex(scope.sql, 4), scopeParams: scope.params,
         actorId: req.auth!.sub, note: String(req.body?.note || "")
       });
@@ -465,6 +474,42 @@ app.patch("/api/backoffice/bookings/:id/status", authenticate, roles("system_adm
     });
     res.json(result);
   } catch (error) { next(error); }
+});
+
+// ---------------------------------------------------------------------------------------------
+// PDF voucher: only for approved bookings. Sub-agency: own bookings; Back Office / system admin:
+// platform-wide; master agency: own hotels. Every generation is logged with the PDF hash.
+// ---------------------------------------------------------------------------------------------
+async function sendVoucher(req: AuthedRequest, res: Response, scopeSql: string, scopeParams: unknown[]) {
+  const bookingId = uuidParam(req, "BOOKING_NOT_FOUND");
+  const b = await bookingDetail(bookingId, scopeSql, scopeParams);
+  if (!b) throw httpError(404, "BOOKING_NOT_FOUND");
+  if (b.status !== "approved") throw httpError(409, "VOUCHER_REQUIRES_APPROVED_BOOKING", { status: b.status });
+  const pdf = await renderVoucher({
+    bookingNo: b.booking_no, status: b.status, hotelName: b.hotel_name, hotelLocation: b.hotel_location,
+    checkIn: b.check_in, checkOut: b.check_out, nights: nightsBetween(b.check_in, b.check_out).length,
+    roomName: b.room_name, board: b.board_name, rooms: b.room_count,
+    guestName: `${b.guest_first_name} ${b.guest_last_name}`, adults: b.adults, children: b.children, childAges: b.child_ages,
+    nationality: b.guest_nationality, operationNote: b.operation_note, agencyName: b.agency_name, issuedAt: new Date()
+  });
+  const sha256 = createHash("sha256").update(pdf).digest("hex");
+  await withTransaction(async client => {
+    await client.query("INSERT INTO vouchers(booking_id, sha256, generated_by) VALUES ($1,$2,$3)", [bookingId, sha256, req.auth!.sub]);
+    await audit(client, req.auth!.sub, b.agency_id, "voucher.generated", "booking", bookingId);
+  });
+  res.setHeader("Content-Type", "application/pdf");
+  res.setHeader("Content-Disposition", `attachment; filename="BED4BOOK-${b.booking_no}.pdf"`);
+  res.setHeader("X-Voucher-SHA256", sha256);
+  res.send(pdf);
+}
+
+app.get("/api/agency/bookings/:id/voucher", authenticate, roles("sub_agency"), requireAgency, async (req: AuthedRequest, res, next) => {
+  try { await sendVoucher(req, res, "b.agency_id = $2", [req.auth!.agencyId]); } catch (error) { next(error); }
+});
+
+app.get("/api/backoffice/bookings/:id/voucher", ...backoffice, async (req: AuthedRequest, res, next) => {
+  try { const scope = backofficeScope(req); await sendVoucher(req, res, withParamIndex(scope.sql, 2), scope.params); }
+  catch (error) { next(error); }
 });
 
 // ---------------------------------------------------------------------------------------------
@@ -479,7 +524,7 @@ app.use((error: any, _req: Request, res: Response, _next: NextFunction) => {
 
 const port = Number(process.env.PORT || 3000);
 if (require.main === module) {
-  if (!process.env.DATABASE_URL || sessionSecret.length < 32) throw new Error("DATABASE_URL and SESSION_SECRET (32+ chars) are required.");
+  if (!process.env.DATABASE_URL || sessionSecret().length < 32) throw new Error("DATABASE_URL and SESSION_SECRET (32+ chars) are required.");
   app.listen(port, () => console.log(`BED4BOOK API listening on :${port}`));
 }
 export default app;

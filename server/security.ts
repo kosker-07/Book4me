@@ -26,6 +26,8 @@ export interface SessionClaims {
   sub: string;
   role: "system_admin" | "master_agency" | "sub_agency" | "back_office";
   agencyId: string | null;
+  /** users.token_version at issue time; a mismatch revokes the session (logout, deactivation). */
+  ver?: number;
   exp: number;
 }
 
