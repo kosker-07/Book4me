@@ -1,48 +1,37 @@
-# BED4BOOK — Faz 1 web arayüzü
+# BED4BOOK — Bağımsız statik arayüz
 
-Bu uygulama mevcut Express 5 + PostgreSQL 16 sunucusuna bağlanan, bağımsız Vite/vanilla JavaScript arayüzüdür. **server/**, **tests/server/**, **src/**, **tools/** ve **dist/** değiştirilmemiştir. Harici otel tedarikçisi API'si yoktur.
+Bu dalda yalnızca `web/` altında saf HTML, CSS ve tarayıcı ES modülleri bulunur. Framework, derleme, npm paketi, CDN, dış font/görsel ve OTP yoktur. `prototypes/` kullanılmamıştır.
 
-## Kurulum
+## Çalıştırma
 
-Node.js 22+ gereklidir. Depo kökünden:
-
-```bash
-cd web
-npm install
-cp .env.example .env
-# .env dosyasındaki VITE_API_URL değerini kendi backend adresinize ayarlayın.
-npm run dev
-```
-
-Tarayıcı: http://localhost:5173
-
-Üretim derlemesi ve önizleme:
+Depo kökünden:
 
 ```bash
-cd web
-npm run build
-npm run preview
+python3 -m http.server 8080 --directory web
 ```
 
-Testler:
+Tarayıcıda `http://localhost:8080` adresini açın. Başka bir statik HTTP sunucusu da kullanılabilir. `file://` yerine HTTP kullanın (ES modülleri tarayıcıda dosya protokolü kısıtlarına tabidir).
 
-```bash
-cd web
-npm test
-npx playwright install chromium
-npm run test:e2e
-```
+## API yapılandırması
 
-## Ortam değişkenleri
+Tek ayar: `web/config.js` içindeki `window.BED4BOOK_API_URL`. Varsayılan `http://localhost:3000`. Backend başka origin'de çalışıyorsa sunucu tarafında CORS izinleri gerekebilir; bu dal backend'i değiştirmez. Kimlik bilgileri ve token config dosyasına konmaz.
 
-- `VITE_API_URL`: Express backend'in kök URL'si. Değer frontend kodunda sabit değildir. Boşsa same-origin kullanılır.
+## Kullanım
 
-Backend farklı origin'de çalışıyorsa CORS yapılandırması backend tarafında gerekli olabilir. Bu teslimde backend değiştirilmedi.
+- Alt acente: giriş, otel arama, teklif, taslak/rezervasyon, kendi rezervasyonları, detay, iptal, voucher.
+- Back Office / sistem yöneticisi: tüm rezervasyonlar, onay/ret/iptal, voucher, otel/oda/fiyat planı/takvim/yayın yönetimi. Acente/kullanıcı oluşturma ve pasifleştirme uçları yalnız sistem yöneticisine açıktır.
+- Ana acente: kendi otelleri ve rezervasyonları, onay/ret, ürün yönetimi; iptal düğmesi gösterilmez.
 
-## Güvenlik / sözleşme
+Backend fiyat, stok, kazanan teklif, yetki ve geçişlerin tek kaynağıdır. Yeni rezervasyon için `crypto.randomUUID()` ile idempotency anahtarı üretilir; belirsiz ağ hatasında aynı istek ve anahtarla yeniden deneme yapılabilir. Fiyat/quote/stok hatalarında başka teklif otomatik denenmez.
 
-Token yalnızca JavaScript belleğinde tutulur; sayfa yenilenince yeniden giriş gerekir. 401 UNAUTHENTICATED/SESSION_REVOKED durumunda temizlenir. Backend yetki, fiyat, stok, teklif ve rezervasyon durumlarının tek otoritesidir. Yeni rezervasyon için UUID üretilir; belirsiz ağ hatasında aynı payload ve aynı UUID ile tekrar deneme seçeneği vardır. Fiyat/quote/stok uyuşmazlığında otomatik başka teklif denenmez.
+## Backend için öneriler (bu dalda uygulanmadı)
 
-**Backend değişikliği gerektiren konu:** Bu dalın esas aldığı Claude backend'inde login, 8 saatlik doğrudan bearer token döndürür. Daha önce istenen her girişte e-posta OTP ve 72 saatlik oturum **bu API sözleşmesinde yoktur**. Backend'e dokunma yasağı nedeniyle burada eklenmedi; ayrı backend işi olarak ele alınmalıdır.
+1. Farklı origin'li statik arayüz için gerekiyorsa kontrollü CORS desteği.
+2. Alt acentede çoklu oda için oda bazlı misafir dağılımı ve kapasite doğrulama sözleşmesi.
+3. Pazar/uyruk bazlı satış uygunluk filtresi.
+4. Yönetim için acente/kullanıcı listeleme uçları; mevcut yönetim API'sinde oluşturma ve durum değiştirme var, listeleme yok. Şimdilik UUID ile işlem yapılır.
+5. Herhangi bir e-posta kodu/OTP akışı istenmedi; mevcut login endpoint'i olduğu gibi kullanılır.
 
-**Sınırlama:** Backend arama API'si oda bazlı yetişkin/çocuk dağılımını almadığı için çoklu oda için ayrı ayrı misafir dağılımı doğrulanamaz. Bu UI mevcut API'nin toplu yetişkin/çocuk sayısı sözleşmesini kullanır; backend kontrolü esas alınır. Pazar/milliyet satış uygunluk filtresi de backend'de henüz tamamlanmamıştır.
+## Test durumu
+
+Bu teslimde testlerin başarılı olduğu iddia edilmez. Entegrasyon, rol/yetki, gerçek PostgreSQL ve tarayıcı testleri Claude tarafından yapılacaktır.
