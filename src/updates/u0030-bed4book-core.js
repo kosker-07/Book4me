@@ -50,6 +50,8 @@ const RB = B4M_BED.rebooking;
 RB.create = async (bookingId, opts = {}) => {
   const old = db().get("bookings", bookingId);
   if (!old || old.status !== "Onaylı" || old.kind !== "h") return result(false, "Only an active hotel booking can be rebooked.");
+  const duplicate = opts.idempotencyKey && db().find("bed4bookRebookings", x => x.idempotencyKey === opts.idempotencyKey);
+  if (duplicate) return result(false, "This idempotency key has already been used; inspect the existing operation instead of creating another booking.", { operation: duplicate });
   const prior = db().find("bed4bookRebookings", x => x.bookingId === bookingId && ["searching","rechecking","booking_new","cancelling_old"].includes(x.state));
   if (prior) return result(false, "A rebooking operation is already in progress.", { operation: prior });
   const op = db().add("bed4bookRebookings", { bookingId, oldSupplierId: old.sup, state: "searching", createdAt: now(), idempotencyKey: opts.idempotencyKey || "rb-" + bookingId + "-" + now() });
@@ -114,6 +116,7 @@ RB.pendingReconciliation = () => db().where("bed4bookRebookings", x => x.state =
 B4M_BED.rateRelay = {};
 const RR = B4M_BED.rateRelay;
 RR.create = (bookingId, opts = {}) => {
+  if (!B4M.ctx || B4M.ctx.org !== "h") return result(false, "Only Back Office can open a RateRelay pool.");
   const b = db().get("bookings", bookingId);
   if (!b || b.kind !== "h" || b.status !== "Onaylı") return result(false, "An active hotel booking is required.");
   const existing = db().find("rateRelayPools", x => x.bookingId === bookingId && x.state === "open");
@@ -132,11 +135,13 @@ RR.create = (bookingId, opts = {}) => {
   return result(true, "RateRelay pool created.", { pool });
 };
 RR.publicPool = id => {
+  if (!B4M.ctx || !["h","s"].includes(B4M.ctx.org)) return null;
   const p = db().get("rateRelayPools", id);
   if (!p || p.state !== "open") return null;
   return { id: p.id, state: p.state, closesAt: p.closesAt, version: p.version, baselineEur: p.baselineEur };
 };
 RR.submit = (poolId, supplierId, offer) => {
+  if (!B4M.ctx || B4M.ctx.org !== "s" || String(B4M.app.tidOf(B4M.ctx.dmc)) !== String(supplierId)) return result(false, "Only the authenticated supplier can submit its own offer.");
   const p = db().get("rateRelayPools", poolId);
   if (!p || p.state !== "open") return result(false, "RateRelay pool is not open.");
   if (p.safetyCloseAt && nowMs() >= p.safetyCloseAt) { p.state = "closed_safety"; return result(false, "Safety cutoff reached."); }
@@ -157,6 +162,7 @@ RR.submit = (poolId, supplierId, offer) => {
   return result(true, "Offer accepted.", { bidId: bid.id, closesAt: p.closesAt });
 };
 RR.close = poolId => {
+  if (!B4M.ctx || B4M.ctx.org !== "h") return result(false, "Only Back Office can close a RateRelay pool manually.");
   const p = db().get("rateRelayPools", poolId);
   if (!p || p.state !== "open") return result(false, "RateRelay pool is not open.");
   if (p.closesAt && nowMs() < p.closesAt && !(p.safetyCloseAt && nowMs() >= p.safetyCloseAt)) return result(false, "Offer window is still open.");
@@ -168,6 +174,7 @@ RR.close = poolId => {
   return result(true, "Lowest comparable valid offer selected.", { winner: { bidId: bids[0].id, totalEur: bids[0].totalEur } });
 };
 RR.winnerForBackOffice = poolId => {
+  if (!B4M.ctx || B4M.ctx.org !== "h") return null;
   const p = db().get("rateRelayPools", poolId);
   if (!p || !p.winnerBidId) return null;
   const b = db().get("rateRelayBids", p.winnerBidId);
@@ -178,7 +185,7 @@ RR.sweep = () => {
   db().where("rateRelayPools", p => p.state === "open" && ((p.closesAt && nowMs() >= p.closesAt) || (p.safetyCloseAt && nowMs() >= p.safetyCloseAt))).forEach(p => { if (RR.close(p.id).ok) closed++; });
   return closed;
 };
-RR.publicBids = poolId => db().where("rateRelayBids", x => x.poolId === poolId && x.state === "valid").map(x => ({ total: x.total, currency: x.currency, totalEur: x.totalEur, createdAt: x.createdAt }));
+RR.publicBids = poolId => (!B4M.ctx || !["h","s"].includes(B4M.ctx.org)) ? [] : db().where("rateRelayBids", x => x.poolId === poolId && x.state === "valid").map(x => ({ total: x.total, currency: x.currency, totalEur: x.totalEur, createdAt: x.createdAt }));
 B4M_BED.health = () => ({
   version: B4M_BED.version,
   registeredSupplierAdapters: Object.keys(B4M_BED.adapters).length,
