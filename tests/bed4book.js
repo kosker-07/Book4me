@@ -28,14 +28,25 @@ const eq = (a,b,m) => { if(JSON.stringify(a)!==JSON.stringify(b)) throw new Erro
   const rr = await X.rebooking.create(old.id,{idempotencyKey:"test-rb-1"});
   ok(rr.ok, rr.msg);
   eq(rr.operation.state,"completed","rebooking completes through adapter contract");
+  const duplicate = await X.rebooking.create(old.id,{idempotencyKey:"test-rb-1"});
+  ok(!duplicate.ok && duplicate.operation.id === rr.operation.id,"idempotency key must prevent a duplicate rebooking");
   eq(String(old.sup),"test-new","supplier changes after both confirmations");
+  X.registerSupplier("3", {
+    quote: async () => [],
+    recheck: async o => o,
+    book: async () => ({confirmed:true,confirmationNumber:"SUP3"}),
+    cancel: async () => ({confirmed:true})
+  });
+  B.auth.start(B.db.find("users", u => u.email === "admin@book4me-ai.com"));
   const poolResult = X.rateRelay.create(old.id,{equivalence:eqv});
   ok(poolResult.ok,poolResult.msg);
   const pool = poolResult.pool;
-  const bid = X.rateRelay.submit(pool.id,"supplier-A",mkOffer(0.5));
+  B.auth.start(B.db.find("users", u => u.org === "s" && u.oid === 3));
+  const bid = X.rateRelay.submit(pool.id,"3",mkOffer(0.5));
   ok(bid.ok,bid.msg);
   ok(X.rateRelay.publicBids(pool.id).every(x => !("supplierId" in x)),"public bid projection must be anonymous");
   B.util._now = pool.closesAt + 1;
+  B.auth.start(B.db.find("users", u => u.email === "admin@book4me-ai.com"));
   const closed = X.rateRelay.close(pool.id);
   ok(closed.ok,closed.msg);
   eq(closed.winner.totalEur,0.5,"lowest normalized bid wins");
