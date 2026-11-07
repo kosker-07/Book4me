@@ -13,9 +13,11 @@ const eq = (a,b,m) => { if(JSON.stringify(a)!==JSON.stringify(b)) throw new Erro
   const oldSupplier = String(old.sup);
   const oldHotel = B.db.get("hotels", old.hid);
   const eqv = { propertyKey:String(old.hid), roomKey:String(old.room), boardKey:String(oldHotel.board||""), checkIn:old.a, checkOut:old.b, occupancyKey:JSON.stringify([...(old.guests||[])].sort()), marketKey:String(old.nat||""), cancellationKey:String(old.dl||""), paymentKey:String(old.paymentKey||"") };
+  const baselineEur = B.price.cv(old.cost, old.costCur || old.cur, "EUR");
+  const cheaperTotal = Math.max(0.01, baselineEur * 0.5);
   const mkOffer = (total) => ({available:true,total,currency:"EUR",equivalence:eqv});
   X.registerSupplier("test-new", {
-    quote: async () => [mkOffer(1)],
+    quote: async () => [mkOffer(cheaperTotal)],
     recheck: async o => o,
     book: async () => ({confirmed:true,confirmationNumber:"TEST-CONF-1"}),
     cancel: async () => ({confirmed:true})
@@ -43,13 +45,14 @@ const eq = (a,b,m) => { if(JSON.stringify(a)!==JSON.stringify(b)) throw new Erro
   ok(poolResult.ok,poolResult.msg);
   const pool = poolResult.pool;
   B.auth.start(B.db.find("users", u => u.org === "s" && u.oid === 3));
-  const bid = X.rateRelay.submit(pool.id,"3",mkOffer(0.5));
+  const relayTotal = Math.max(0.001, cheaperTotal * 0.5);
+  const bid = X.rateRelay.submit(pool.id,"3",mkOffer(relayTotal));
   ok(bid.ok,bid.msg);
   ok(X.rateRelay.publicBids(pool.id).every(x => !("supplierId" in x)),"public bid projection must be anonymous");
   B.util._now = pool.closesAt + 1;
   B.auth.start(B.db.find("users", u => u.email === "admin@book4me-ai.com"));
   const closed = X.rateRelay.close(pool.id);
   ok(closed.ok,closed.msg);
-  eq(closed.winner.totalEur,0.5,"lowest normalized bid wins");
+  eq(closed.winner.totalEur,relayTotal,"lowest normalized bid wins");
   console.log("BED4BOOK tests passed");
 })().catch(e => { console.error(e); process.exitCode = 1; });
