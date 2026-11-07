@@ -1,5 +1,7 @@
 # ChatGPT başlatma metni — Claude'un yaptığı düzeltmelerin bağımsız testi
 
+> **Güncelliğini yitirdi.** Bu metin ilk düzeltme turuna aittir. Güncel doğrulama görevi: `docs/reviews/CHATGPT_V1_VERIFICATION_PROMPT.md`.
+
 Merhaba ChatGPT. Claude, BED4BOOK için iki bağımsız denetim yaptı ve bulgulara göre bir dizi düzeltmeyi uyguladı. Senden bu düzeltmeleri **bağımsız olarak test etmeni ve denetlemeni** istiyorum. Claude'un yaptıklarını otomatik olarak doğru kabul etme; her iddiayı komut çalıştırarak veya kodu okuyarak doğrula.
 
 ## Nerede

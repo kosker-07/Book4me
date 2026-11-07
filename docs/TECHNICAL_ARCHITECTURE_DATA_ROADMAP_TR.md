@@ -1,12 +1,21 @@
 # BED4BOOK — Teknik Mimari, Veri Altyapısı ve Kurulum Yol Haritası
 
 - Belge: Teknik Mimari ve Veri Yol Haritası
-- Sürüm: **2.1** (2.0 + proje sahibinin onayladığı kararlar ve uygulanan kod)
+- Sürüm: **2.2** (2.1 + yönetim API'leri, taslak, voucher, oturum güvenliği, yedek tatbikatı, performans testi)
 - Tarih: 07.11.2026
 - Depo: `kosker-07/Book4me`
 - Bağlayıcı kapsam: `docs/BED4BOOK_Teknik_Sartname.md`, `docs/BED4BOOK_Proje_Sartnamesi.md`, `docs/IMPLEMENTATION_PLAN_BED4BOOK_V1.md`
 - Denetim raporu: `docs/reviews/CLAUDE_ARCHITECTURE_ROADMAP_REVIEW.md` (madde kodları bu belgede köşeli parantezle anılır, ör. [A1])
 - Durum: Tasarım + kısmi uygulama. Üretim ortamına kurulmamıştır. **"KARAR VERİLDİ"** maddeler proje sahibi tarafından onaylanmıştır; **"ÖNERİLEN — ONAY BEKLİYOR"** maddeler henüz kesin değildir (bkz. §13).
+
+## Sürüm 2.2'de değişenler
+
+- `003_draft_sessions_vouchers.sql`: "Taslak" durumu, oturum iptali (`token_version`), giriş denemeleri, voucher kaydı.
+- Yönetim API'leri: otel durumu/düzenleme, oda, fiyat planı, tarih aralığına toplu fiyat/kontenjan, acenteye yayın (yüzde/sabit markup), acente ve kullanıcı yönetimi; ana acente yalnız kendi otellerini, Back Office ve sistem yöneticisi tüm platformu yönetir.
+- Taslak → gönder akışı; taslak kontenjan tüketmez.
+- BED4BOOK PDF voucher (yalnız onaylı rezervasyon; Türkçe karakter desteği; her üretim SHA-256 ile kaydedilir).
+- Giriş: e-posta başına 5 / IP başına 20 başarısız denemede 15 dk kilit, pasif acente girişi reddi, sabit süreli doğrulama, çıkış ve kullanıcı/acente pasifleştirmede oturum iptali; güvenlik başlıkları; `/ready`.
+- İlk sistem yöneticisi CLI'ı, yedek → geri yükleme tatbikatı (`infra/scripts/backup-restore-drill.sh`, `infra/runbooks/backup-restore.md`), temel performans testi (`infra/scripts/perf-smoke.ts`). Üçü de CI'de çalışır.
 
 ## Sürüm 2.1'de değişenler
 
@@ -123,18 +132,20 @@ Proje sahibi karar verene kadar mevcut davranış korunur; kod sessizce değişt
   - ret/iptalde kontenjanın tek kez iadesi; alt acente iptali; Back Office ve sistem yöneticisi iptali; ana acentenin iptal yetkisi yok;
   - paralel aynı idempotency anahtarında tek rezervasyon; farklı içerikle aynı anahtar 422;
   - geçersiz girdilerde 500 yerine 4xx.
-- Açık eksikler (PR #2 incelemesinden): otel/oda/fiyat planı/takvim/yayın yönetim uç noktaları ve voucher (K4), `draft` durumu (Y1), pasif acente kontrolü girişte (Y2 — arama ve rezervasyonda uygulandı), girişte hız sınırı (Y7), oturum iptali (O8), RLS (O5), audit genişletme (O7), migration çalıştırıcı ve admin CLI (O10), HTTP sertleştirme (O11).
+- Açık eksikler: kontenjanın onay anında düşmesi (karar 1 bekliyor), ana sayfa/arayüzün API'ye bağlanması, `/api/v1` sürüm öneki, RLS (O5), audit kayıtlarında önceki/sonraki değer ve IP (O7), migration çalıştırıcı ve `schema_migrations` (O10 — CI'de sıralı `psql` uygulaması var), CORS/HTTPS/ters proxy (altyapı), Rebooking/RateRelay modüllerinin tarayıcı paketinde devre dışı bırakılması (karar 10), görsel yükleme ve nesne depolama, voucher dosyasının nesne depolamada saklanması, resmi logo dosyası ve renk kodları.
 
 ### 3.3 Test durumu (07.11.2026, Node 22)
 
 | Komut | Sonuç |
 |---|---|
-| `npm run test:server` (PostgreSQL 16, `DATABASE_URL` ile) | 39/39 geçti (27 entegrasyon + 12 birim) |
+| `npm run test:server` (PostgreSQL 16, `DATABASE_URL` ile) | 51/51 geçti (27 + 12 entegrasyon, 12 birim) |
+| `infra/scripts/backup-restore-drill.sh` | `RESTORE DRILL PASSED`; bozulmuş kopyada başarısız (öz-test) |
+| `npm run perf:smoke` | Arama p95 147 ms, rezervasyon p95 34 ms (yerel, 4 vCPU) |
 | `npm run build` / `npm test` | Projede bu script'ler **yok** (`package.json`: `build:server`, `start:server`, `dev:server`, `test:server`) |
 | `node tests/u008-bed4book.js` | Geçti |
 | `node tests/bed4book.js` | Geçti |
 | `node tests/unit.js` | 26 geçti, 4 kaldı — 4'ü depo dışı fikstür yolu (`/home/user/paket/...`) |
-| Tarayıcı testleri (Playwright) | `ui-flow` 23/23, `u002-ui` 24/24, `u002-yama1` 20/20, `u003-dashboard` 33/33, `u005-mudahale` 59/59, `u005-ciftekran` 19/19, `u006-crystal` 26/26, `u007-pazar` 39/39, `u007c-tema` 10/10 geçti. `u004-sade` kararsız (4 çalıştırmanın 1'inde 30 sn zaman aşımı, 3'ünde 61/61). `u001-logo` depo dışı `/tmp/logo1.png` dosyası olmadığı için çalışmıyor |
+| Tarayıcı testleri (Playwright) | `ui-flow` 23/23, `u002-ui` 24/24, `u002-yama1` 20/20, `u003-dashboard` 33/33, `u005-mudahale` 59/59, `u005-ciftekran` 19/19, `u006-crystal` 26/26, `u007-pazar` 39/39, `u007c-tema` 10/10 geçti. `u004-sade` kararsız: değiştirilmemiş `main` dalında da 4 çalıştırmanın 2'sinde aynı 30 sn zaman aşımı (önceden var olan sorun). `u001-logo` depo dışı `/tmp/logo1.png` dosyası olmadığı için çalışmıyor |
 | Not | Depodaki `dist/index.html`, `node tools/build.js` çıktısıyla aynı değil (eski derleme); tarayıcı testleri yeniden derlenmiş paketle çalıştırıldı |
 
 ## 4. Hedef teknoloji mimarisi (v1.0)
@@ -327,7 +338,12 @@ Taban yol `/api/v1`. OpenAPI şeması ve sözleşme testleri zorunludur.
 | Rezervasyon | `POST /bookings` (`quoteId`, misafir alanları, `Idempotency-Key`), `POST /bookings/{id}/cancel`, `GET /bookings`, `GET /bookings/{id}`; `POST /bookings/{id}/submit` (`draft` ile birlikte, henüz yok) | `sub_agency` |
 | Back Office | `GET /backoffice/bookings`, `GET /backoffice/bookings/{id}`, `GET /backoffice/hotels`, `PATCH /backoffice/bookings/{id}/status`; filtre/sayfalama, notlar (henüz yok) | `back_office`, `system_admin` (platform geneli); `master_agency` (yalnız kendi otelleri, iptal hariç) |
 
-**Bugün uygulanmış uç noktalar** (taban yol şu an `/api`, `/api/v1`'e geçiş henüz yapılmadı): `POST /api/auth/login`, `GET /api/me`, `POST /api/admin/agencies`, `POST /api/admin/hotels`, `GET /api/agency/hotels`, `POST /api/agency/searches`, `POST /api/agency/bookings`, `GET /api/agency/bookings`, `GET /api/agency/bookings/{id}`, `POST /api/agency/bookings/{id}/cancel`, `GET /api/backoffice/bookings`, `GET /api/backoffice/bookings/{id}`, `GET /api/backoffice/hotels`, `PATCH /api/backoffice/bookings/{id}/status`.
+**Bugün uygulanmış uç noktalar** (taban yol şu an `/api`; `/api/v1`'e geçiş henüz yapılmadı):
+- Kimlik: `POST /api/auth/login`, `POST /api/auth/logout`, `GET /api/me`; `GET /health`, `GET /ready`.
+- Yönetim (system_admin): `POST /api/admin/agencies`, `PATCH /api/admin/agencies/{id}`, `POST /api/admin/users`, `PATCH /api/admin/users/{id}`.
+- Katalog (master_agency kendi otelleri; back_office ve system_admin tümü): `POST /api/admin/hotels`, `GET/PATCH /api/admin/hotels/{id}`, `POST /api/admin/hotels/{id}/rooms`, `PATCH /api/admin/rooms/{id}`, `POST /api/admin/rooms/{id}/rate-plans`, `PATCH /api/admin/rate-plans/{id}`, `GET/PUT /api/admin/rate-plans/{id}/calendar`, `POST /api/admin/publications`, `PATCH /api/admin/publications/{id}`.
+- Alt acente: `GET /api/agency/hotels`, `POST /api/agency/searches`, `POST /api/agency/bookings` (`draft: true` ile taslak), `POST /api/agency/bookings/{id}/submit`, `GET /api/agency/bookings`, `GET /api/agency/bookings/{id}`, `POST /api/agency/bookings/{id}/cancel`, `GET /api/agency/bookings/{id}/voucher`.
+- Back Office: `GET /api/backoffice/bookings`, `GET /api/backoffice/bookings/{id}`, `GET /api/backoffice/hotels`, `PATCH /api/backoffice/bookings/{id}/status`, `GET /api/backoffice/bookings/{id}/voucher`.
 
 **Sözleşme değişikliği:** `POST /api/agency/bookings` artık `ratePlanId` yerine arama sonucundaki `quoteId`'yi ve zorunlu misafir alanlarını ister. Gerekçe: yalnız kazanan teklif rezerve edilebilmeli (Kural 2-4). Bu uç noktayı kullanan bir istemci henüz yoktu (UI API'ye bağlı değil).
 | Voucher | `GET /bookings/{id}/voucher` (yalnız `confirmed`) | yetkili roller |
@@ -372,15 +388,15 @@ infra/
 1. Node.js 22 LTS; `package-lock.json` commit edilir; CI ve dağıtımda `npm ci`. *(Bu revizyonda yapıldı.)*
 2. `.gitignore` (`node_modules/`, `dist-server/`, `.env*`) ve `.env.example`. *(Bu revizyonda yapıldı.)*
 3. CI: PostgreSQL 16 servisi, temiz DB'de migration, `npm run build:server`, `npm run test:server`. *(Bu revizyonda yapıldı.)*
-4. Migration çalıştırıcı ve `schema_migrations` tablosu (`npm run db:migrate`).
+4. Migration çalıştırıcı ve `schema_migrations` tablosu (`npm run db:migrate`). *(Yapılmadı; şimdilik migration'lar sıralı ve tekrar çalıştırılabilir yazılıyor, CI `psql` ile uyguluyor.)*
 5. İki DB rolü: migration rolü (DDL) ve runtime rolü (yalnız gerekli DML; audit tablosunda yalnız `INSERT`).
-6. İlk sistem yöneticisini oluşturan CLI (`npm run admin:create`; parola stdin'den alınır, loglanmaz).
+6. İlk sistem yöneticisini oluşturan CLI (`npm run admin:create`; parola stdin'den alınır, loglanmaz). *(Yapıldı: `server/cli/create-admin.ts`.)*
 7. Pilot seed: örnek oteller ve test acenteleri (demo verisi değil).
 8. Eski tarayıcı testlerinin depo içi fikstürle CI'ye alınması (`tests/unit.js` depo dışı yol bağımlılığı).
 9. Branch protection: CI yeşil olmadan merge yok.
 10. Staging: yönetilen PostgreSQL, günlük yedek + PITR, TLS (Caddy/Nginx), HTTP→HTTPS, SMTP + SPF/DKIM/DMARC, DNS.
 11. Logo kaynak dosyasından renk kodlarının çıkarılması (Şartname §10).
-12. Yedekten geri yükleme runbook'u ve ilk tatbikat (`infra/runbooks/restore.md`): yedekten ayrı bir veritabanına geri yükleme, satır sayısı ve kontrol toplamı karşılaştırması.
+12. Yedekten geri yükleme runbook'u ve tatbikatı: `infra/runbooks/backup-restore.md`, `infra/scripts/backup-restore-drill.sh` (ayrı veritabanına geri yükleme, satır sayısı ve içerik özeti karşılaştırması, öz-test). *(Yapıldı; CI'de çalışıyor. Üretimde günlük yedek hosting kararına bağlı.)*
 13. Production dağıtımı: GitHub environment koruması ile manuel onay; rollback adımı (önceki imaj + geriye uyumlu migration kuralı).
 
 ## 9. Güvenlik ve veri koruma
@@ -462,14 +478,25 @@ Durum sütunu yalnız gerçekten çalıştırılmış testleri "Geçti" olarak g
 | Migration: boş DB | 001 + 002 hatasız | **Geçti** — yerel + CI adımı |
 | Migration: tekrar uygulama | 002 ikinci kez hatasız | **Geçti** — yerel + CI adımı |
 | Migration: mevcut veriyle yükseltme | Eski rezervasyon korunur, back_office acenteden ayrılır, kısıtlar çalışır | **Geçti** — `tests/server/migrations/legacy_upgrade_checks.sql`, yerel + CI adımı |
+| Kabul 1 (API ile): otel/oda/fiyat/kontenjan → yalnız seçili alt acente doğru fiyatı görür | Taslak otel satılmaz; aktif olunca yalnız yayın yapılan acente 230.00 görür | **Geçti** — `A1` |
+| Kabul 2 (API ile): rezervasyon → Back Office → onay → voucher | Kuyruk, detay, onay, PDF; `pdftotext` ile içerik doğrulaması | **Geçti** — `A2` |
+| Voucher yetkisi | Başka acente/ana acente 404, alt acente Back Office ucunda 403, onaysız 409 | **Geçti** — `A3` |
+| Taslak kontenjan tüketmez; gönderimde bir kez düşer | — | **Geçti** — `B1` |
+| Taslak iptali iade yapmaz; başarısız gönderim taslağı bozmaz; fiyat değiştiyse 409 | — | **Geçti** — `B2` |
+| Yönetim yetkisi | Ana acente yalnız kendi otelleri (diğerleri 404), alt acente 403, Back Office tümü | **Geçti** — `C1` |
+| Yönetim kuralları | Yayın hedefi aktif alt acente; override yok; kontenjan rezerve edilenin altına inmez; otel sahibi ana acente; rol ↔ acente tipi | **Geçti** — `C2` |
+| Pasifleştirme aramadan düşürür | Yayın, fiyat planı, otel | **Geçti** — `C3` |
+| Giriş kilidi | 5 hatalı denemeden sonra doğru parolayla da 429 | **Geçti** — `D1` |
+| Oturum iptali | Çıkış, kullanıcı ve acente pasifleştirme; pasif acente girişi reddi; `Bearer` öneki zorunlu | **Geçti** — `D2` |
+| Güvenlik başlıkları ve `/ready` | — | **Geçti** — `D3` |
+| İlk yönetici CLI | Parola stdin'den, ekrana yazılmaz, tekrar ve kısa parola reddedilir | **Geçti** — `D4` |
+| Yedekten geri yükleme | Ayrı veritabanına geri yükleme, birebir aynı; bozulmuş kopya yakalanır | **Geçti** — `infra/scripts/backup-restore-drill.sh`, yerel + CI |
+| Temel performans | 200 otel / 400 fiyat planı / 24.000 envanter satırı; 10 eşzamanlı arama p95 < 500 ms | **Geçti** — `infra/scripts/perf-smoke.ts`, yerel (p95 147 ms) + CI |
+| Derlenmiş sunucu | `dist-server` ile voucher fontları ve `/ready` | **Geçti** — CI adımı |
 | Onay anında düşüm (hedef davranış) | — | Uygulanmadı (karar 1 bekliyor) |
-| `draft` durumu ve gönderme | — | Uygulanmadı |
-| Yönetim uç noktaları (otel/oda/fiyat planı/takvim/yayın) | — | Uygulanmadı |
-| Voucher | — | Uygulanmadı |
-| Pasif acente girişte reddedilir | — | Uygulanmadı (arama ve rezervasyonda pasif acente dışlanıyor, test yok) |
-| Rebooking/RateRelay v1 paketinde devre dışı | — | Uygulanmadı |
-| Yedekten geri yükleme | — | Uygulanmadı |
-| Yük/performans | — | Uygulanmadı |
+| Rebooking/RateRelay v1 paketinde devre dışı | — | Uygulanmadı (tarayıcı uygulamasını değiştirir; karar 10 bekliyor) |
+| Arayüzün API'ye bağlanması (uçtan uca tarayıcı testi) | — | Uygulanmadı |
+| Üretimde HTTPS, günlük yedek, SMTP | — | Uygulanmadı (hosting kararı) |
 
 ## 12. Riskler
 
