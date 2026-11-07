@@ -31,9 +31,9 @@ export interface SessionClaims {
   exp: number;
 }
 
-export function issueSession(claims: Omit<SessionClaims, "exp">, secret: string, now = Date.now()): string {
+export function issueSession(claims: Omit<SessionClaims, "exp">, secret: string, now = Date.now(), ttlSeconds = TOKEN_TTL_SECONDS): string {
   if (secret.length < 32) throw new Error("SESSION_SECRET must contain at least 32 characters.");
-  const payload: SessionClaims = { ...claims, exp: Math.floor(now / 1000) + TOKEN_TTL_SECONDS };
+  const payload: SessionClaims = { ...claims, exp: Math.floor(now / 1000) + ttlSeconds };
   const body = Buffer.from(JSON.stringify(payload)).toString("base64url");
   const signature = createHmac("sha256", secret).update(body).digest("base64url");
   return `${body}.${signature}`;
