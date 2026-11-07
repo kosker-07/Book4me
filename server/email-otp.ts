@@ -13,7 +13,7 @@ export function otpDigest(challengeId: string, code: string, secret: string): st
   return createHmac("sha256", secret).update(challengeId + ":" + code).digest("hex");
 }
 export function verifyOtpDigest(challengeId: string, code: string, expectedHex: string, secret: string): boolean {
-  if (!/^\\d{6}$/.test(code) || !/^[a-f0-9]{64}$/.test(expectedHex)) return false;
+  if (!/^[0-9]{6}$/.test(code) || !/^[a-f0-9]{64}$/.test(expectedHex)) return false;
   const actual = Buffer.from(otpDigest(challengeId, code, secret), "hex");
   const expected = Buffer.from(expectedHex, "hex");
   return timingSafeEqual(actual, expected);
