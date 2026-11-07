@@ -228,6 +228,29 @@ adminRouter.patch("/api/admin/publications/:id", ...managers, h(async (req, res)
 }));
 
 // ---------------------------------------------------------------- agencies and users (system administrator)
+// Lists for selection in the management UI (no UUID typing). system_admin and back_office see every agency;
+// a master agency sees only active sub-agencies (the only valid publication targets). Sub-agencies: 403.
+adminRouter.get("/api/admin/agencies", ...managers, h(async (req, res) => {
+  const type = req.query.type === undefined ? null : String(req.query.type);
+  if (type !== null && !["master", "sub"].includes(type)) throw httpError(400, "INVALID_AGENCY_TYPE");
+  const platform = isPlatformWide(req.auth!.role);
+  if (!platform && type === "master") return res.json({ items: [] });
+  const rows = (await pool.query(
+    `SELECT id, name, type, active FROM agencies
+      WHERE ($1::text IS NULL OR type = $1) AND ($2::boolean OR (type = 'sub' AND active))
+      ORDER BY name LIMIT 1000`, [platform ? type : "sub", platform])).rows;
+  res.json({ items: rows });
+}));
+
+// Users: system administrator only (the same role that creates and deactivates them). No password data.
+adminRouter.get("/api/admin/users", authenticate, roles("system_admin"), h(async (_req, res) => {
+  const rows = (await pool.query(
+    `SELECT u.id, u.email, u.role, u.agency_id AS "agencyId", a.name AS "agencyName", u.active
+       FROM users u LEFT JOIN agencies a ON a.id = u.agency_id
+      ORDER BY u.email LIMIT 1000`)).rows;
+  res.json({ items: rows });
+}));
+
 adminRouter.post("/api/admin/agencies", authenticate, roles("system_admin"), h(async (req, res) => {
   const { name, type } = req.body || {};
   if (!text(name, 200) || !["master", "sub"].includes(type)) throw httpError(400, "INVALID_AGENCY");

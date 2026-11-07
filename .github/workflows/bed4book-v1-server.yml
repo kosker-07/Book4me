@@ -1,6 +1,11 @@
 name: BED4BOOK v1 server checks
 
 on:
+  workflow_dispatch:
+    inputs:
+      ui_ref:
+        description: "Branch with the web/ UI for the five-user end-to-end test"
+        default: feature/yeni-arayuz
   push:
     branches:
       - main
@@ -9,6 +14,7 @@ on:
     paths:
       - "server/**"
       - "tests/server/**"
+      - "tests/e2e/**"
       - "package.json"
       - "package-lock.json"
       - "tsconfig.server.json"
@@ -18,6 +24,7 @@ on:
     paths:
       - "server/**"
       - "tests/server/**"
+      - "tests/e2e/**"
       - "package.json"
       - "package-lock.json"
       - "tsconfig.server.json"
@@ -137,3 +144,64 @@ jobs:
         env:
           ADMIN_URL: postgres://bed4book:bed4book@localhost:5432/postgres
         run: node infra/scripts/mutation-check.mjs
+
+  # Five concurrent users (system admin, Back Office, master agency, two sub-agencies) in five browser
+  # sessions, through the static web UI, against the compiled API and a throwaway PostgreSQL database.
+  e2e:
+    runs-on: ubuntu-latest
+    needs: server
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: bed4book
+          POSTGRES_PASSWORD: bed4book
+          POSTGRES_DB: bed4book_e2e
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U bed4book -d bed4book_e2e"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgres://bed4book:bed4book@localhost:5432/bed4book_e2e
+      SESSION_SECRET: ci-only-session-secret-at-least-32-characters
+      UI_REF: ${{ github.event.inputs.ui_ref || 'feature/yeni-arayuz' }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Apply migrations
+        run: for f in server/migrations/*.sql; do psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -q -f "$f"; done
+      - name: Fetch the web UI from ${{ env.UI_REF }}
+        run: |
+          git fetch origin "$UI_REF"
+          git log -1 --format='UI commit: %h %s' FETCH_HEAD
+          mkdir -p /tmp/ui && git archive FETCH_HEAD web | tar -x -C /tmp/ui --strip-components=1
+          echo "window.BED4BOOK_API_URL = 'http://127.0.0.1:3000';" > /tmp/ui/config.js
+      - name: Install Playwright (outside the project; no lockfile change)
+        run: |
+          mkdir -p /tmp/pw && cd /tmp/pw && npm init -y >/dev/null && npm install --no-audit --no-fund playwright@1.56.1
+          npx playwright install --with-deps chromium
+      - run: npm run build:server
+      - name: Start API and static UI
+        run: |
+          CORS_ORIGINS=http://127.0.0.1:8080 PORT=3000 node dist-server/server/app.js > /tmp/api.log 2>&1 &
+          python3 -m http.server 8080 --bind 127.0.0.1 --directory /tmp/ui > /tmp/ui.log 2>&1 &
+          for i in $(seq 1 30); do curl -fsS http://127.0.0.1:3000/ready && break; sleep 0.5; done
+          curl -fsS http://127.0.0.1:8080/ | grep -q 'id="app"'
+      - name: Five-user end-to-end test
+        env:
+          NODE_PATH: /tmp/pw/node_modules
+          API_URL: http://127.0.0.1:3000
+          UI_URL: http://127.0.0.1:8080
+        run: node tests/e2e/five-users.e2e.cjs
+      - name: API log (on failure)
+        if: failure()
+        run: tail -100 /tmp/api.log

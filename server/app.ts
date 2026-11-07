@@ -10,11 +10,14 @@ import { audit, authenticate, AuthedRequest, httpError, isPlatformWide, requireA
 import { adminRouter } from "./admin-routes";
 import { renderVoucher } from "./voucher";
 import { LOGIN_WINDOW_MINUTES, loginThrottled, parseTrustProxy } from "./login-guard";
+import { corsMiddleware, parseCorsOrigins } from "./cors";
 
 const app = express();
 app.disable("x-powered-by");
 // Reverse-proxy trust is explicit (B4B-02): by default X-Forwarded-For is ignored and req.ip is the TCP peer.
 app.set("trust proxy", parseTrustProxy(process.env.TRUST_PROXY, process.env.NODE_ENV));
+// CORS only for the exact origins in CORS_ORIGINS (web UI on another origin); off when unset.
+app.use(corsMiddleware(parseCorsOrigins(process.env.CORS_ORIGINS)));
 app.use((_req, res, next) => {
   res.setHeader("X-Content-Type-Options", "nosniff");
   res.setHeader("X-Frame-Options", "DENY");

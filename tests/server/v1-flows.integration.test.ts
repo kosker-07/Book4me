@@ -13,6 +13,7 @@ import type { Server } from "node:http";
 
 const DB_URL = process.env.DATABASE_URL;
 delete process.env.TRUST_PROXY; // D1d checks the default (X-Forwarded-For ignored)
+process.env.CORS_ORIGINS = "http://ui.test:8080"; // E3: the only origin allowed in this test process
 process.env.SESSION_SECRET = process.env.SESSION_SECRET || "integration-test-secret-at-least-32-chars";
 if (!DB_URL && process.env.CI) throw new Error("DATABASE_URL is required for integration tests in CI.");
 const skip = DB_URL ? false : "DATABASE_URL not set; integration tests skipped locally";
@@ -327,4 +328,57 @@ test("D4 admin CLI creates the first system administrator from stdin and refuses
   assert.equal((await login("root@bed4book.test", "a-very-long-root-password")).status, 200);
   assert.notEqual(run("root@bed4book.test", "a-very-long-root-password").status, 0, "duplicate refused");
   assert.notEqual(run("short@bed4book.test", "short").status, 0, "short password refused");
+});
+
+// ---------------------------------------------------------------- lists for the management UI, CORS
+test("E1 agency list: platform roles see all, master agency only active sub-agencies, sub-agency 403", { skip }, async () => {
+  const s = await setupViaApi();
+  await call("POST", "/api/admin/agencies", { name: "Pasif Alt", type: "sub" }, s.t.admin)
+    .then(r => call("PATCH", `/api/admin/agencies/${r.body.id}`, { active: false }, s.t.admin));
+  const all = await call("GET", "/api/admin/agencies", undefined, s.t.admin);
+  assert.equal(all.status, 200);
+  assert.deepEqual(all.body.items.map((a: any) => a.name).sort(), ["Alt Acente A", "Alt Acente B", "Ana Acente Bir", "Ana Acente İki", "Pasif Alt"]);
+  assert.deepEqual(Object.keys(all.body.items[0]).sort(), ["active", "id", "name", "type"]);
+  const subs = await call("GET", "/api/admin/agencies?type=sub", undefined, s.t.bo);
+  assert.deepEqual(subs.body.items.map((a: any) => a.name).sort(), ["Alt Acente A", "Alt Acente B", "Pasif Alt"]);
+  const forMaster = await call("GET", "/api/admin/agencies", undefined, s.t.m1);
+  assert.equal(forMaster.status, 200);
+  assert.deepEqual(forMaster.body.items.map((a: any) => a.name).sort(), ["Alt Acente A", "Alt Acente B"], "only active sub-agencies");
+  assert.deepEqual((await call("GET", "/api/admin/agencies?type=master", undefined, s.t.m1)).body.items, []);
+  assert.equal((await call("GET", "/api/admin/agencies", undefined, s.t.a)).status, 403);
+  assert.equal((await call("GET", "/api/admin/agencies?type=x", undefined, s.t.admin)).status, 400);
+  assert.equal((await call("GET", "/api/admin/agencies")).status, 401);
+});
+
+test("E2 user list: system administrator only, no password data", { skip }, async () => {
+  const s = await setupViaApi();
+  const r = await call("GET", "/api/admin/users", undefined, s.t.admin);
+  assert.equal(r.status, 200);
+  assert.equal(r.body.items.length, 6);
+  const a = r.body.items.find((u: any) => u.email === "a@test.local");
+  assert.deepEqual(a, { id: a.id, email: "a@test.local", role: "sub_agency", agencyId: s.SA, agencyName: "Alt Acente A", active: true });
+  assert.ok(!JSON.stringify(r.body).includes("scrypt"), "no password hashes");
+  for (const who of [s.t.bo, s.t.m1, s.t.a]) assert.equal((await call("GET", "/api/admin/users", undefined, who)).status, 403);
+});
+
+test("E3 CORS: only the configured origin; preflight allows the booking headers; other origins get nothing", { skip }, async () => {
+  const s = await setupViaApi();
+  const pre = await fetch(base + "/api/agency/bookings", { method: "OPTIONS", headers: {
+    origin: "http://ui.test:8080", "access-control-request-method": "POST", "access-control-request-headers": "authorization,content-type,idempotency-key" } });
+  assert.equal(pre.status, 204);
+  assert.equal(pre.headers.get("access-control-allow-origin"), "http://ui.test:8080");
+  assert.match(pre.headers.get("access-control-allow-headers") || "", /Idempotency-Key/);
+  assert.match(pre.headers.get("access-control-allow-methods") || "", /PATCH/);
+  assert.equal(pre.headers.get("access-control-allow-credentials"), null, "no credentials mode (bearer header only)");
+  const get = await call("GET", "/api/me", undefined, s.t.a, { origin: "http://ui.test:8080" });
+  assert.equal(get.status, 200);
+  assert.equal(get.headers.get("access-control-allow-origin"), "http://ui.test:8080");
+  assert.match(get.headers.get("access-control-expose-headers") || "", /X-Voucher-SHA256/);
+  const evil = await call("GET", "/api/me", undefined, s.t.a, { origin: "https://evil.example" });
+  assert.equal(evil.headers.get("access-control-allow-origin"), null);
+  const evilPre = await fetch(base + "/api/me", { method: "OPTIONS", headers: { origin: "https://evil.example", "access-control-request-method": "GET" } });
+  assert.equal(evilPre.status, 403);
+  assert.equal(evilPre.headers.get("access-control-allow-origin"), null);
+  const noOrigin = await call("GET", "/api/me", undefined, s.t.a);
+  assert.equal(noOrigin.headers.get("access-control-allow-origin"), null);
 });
