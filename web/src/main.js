@@ -122,7 +122,7 @@ async function initAdminSelectors(main){
  }
  if(forms.user){const role=forms.user.querySelector('[name=role]');const agencyBinding=idSelects.find(b=>b.form===forms.user&&b.name==='agencyId');if(role&&agencyBinding){const sync=()=>{const platform=['system_admin','back_office'].includes(role.value);agencyBinding.selector.required=!platform;agencyBinding.input.required=!platform;if(platform)agencyBinding.selector.value=''};role.addEventListener('change',sync);sync()}}
  function fillBindings(){
-  const rooms=state.detail?.rooms||[],rates=state.detail?.ratePlans||[];
+  const rooms=state.detail?.rooms||[],rates=(state.detail?.ratePlans||[]).filter(r=>!state.roomId||(r.room_id||r.roomId)===state.roomId);
   const opts={
    hotel:state.hotels.map(x=>({id:x.id,label:x.name+' · '+(x.location||'')})),
    room:rooms.map(x=>({id:x.id,label:x.name})),
@@ -165,7 +165,7 @@ async function initAdminSelectors(main){
    calendarHost.append(table);
   }catch(err){calendarHost.append(el('p',err instanceof ApiError?err.message:'Takvim yüklenemedi'))}
  }
- function syncRate(){const rates=state.detail?.ratePlans||[];options(rateSelect,rates.map(r=>({id:r.id,label:r.board_name+' · '+r.currency})),'Fiyat planı seçiniz',state.ratePlanId);state.ratePlanId=rateSelect.value;fillBindings();showCalendar()}
+ function syncRate(){const rates=(state.detail?.ratePlans||[]).filter(r=>!state.roomId||(r.room_id||r.roomId)===state.roomId);options(rateSelect,rates.map(r=>({id:r.id,label:r.board_name+' · '+r.currency})),'Fiyat planı seçiniz',state.ratePlanId);state.ratePlanId=rateSelect.value;fillBindings();showCalendar()}
  function syncRoom(){const rooms=state.detail?.rooms||[];options(roomSelect,rooms.map(r=>({id:r.id,label:r.name})),'Oda seçiniz',state.roomId);state.roomId=roomSelect.value;syncRate()}
  async function selectHotel(id){
   state.hotelId=id;state.detail=null;state.roomId='';state.ratePlanId='';
@@ -190,11 +190,11 @@ async function initAdminSelectors(main){
   fillBindings();
  }
  hotelSelect.onchange=()=>selectHotel(hotelSelect.value);
- roomSelect.onchange=()=>{state.roomId=roomSelect.value;fillBindings()};
+ roomSelect.onchange=()=>{state.roomId=roomSelect.value;state.ratePlanId='';syncRate()};
  rateSelect.onchange=()=>{state.ratePlanId=rateSelect.value;fillBindings();showCalendar()};
  for(const b of idSelects){
   b.selector.onchange=()=>{if(b.kind==='hotel'){state.hotelId=b.selector.value;hotelSelect.value=state.hotelId;selectHotel(state.hotelId)}
-   else if(b.kind==='room'){state.roomId=b.selector.value;roomSelect.value=state.roomId;fillBindings()}
+   else if(b.kind==='room'){state.roomId=b.selector.value;roomSelect.value=state.roomId;state.ratePlanId='';syncRate()}
    else if(b.kind==='rate'){state.ratePlanId=b.selector.value;rateSelect.value=state.ratePlanId;fillBindings();showCalendar()}};
  }
  adminSaved=async(id,r)=>{
