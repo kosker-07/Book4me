@@ -182,22 +182,23 @@ app.get("/api/backoffice/bookings", authenticate, roles("system_admin", "master_
 
 app.patch("/api/backoffice/bookings/:id/status", authenticate, roles("system_admin", "master_agency", "back_office"), async (req: AuthedRequest, res, next) => {
   try {
+    const bookingId = String(req.params.id || "");
     const nextStatus = req.body?.status;
     if (!["approved", "rejected", "cancelled"].includes(nextStatus)) return res.status(400).json({ error: "INVALID_STATUS" });
     const result = await withTransaction(async client => {
       const booking = await client.query(
         `SELECT b.* FROM bookings b JOIN hotels h ON h.id=b.hotel_id
          WHERE b.id=$1 AND ($2::text='system_admin' OR h.owner_agency_id=$3) FOR UPDATE OF b`,
-        [req.params.id, req.auth!.role, req.auth!.agencyId]
+        [bookingId, req.auth!.role, req.auth!.agencyId]
       );
       if (!booking.rowCount) throw Object.assign(new Error("BOOKING_NOT_FOUND"), { status: 404 });
       const oldStatus = booking.rows[0].status;
       if (oldStatus !== "pending") throw Object.assign(new Error("INVALID_STATUS_TRANSITION"), { status: 409 });
-      await client.query("UPDATE bookings SET status=$2,updated_at=now() WHERE id=$1", [req.params.id, nextStatus]);
+      await client.query("UPDATE bookings SET status=$2,updated_at=now() WHERE id=$1", [bookingId, nextStatus]);
       await client.query("INSERT INTO booking_status_history(booking_id,from_status,to_status,actor_id,note) VALUES ($1,$2,$3,$4,$5)",
-        [req.params.id, oldStatus, nextStatus, req.auth!.sub, String(req.body?.note || "")]);
-      await audit(client, req.auth!.sub, req.auth!.agencyId, `booking.${nextStatus}`, "booking", req.params.id);
-      return { id: req.params.id, status: nextStatus };
+        [bookingId, oldStatus, nextStatus, req.auth!.sub, String(req.body?.note || "")]);
+      await audit(client, req.auth!.sub, req.auth!.agencyId, `booking.${nextStatus}`, "booking", bookingId);
+      return { id: bookingId, status: nextStatus };
     }, req.auth!.agencyId);
     res.json(result);
   } catch (error) { next(error); }
