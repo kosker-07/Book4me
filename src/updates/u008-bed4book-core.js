@@ -7,11 +7,11 @@
   const clone = x => JSON.parse(JSON.stringify(x));
   const fail = (code, message, extra) => ({ ok: false, code, message, ...(extra || {}) });
   const pass = (data, message) => ({ ok: true, message, data });
-  const idem = (key, op) => {
+  const idem = async (key, op) => {
     if (!key) return fail("IDEMPOTENCY_KEY_REQUIRED", "Idempotency key is required.");
     const d = db(), old = d.find("b4mOps", x => x.key === key);
     if (old) return old.result;
-    const result = op();
+    const result = await op();
     d.add("b4mOps", { key, at: now(), result });
     return result;
   };
@@ -47,6 +47,7 @@
       return pass({ winner: clone(winner), saving, evaluatedAt: now() }, "A single eligible lowest-price offer was selected.");
     },
     async execute(reservation, evaluation, adapters, idempotencyKey) {
+      if (!idempotencyKey) return fail("IDEMPOTENCY_KEY_REQUIRED", "A unique idempotency key is required.");
       if (!reservation || !evaluation || !evaluation.data || !evaluation.data.winner)
         return fail("INVALID_EVALUATION", "A successful evaluation is required.");
       if (!adapters || typeof adapters.createReplacement !== "function" || typeof adapters.cancelOld !== "function")
@@ -100,14 +101,18 @@
       if (!Number.isFinite(normalized) || normalized <= 0)
         return fail("NORMALIZATION_REQUIRED", "A trusted normalized total is required.");
       const prior = x.bids.find(b => String(b.dmcId) === String(actor.dmcId) && b.state === "VALID");
+      if (prior && normalized >= prior.normalizedTotal) return fail("BID_NOT_IMPROVED", "A DMC may only replace its active bid with a lower normalized total.");
+      const currentBest = x.bids.filter(b => b.state === "VALID").reduce((m, b) => Math.min(m, b.normalizedTotal), Infinity);
       if (prior) prior.state = "SUPERSEDED";
       const row = { id: db().seq(), dmcId: String(actor.dmcId), normalizedTotal: normalized,
         currency: bid.currency, total: +bid.total, receivedAt: now(), state: "VALID" };
       x.bids.push(row); x.updatedAt = now();
-      const remaining = Date.parse(x.cancellationDeadline) - Date.now();
-      const buffer = Math.max(0, Number((policy || {}).safetyBufferMs || 0));
-      const proposed = Date.now() + Math.max(60000, Number((policy || {}).windowMs || RR.DEFAULT_WINDOW_MS));
-      x.closeAt = new Date(Math.min(proposed, Date.parse(x.cancellationDeadline) - buffer)).toISOString();
+      // Extend the window only when a new valid bid improves the current best.
+      if (normalized < currentBest) {
+        const buffer = Math.max(0, Number((policy || {}).safetyBufferMs || 0));
+        const proposed = Date.now() + Math.max(60000, Number((policy || {}).windowMs || RR.DEFAULT_WINDOW_MS));
+        x.closeAt = new Date(Math.min(proposed, Date.parse(x.cancellationDeadline) - buffer)).toISOString();
+      }
       return pass({ bidId: row.id, accepted: true }, "Bid accepted. Other DMC bids and identities remain private.");
     },
     // Participant view returns only their own bid status; never leaks competitors or source identities.
