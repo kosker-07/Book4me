@@ -14,7 +14,7 @@
 - **B4B-02 Proxy ve IP:** `TRUST_PROXY` ile açık yapılandırma. Varsayılan `false` (`X-Forwarded-For` yok sayılır); `NODE_ENV=production` iken değer zorunlu; `true` reddedilir; hop sayısı (1–5) veya proxy adres/alt ağ listesi.
 - **B4B-03 Eşdeğerlik:** `rate_plans.sales_conditions` anahtara eklendi (anahtar sırasından bağımsız). Pazar/milliyet v1 veri modelinde yok; eklenmedi, öneri olarak §13.2'de.
 - **B4B-04 Idempotency:** `request_hash` alanı NULL olan eski (002 öncesi) anahtar yalnız kayıtlı rezervasyon isteğe uyuyorsa (fiyat planı, tarihler, oda, misafir adı) tekrar oynatılır ve parmak izi bağlanır; aksi halde 422 `IDEMPOTENCY_KEY_REUSED`. Hiçbir durumda ikinci rezervasyon oluşmaz. Yeni migration gerekmedi.
-- **B4B-05:** §11 test dosyaları, §13.1 iptal kuralı (alt acente `draft` + `pending`), §6.3 ve §7'deki eski "henüz uygulanmadı" ifadeleri düzeltildi; §3.3 ve §11'de bu sürümde çalıştırılamayan testler **DOĞRULANAMADI** olarak işaretlendi.
+- **B4B-05:** §11 test dosyaları, §13.1 iptal kuralı (alt acente `draft` + `pending`), §6.3 ve §7'deki eski "henüz uygulanmadı" ifadeleri düzeltildi; §3.3 ve §11 yalnız gerçekten çalıştırılan testleri gösterir (yerel + CI 42412151072). M1–M18 mutation kontrolü (`infra/scripts/mutation-check.mjs`) ve CI `mutation` işi eklendi.
 
 ## Sürüm 2.2'de değişenler
 
@@ -144,16 +144,18 @@ Proje sahibi karar verene kadar mevcut davranış korunur; kod sessizce değişt
 
 ### 3.3 Test durumu
 
-**Sürüm 2.3 (07.11.2026, Node 22.23, PostgreSQL 16.15, B4B-01…05 sonrası).** Bu ortamda npm kayıt defterine erişim yoktu; `npm ci` çalışmadı. Çalıştırılamayanlar **DOĞRULANAMADI** olarak işaretlidir.
+**Sürüm 2.3 (07.11.2026, commit `eb18003`).** Yerel ortamda (Node 22.23, PostgreSQL 16.15) npm kayıt defterine erişim yoktu; npm gerektiren adımlar GitHub Actions'ta çalıştırıldı: CI [42412151072](https://github.com/kosker-07/Book4me/actions/runs/42412151072) (Node 22, PostgreSQL 16).
 
 | Komut | Sonuç (2.3) |
 |---|---|
-| `npm run test:server` (62 test) | **DOĞRULANAMADI** — `express`, `pg`, `pdfkit` kurulamadı. Veritabanı gerektirmeyen 17 birim testi global `tsx` ile çalıştı: **17/17 geçti**; 45 entegrasyon testi çalışmadı |
-| `npm run build:server`, `/ready` (derlenmiş sunucu), `npm run admin:create`, `npm run perf:smoke` | **DOĞRULANAMADI** (aynı neden). Tip denetimi yalnız kısmi: `express`/`pg` tipleri yerine geçici `any` tanımlarıyla `tsc --strict` hatasız |
-| Migration: boş DB, tekrar uygulama, 001 + eski veriden yükseltme | Geçti (yerel geçici küme, yalnız soket) |
-| `infra/scripts/backup-restore-drill.sh` | `RESTORE DRILL PASSED`; bozulmuş kopyada `FAILED` (öz-test geçti) |
+| `npm run test:server` | CI: **62/62 geçti**, 0 atlandı (45 entegrasyon + 17 birim). Yerel: 17 birim testi 17/17 geçti |
+| `npm run build:server` + derlenmiş sunucu `/ready` | CI: geçti (`{"ok":true,"database":"up"}`, voucher 23.382 bayt) |
+| `npm run admin:create` | CI: `D4` geçti (ilk yönetici oluşturuldu, tekrar ve kısa parola reddedildi) |
+| `npm run perf:smoke` | CI: arama p95 150,2 ms (sınır 500 ms), rezervasyon p95 36,4 ms |
+| Migration: boş DB, tekrar uygulama, 001 + eski veriden yükseltme | Geçti (yerel geçici küme, yalnız soket; ayrıca CI) |
+| `infra/scripts/backup-restore-drill.sh` | `RESTORE DRILL PASSED`; bozulmuş kopyada `FAILED` (öz-test geçti) — yerel ve CI |
 | `infra/scripts/mutation-check.mjs --dry-run` | 18 yamanın 18'i kodla tam bir kez eşleşiyor ve geri alınıyor |
-| `infra/scripts/mutation-check.mjs --unit-only` | M2, M3, M8, M10 birim testlerini kırmızıya çevirdi (yakalandı); M1, M4–M7, M9, M11–M18 **DOĞRULANAMADI** (veritabanlı paket gerekir; CI `mutation` işi eklendi) |
+| `infra/scripts/mutation-check.mjs` | CI `mutation` işi: **18/18 yakalandı**; her mutation sonrası dosyalar geri alındı (`git diff --quiet` temiz), son çalıştırma 62/62. Yerel `--unit-only`: M2, M3, M8, M10 yakalandı |
 | Tarayıcı testleri (yeniden derlenmiş paket, sistem Chrome) | `ui-flow` 23/23, `u002-ui` 24/24, `u002-yama1` 20/20, `u003-dashboard` 33/33, `u005-mudahale` 59/59, `u005-ciftekran` 19/19, `u006-crystal` 26/26, `u007-pazar` 39/39, `u007c-tema` 10/10, `u008-bed4book` geçti, `bed4book` geçti |
 | `u004-sade` | **Kararsız** — main 0/3, çalışma dalı 1/3 geçti; hepsi aynı adımda 30 sn zaman aşımı ("arama sonucundan tek tıkla rezervasyon ekranı"). `src/`, `tools/`, `dist/` main ile aynı; sorun dalda değil, test ile arama kutusunun yeniden çizimi arasındaki zamanlama yarışında (§F) |
 | `u001-logo` | Çalışmıyor — depo dışı `/tmp/logo1.png` dosyası gerekli (fikstür depoda yok) |
@@ -474,7 +476,7 @@ Durum sütunu yalnız gerçekten çalıştırılmış testleri "Geçti" olarak g
 - `tests/server/rules.test.ts` — birim (fiyat, kazanan, doğrulama, quote, statik kilit taraması)
 - `tests/server/security.test.ts` — birim (parola, oturum, giriş sınırı politikası, `TRUST_PROXY`)
 
-**Sürüm 2.3 notu:** "Geçti" işaretli entegrasyon testleri en son 07.11.2026'da `77ef9dd` üzerinde çalıştırılmıştır (CI). Sürüm 2.3 değişikliklerinden sonra entegrasyon testleri, derleme ve performans testi bu ortamda npm bağımlılıkları kurulamadığı için **çalıştırılamadı — DOĞRULANAMADI**; CI'de yeniden çalışması gerekir. Sürüm 2.3'te çalıştırılanlar: birim testleri (17/17), migration'lar, eski veritabanından yükseltme, yedek/geri yükleme ve bozulmuş yedek öz-testi.
+**Sürüm 2.3 notu:** Bütün satırlar `eb18003` üzerinde CI [42412151072](https://github.com/kosker-07/Book4me/actions/runs/42412151072) ile yeniden çalıştırıldı (62/62). M1–M18 mutation kontrolü aynı çalıştırmada 18/18 yakalandı.
 
 | Test | Beklenen sonuç | Durum |
 |---|---|---|
@@ -485,7 +487,7 @@ Durum sütunu yalnız gerçekten çalıştırılmış testleri "Geçti" olarak g
 | Kısmi düşüm yok | Sonraki gece başarısızsa önceki geceler geri alınır | **Geçti** — `04` |
 | Paralel aynı idempotency anahtarı | Tek rezervasyon, 500 yok | **Geçti** — `05` |
 | Aynı anahtar farklı içerik | 422 | **Geçti** — `05b` |
-| Eski anahtar (`request_hash` NULL) | Uyan tekrar aynı yanıtı döner ve parmak izini bağlar; farklı içerik 422; ikinci rezervasyon yok; yanıtsız eski anahtar 422 | Eklendi — **DOĞRULANAMADI** (`05c`, `05d`) |
+| Eski anahtar (`request_hash` NULL) | Uyan tekrar aynı yanıtı döner ve parmak izini bağlar; farklı içerik 422; ikinci rezervasyon yok; yanıtsız eski anahtar 422 | **Geçti** — `05c`, `05d` |
 | Başka acentenin rezervasyonuna erişim | 404 | **Geçti** — `06` |
 | Başka acentenin rezervasyonunu iptal | 404, durum ve kontenjan değişmez | **Geçti** — `07` |
 | Ana acente iptali | 403 | **Geçti** — `08` |
@@ -499,7 +501,7 @@ Durum sütunu yalnız gerçekten çalıştırılmış testleri "Geçti" olarak g
 | Kazanan başarısızsa ikinci teklif yok | 409; diğer teklifin kontenjanı ve rezervasyon yok | **Geçti** — `14` |
 | Fiyat değiştiyse | 409 `PRICE_CHANGED`, geçiş yok | **Geçti** — `14b` |
 | Eşdeğerlik | Farklı pansiyondaki ucuz teklif kazananın yerini almaz | **Geçti** — `15`, birim testi |
-| Satış koşulları (B4B-03) | Farklı `sales_conditions` ayrı grup; anahtar sırası grubu bölmez; koşullar yanıtta yok | Birim testi **Geçti** (2.3); entegrasyon `15c` **DOĞRULANAMADI** |
+| Satış koşulları (B4B-03) | Farklı `sales_conditions` ayrı grup; anahtar sırası grubu bölmez; koşullar yanıtta yok | **Geçti** — `15c`, birim testi |
 | Kur eksik | Teklif değerlendirme dışı; kur eklenince dahil | **Geçti** — `15b`, birim testi |
 | Rakip bilgisi sızmaz | Yanıtta kaybeden fiyatı, fiyat planı/acente id, net fiyat, markup yok; acenteler birbirinin fiyatını görmez | **Geçti** — `16` |
 | Başka acentenin quote'u | 404 | **Geçti** — `16b` |
@@ -508,6 +510,7 @@ Durum sütunu yalnız gerçekten çalıştırılmış testleri "Geçti" olarak g
 | Fiyat snapshot'ı | Sonradan fiyat ve markup değişse de rezervasyon tutarı ve gecelik fiyatlar aynı | **Geçti** — `18` |
 | Geçersiz girdi | 500 yok; 400/404 | **Geçti** — `19` |
 | Kodda açık kilit/hold durumu yok | `server/` ve 002+ migration'larda `FOR UPDATE`, advisory lock, `HOLD/LOCKED` yok | **Geçti** — birim testi (statik tarama) |
+| Mutation kontrolü M1–M18 | Her bilinen hata beklenen testi kırmızıya çevirir; kaynak dosyalar geri alınır | **Geçti** — `infra/scripts/mutation-check.mjs`, CI `mutation` işi (18/18) |
 | Migration: boş DB | 001 + 002 + 003 hatasız | **Geçti** — yerel (2.3, PostgreSQL 16.15) + CI adımı |
 | Migration: tekrar uygulama | 002 ve 003 ikinci kez hatasız | **Geçti** — yerel (2.3) + CI adımı |
 | Migration: mevcut veriyle yükseltme | Eski rezervasyon ve eski idempotency anahtarı korunur, back_office acenteden ayrılır, kısıtlar çalışır | **Geçti** — `tests/server/migrations/legacy_upgrade_checks.sql`, yerel (2.3) + CI adımı |
@@ -519,16 +522,16 @@ Durum sütunu yalnız gerçekten çalıştırılmış testleri "Geçti" olarak g
 | Yönetim yetkisi | Ana acente yalnız kendi otelleri (diğerleri 404), alt acente 403, Back Office tümü | **Geçti** — `C1` |
 | Yönetim kuralları | Yayın hedefi aktif alt acente; override yok; kontenjan rezerve edilenin altına inmez; otel sahibi ana acente; rol ↔ acente tipi | **Geçti** — `C2` |
 | Pasifleştirme aramadan düşürür | Yayın, fiyat planı, otel | **Geçti** — `C3` |
-| Giriş kilidi | Aynı IP'den 5 hatalı denemeden sonra doğru parolayla da 429 | **Geçti** — `D1` (2.2 davranışı); 2.3 sonrası **DOĞRULANAMADI** |
-| Hesap kilitleme saldırısı | Başka IP'den 5 hata kurbanı kilitlemez; 100 hesap hatasında 429; pencere dışı hatalar sayılmaz | Politika birim testi **Geçti** (2.3); entegrasyon `D1b` **DOĞRULANAMADI** |
-| Hesap varlığı sızmaz | Var olan / olmayan e-posta için aynı 401 ve 429 gövdesi | Entegrasyon `D1c` **DOĞRULANAMADI** |
-| `X-Forwarded-For` sahteciliği | `TRUST_PROXY` yokken başlık yok sayılır; IP sınırı atlanamaz | `TRUST_PROXY` ayrıştırma birim testi **Geçti** (2.3); entegrasyon `D1d` **DOĞRULANAMADI** |
+| Giriş kilidi | Aynı IP'den 5 hatalı denemeden sonra doğru parolayla da 429 | **Geçti** — `D1` |
+| Hesap kilitleme saldırısı | Başka IP'den 5 hata kurbanı kilitlemez; 100 hesap hatasında 429; pencere dışı hatalar sayılmaz | **Geçti** — `D1b`, birim testi |
+| Hesap varlığı sızmaz | Var olan / olmayan e-posta için aynı 401 ve 429 gövdesi | **Geçti** — `D1c` |
+| `X-Forwarded-For` sahteciliği | `TRUST_PROXY` yokken başlık yok sayılır; IP sınırı atlanamaz | **Geçti** — `D1d`, birim testi |
 | Oturum iptali | Çıkış, kullanıcı ve acente pasifleştirme; pasif acente girişi reddi; `Bearer` öneki zorunlu | **Geçti** — `D2` |
 | Güvenlik başlıkları ve `/ready` | — | **Geçti** — `D3` |
 | İlk yönetici CLI | Parola stdin'den, ekrana yazılmaz, tekrar ve kısa parola reddedilir | **Geçti** — `D4` |
 | Yedekten geri yükleme | Ayrı veritabanına geri yükleme, birebir aynı; bozulmuş kopya yakalanır | **Geçti** — `infra/scripts/backup-restore-drill.sh`, yerel (2.3) + CI |
-| Temel performans | 200 otel / 400 fiyat planı / 24.000 envanter satırı; 10 eşzamanlı arama p95 < 500 ms | **Geçti** — `infra/scripts/perf-smoke.ts`, yerel (p95 147 ms, 2.2) + CI; 2.3 sonrası **DOĞRULANAMADI** |
-| Derlenmiş sunucu | `dist-server` ile voucher fontları ve `/ready` | **Geçti** — CI adımı (2.2); 2.3 sonrası **DOĞRULANAMADI** |
+| Temel performans | 200 otel / 400 fiyat planı / 24.000 envanter satırı; 10 eşzamanlı arama p95 < 500 ms | **Geçti** — `infra/scripts/perf-smoke.ts`, CI 2.3 (p95 150 ms) |
+| Derlenmiş sunucu | `dist-server` ile voucher fontları ve `/ready` | **Geçti** — CI adımı (2.3) |
 | Onay anında düşüm (hedef davranış) | — | Uygulanmadı (karar 1 bekliyor) |
 | Rebooking/RateRelay v1 paketinde devre dışı | — | Uygulanmadı (tarayıcı uygulamasını değiştirir; karar 10 bekliyor) |
 | Arayüzün API'ye bağlanması (uçtan uca tarayıcı testi) | — | Uygulanmadı |
