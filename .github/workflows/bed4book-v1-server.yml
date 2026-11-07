@@ -12,6 +12,7 @@ on:
       - "package.json"
       - "package-lock.json"
       - "tsconfig.server.json"
+      - "infra/**"
       - ".github/workflows/bed4book-v1-server.yml"
   pull_request:
     paths:
@@ -20,6 +21,7 @@ on:
       - "package.json"
       - "package-lock.json"
       - "tsconfig.server.json"
+      - "infra/**"
       - ".github/workflows/bed4book-v1-server.yml"
 
 jobs:
@@ -49,6 +51,8 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - name: Install pdftotext (voucher content verification)
+        run: sudo apt-get update -q && sudo apt-get install -y -q poppler-utils
       - name: Apply migrations to a clean database
         run: |
           for f in server/migrations/*.sql; do
@@ -72,5 +76,30 @@ jobs:
             psql "$BASE/bed4book_upgrade" -v ON_ERROR_STOP=1 -q -f "$f"
           done
           psql "$BASE/bed4book_upgrade" -v ON_ERROR_STOP=1 -f tests/server/migrations/legacy_upgrade_checks.sql
+          psql "$BASE/bed4book_upgrade" -v ON_ERROR_STOP=1 -q -f tests/server/migrations/drill_v1_data.sql
+      - name: Backup → restore drill (and self-test that a tampered restore fails)
+        env:
+          SOURCE_URL: postgres://bed4book:bed4book@localhost:5432/bed4book_upgrade
+          ADMIN_URL: postgres://bed4book:bed4book@localhost:5432/bed4book_test
+          RESTORE_DB: bed4book_restore_drill
+        run: |
+          infra/scripts/backup-restore-drill.sh
+          if DRILL_TAMPER_SQL="UPDATE bookings SET total = total + 1" infra/scripts/backup-restore-drill.sh; then
+            echo "Self-test failed: a tampered restore was not detected"; exit 1
+          fi
+          echo "Self-test passed: tampered restore detected"
       - run: npm run build:server
+      - name: Compiled server smoke test (dist build, fonts bundled, /ready)
+        run: |
+          node -e "require('./dist-server/server/voucher').renderVoucher({bookingNo:'B4B-SMOKE',status:'approved',hotelName:'Ş',hotelLocation:'İ',checkIn:'2030-01-01',checkOut:'2030-01-02',nights:1,roomName:'R',board:'B',rooms:1,guestName:'Ğ',adults:2,children:0,childAges:[],nationality:'TR',operationNote:'n',agencyName:'a',issuedAt:new Date()}).then(b=>{if(b.subarray(0,5).toString()!=='%PDF-')process.exit(1);console.log('voucher bytes',b.length)})"
+          PORT=3999 node dist-server/server/app.js & echo $! > server.pid
+          for i in $(seq 1 20); do curl -fsS http://127.0.0.1:3999/ready && break; sleep 0.5; done
+          curl -fsS http://127.0.0.1:3999/ready | grep -q '"database":"up"'
+          kill "$(cat server.pid)"
       - run: npm run test:server
+      - name: Basic performance smoke test (search p95 must stay under 500 ms)
+        run: |
+          BASE="postgres://bed4book:bed4book@localhost:5432"
+          psql "$BASE/bed4book_test" -c "CREATE DATABASE bed4book_perf"
+          for f in server/migrations/*.sql; do psql "$BASE/bed4book_perf" -v ON_ERROR_STOP=1 -q -f "$f"; done
+          DATABASE_URL="$BASE/bed4book_perf" npx tsx infra/scripts/perf-smoke.ts
