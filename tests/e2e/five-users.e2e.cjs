@@ -125,7 +125,8 @@ const STAY = { in: day(1), out: day(3) }; // the UI's default search dates (tomo
     await tid(W, "nav-search").click().catch(() => {});
     await tid(W, "search-submit").click(); await tid(W, "result-card").first().waitFor({ timeout: 8000 });
     await tid(W, "book-button").first().click(); await fillGuest(W, "Taslak"); await tid(W, "booking-draft").click();
-    await waitText(W, /Taslak|oluşturuldu|kaydedildi/i);
+    // Wait for the draft row itself (the word "Taslak" is already on the button, so text is not a signal).
+    const dEnd = Date.now() + 8000; while (Date.now() < dEnd && !(await q("SELECT 1 FROM bookings WHERE status='draft'")).length) await W.waitForTimeout(150);
     const drafts = await q("SELECT id FROM bookings WHERE status='draft'");
     ok(drafts.length === 1, "taslak kaydedildi");
     ok(JSON.stringify(await reserved(rp)) === "[2,2]", "taslak stok tüketmedi");
