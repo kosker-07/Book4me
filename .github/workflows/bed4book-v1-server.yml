@@ -103,3 +103,37 @@ jobs:
           psql "$BASE/bed4book_test" -c "CREATE DATABASE bed4book_perf"
           for f in server/migrations/*.sql; do psql "$BASE/bed4book_perf" -v ON_ERROR_STOP=1 -q -f "$f"; done
           DATABASE_URL="$BASE/bed4book_perf" npx tsx infra/scripts/perf-smoke.ts
+
+  # M1–M18: each mutation must turn its expected test red; files are restored and verified with git diff.
+  mutation:
+    runs-on: ubuntu-latest
+    needs: server
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: bed4book
+          POSTGRES_PASSWORD: bed4book
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U bed4book -d postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      SESSION_SECRET: ci-only-session-secret-at-least-32-characters
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Install pdftotext (voucher content verification)
+        run: sudo apt-get update -q && sudo apt-get install -y -q poppler-utils
+      - name: Mutation check (throwaway database, created and dropped by the script)
+        env:
+          ADMIN_URL: postgres://bed4book:bed4book@localhost:5432/postgres
+        run: node infra/scripts/mutation-check.mjs

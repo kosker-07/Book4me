@@ -1,12 +1,20 @@
 # BED4BOOK — Teknik Mimari, Veri Altyapısı ve Kurulum Yol Haritası
 
 - Belge: Teknik Mimari ve Veri Yol Haritası
-- Sürüm: **2.2** (2.1 + yönetim API'leri, taslak, voucher, oturum güvenliği, yedek tatbikatı, performans testi)
+- Sürüm: **2.3** (2.2 + bağımsız denetim bulguları B4B-01…05)
 - Tarih: 07.11.2026
 - Depo: `kosker-07/Book4me`
 - Bağlayıcı kapsam: `docs/BED4BOOK_Teknik_Sartname.md`, `docs/BED4BOOK_Proje_Sartnamesi.md`, `docs/IMPLEMENTATION_PLAN_BED4BOOK_V1.md`
 - Denetim raporu: `docs/reviews/CLAUDE_ARCHITECTURE_ROADMAP_REVIEW.md` (madde kodları bu belgede köşeli parantezle anılır, ör. [A1])
 - Durum: Tasarım + kısmi uygulama. Üretim ortamına kurulmamıştır. **"KARAR VERİLDİ"** maddeler proje sahibi tarafından onaylanmıştır; **"ÖNERİLEN — ONAY BEKLİYOR"** maddeler henüz kesin değildir (bkz. §13).
+
+## Sürüm 2.3'te değişenler
+
+- **B4B-01 Giriş kilidi:** başarısız denemeler üç anahtarla sayılır (15 dk): hesap + IP 5, IP 20, hesap 100. Saldırganın başka bir IP'den kurbanın e-postasıyla yaptığı denemeler kurbanı kilitlemez; hesap tek başına ancak dağıtık saldırıda (≥ 20 IP) kısıtlanır. 401/429 yanıtları hesabın var olup olmadığını göstermez (`server/login-guard.ts`).
+- **B4B-02 Proxy ve IP:** `TRUST_PROXY` ile açık yapılandırma. Varsayılan `false` (`X-Forwarded-For` yok sayılır); `NODE_ENV=production` iken değer zorunlu; `true` reddedilir; hop sayısı (1–5) veya proxy adres/alt ağ listesi.
+- **B4B-03 Eşdeğerlik:** `rate_plans.sales_conditions` anahtara eklendi (anahtar sırasından bağımsız). Pazar/milliyet v1 veri modelinde yok; eklenmedi, öneri olarak §13.2'de.
+- **B4B-04 Idempotency:** `request_hash` alanı NULL olan eski (002 öncesi) anahtar yalnız kayıtlı rezervasyon isteğe uyuyorsa (fiyat planı, tarihler, oda, misafir adı) tekrar oynatılır ve parmak izi bağlanır; aksi halde 422 `IDEMPOTENCY_KEY_REUSED`. Hiçbir durumda ikinci rezervasyon oluşmaz. Yeni migration gerekmedi.
+- **B4B-05:** §11 test dosyaları, §13.1 iptal kuralı (alt acente `draft` + `pending`), §6.3 ve §7'deki eski "henüz uygulanmadı" ifadeleri düzeltildi; §3.3 ve §11'de bu sürümde çalıştırılamayan testler **DOĞRULANAMADI** olarak işaretlendi.
 
 ## Sürüm 2.2'de değişenler
 
@@ -97,7 +105,7 @@ Proje sahibi karar verene kadar mevcut davranış korunur; kod sessizce değişt
 
 ### 2.3 Tek kazananın tanımı [D3, D5]
 
-- **Eşdeğerlik anahtarı** — uygulanan varsayılan, ÖNERİLEN — ONAY BEKLİYOR (§13, karar 3): otel id, oda id, pansiyon, iptal koşulu, ödeme koşulu (anahtar sırasından bağımsız JSON), yetişkin/çocuk sayısı ve çocuk yaşları, giriş/çıkış tarihi, oda sayısı (`server/pricing.ts` `equivalenceKey`). Pazar/milliyet v1 veri modelinde yoktur.
+- **Eşdeğerlik anahtarı** — uygulanan varsayılan, ÖNERİLEN — ONAY BEKLİYOR (§13, karar 3): otel id, oda id, pansiyon, iptal koşulu, ödeme koşulu (anahtar sırasından bağımsız JSON), yetişkin/çocuk sayısı ve çocuk yaşları, giriş/çıkış tarihi, oda sayısı satış koşulları (`rate_plans.sales_conditions`, anahtar sırasından bağımsız JSON; sürüm 2.3, B4B-03) (`server/pricing.ts` `equivalenceKey`). Pazar/milliyet v1 veri modelinde yoktur; anahtara eklenmemiştir. `sales_conditions` aramada uygunluk filtresi olarak **uygulanmaz**, yalnız teklifleri ayırır.
 - **Uygunluk:** yayın aktif; otel, oda ve fiyat planı aktif; tüm geceler için fiyat var; her gece `allotment - sold >= oda sayısı`; stop-sale yok; pazar ve kapasite uygun; kur mevcut.
 - **Normalize toplam** — KARAR VERİLDİ (fiyat modeli): oda sayısı × Σ(gecelik net fiyat + acente markup'ı). Markup yüzde (`net × (1 + değer/100)`) veya sabit (`net + değer`, oda/gece başına, fiyat planı para biriminde). Hesap tam sayı kuruş ile yapılır. Karşılaştırma EUR'ya çevrilerek yapılır (`fx_rates`). **Kuru bulunmayan teklif değerlendirme dışı kalır** (sessizce 1 kabul edilmez).
 - **Tie-break** — uygulanan varsayılan, ÖNERİLEN — ONAY BEKLİYOR (§13, karar 6): `normalized_total ASC`, sonra en küçük fiyat planı id. Sonuç deterministiktir.
@@ -134,7 +142,23 @@ Proje sahibi karar verene kadar mevcut davranış korunur; kod sessizce değişt
   - geçersiz girdilerde 500 yerine 4xx.
 - Açık eksikler: kontenjanın onay anında düşmesi (karar 1 bekliyor), ana sayfa/arayüzün API'ye bağlanması, `/api/v1` sürüm öneki, RLS (O5), audit kayıtlarında önceki/sonraki değer ve IP (O7), migration çalıştırıcı ve `schema_migrations` (O10 — CI'de sıralı `psql` uygulaması var), CORS/HTTPS/ters proxy (altyapı), Rebooking/RateRelay modüllerinin tarayıcı paketinde devre dışı bırakılması (karar 10), görsel yükleme ve nesne depolama, voucher dosyasının nesne depolamada saklanması, resmi logo dosyası ve renk kodları.
 
-### 3.3 Test durumu (07.11.2026, Node 22)
+### 3.3 Test durumu
+
+**Sürüm 2.3 (07.11.2026, Node 22.23, PostgreSQL 16.15, B4B-01…05 sonrası).** Bu ortamda npm kayıt defterine erişim yoktu; `npm ci` çalışmadı. Çalıştırılamayanlar **DOĞRULANAMADI** olarak işaretlidir.
+
+| Komut | Sonuç (2.3) |
+|---|---|
+| `npm run test:server` (62 test) | **DOĞRULANAMADI** — `express`, `pg`, `pdfkit` kurulamadı. Veritabanı gerektirmeyen 17 birim testi global `tsx` ile çalıştı: **17/17 geçti**; 45 entegrasyon testi çalışmadı |
+| `npm run build:server`, `/ready` (derlenmiş sunucu), `npm run admin:create`, `npm run perf:smoke` | **DOĞRULANAMADI** (aynı neden). Tip denetimi yalnız kısmi: `express`/`pg` tipleri yerine geçici `any` tanımlarıyla `tsc --strict` hatasız |
+| Migration: boş DB, tekrar uygulama, 001 + eski veriden yükseltme | Geçti (yerel geçici küme, yalnız soket) |
+| `infra/scripts/backup-restore-drill.sh` | `RESTORE DRILL PASSED`; bozulmuş kopyada `FAILED` (öz-test geçti) |
+| `infra/scripts/mutation-check.mjs --dry-run` | 18 yamanın 18'i kodla tam bir kez eşleşiyor ve geri alınıyor |
+| `infra/scripts/mutation-check.mjs --unit-only` | M2, M3, M8, M10 birim testlerini kırmızıya çevirdi (yakalandı); M1, M4–M7, M9, M11–M18 **DOĞRULANAMADI** (veritabanlı paket gerekir; CI `mutation` işi eklendi) |
+| Tarayıcı testleri (yeniden derlenmiş paket, sistem Chrome) | `ui-flow` 23/23, `u002-ui` 24/24, `u002-yama1` 20/20, `u003-dashboard` 33/33, `u005-mudahale` 59/59, `u005-ciftekran` 19/19, `u006-crystal` 26/26, `u007-pazar` 39/39, `u007c-tema` 10/10, `u008-bed4book` geçti, `bed4book` geçti |
+| `u004-sade` | **Kararsız** — main 0/3, çalışma dalı 1/3 geçti; hepsi aynı adımda 30 sn zaman aşımı ("arama sonucundan tek tıkla rezervasyon ekranı"). `src/`, `tools/`, `dist/` main ile aynı; sorun dalda değil, test ile arama kutusunun yeniden çizimi arasındaki zamanlama yarışında (§F) |
+| `u001-logo` | Çalışmıyor — depo dışı `/tmp/logo1.png` dosyası gerekli (fikstür depoda yok) |
+
+**Sürüm 2.2 (07.11.2026, Node 22) — önceki çalıştırma, `77ef9dd`:**
 
 | Komut | Sonuç |
 |---|---|
@@ -265,7 +289,7 @@ Arama hiçbir envanter tablosuna yazmaz.
 
 ### 6.3 Rezervasyon talebi → Back Office kararı
 
-1. Alt acente yalnız arama sonucundaki imzalı `quoteId`, zorunlu misafir alanları ve `Idempotency-Key` ile talep oluşturur (`pending`). Quote süresi dolmuşsa 409, sahte ise 400, başka acenteye aitse 404. Yalnız quote'taki kazanan fiyat planının fiyatı ve kontenjanı yeniden doğrulanır; fiyat değiştiyse 409 `PRICE_CHANGED`, kontenjan yoksa 409 `ALLOTMENT_UNAVAILABLE`; başka teklif denenmez. **Mevcut davranış:** kontenjan bu aşamada düşer; hedef davranış §2.2 / §13 karar 1'de onay bekliyor. (`draft` durumu henüz uygulanmadı.)
+1. Alt acente yalnız arama sonucundaki imzalı `quoteId`, zorunlu misafir alanları ve `Idempotency-Key` ile talep oluşturur (`pending`). Quote süresi dolmuşsa 409, sahte ise 400, başka acenteye aitse 404. Yalnız quote'taki kazanan fiyat planının fiyatı ve kontenjanı yeniden doğrulanır; fiyat değiştiyse 409 `PRICE_CHANGED`, kontenjan yoksa 409 `ALLOTMENT_UNAVAILABLE`; başka teklif denenmez. **Mevcut davranış:** kontenjan bu aşamada düşer; hedef davranış §2.2 / §13 karar 1'de onay bekliyor. `draft: true` ile taslak oluşturulabilir (003); taslak kontenjan tüketmez, `submit` ile `pending` olur.
 2. Talep Back Office kuyruğuna düşer.
 3. Back Office **onaylarsa**, tek transaction içinde (§6.5): yalnız kazanan fiyat planının fiyatı ve kontenjanı yeniden doğrulanır; tüm geceler atomik koşullu düşümle güncellenir; başarılıysa `confirmed`.
 4. Herhangi bir gece başarısızsa transaction geri alınır; rezervasyon `rejected` + `NO_AVAILABILITY` veya `PRICE_CHANGED` olur; **başka seçenek denenmez**; acenteye yeni arama yapması bildirilir.
@@ -335,7 +359,7 @@ Taban yol `/api/v1`. OpenAPI şeması ve sözleşme testleri zorunludur.
 | Katalog | otel CRUD + durum; oda tipi; fiyat planı; `PUT /rate-plans/{id}/calendar` (tarih aralığı toplu) | `master_agency` |
 | Yayın | `POST/PATCH/DELETE /publications`, fiyat kuralları | `master_agency` |
 | Arama | `POST /searches` → yalnız kazananlar ve imzalı `quoteId` | `sub_agency` |
-| Rezervasyon | `POST /bookings` (`quoteId`, misafir alanları, `Idempotency-Key`), `POST /bookings/{id}/cancel`, `GET /bookings`, `GET /bookings/{id}`; `POST /bookings/{id}/submit` (`draft` ile birlikte, henüz yok) | `sub_agency` |
+| Rezervasyon | `POST /bookings` (`quoteId`, misafir alanları, `Idempotency-Key`), `POST /bookings/{id}/cancel`, `GET /bookings`, `GET /bookings/{id}`; `POST /bookings/{id}/submit` (taslak gönderimi; uygulandı) | `sub_agency` |
 | Back Office | `GET /backoffice/bookings`, `GET /backoffice/bookings/{id}`, `GET /backoffice/hotels`, `PATCH /backoffice/bookings/{id}/status`; filtre/sayfalama, notlar (henüz yok) | `back_office`, `system_admin` (platform geneli); `master_agency` (yalnız kendi otelleri, iptal hariç) |
 
 **Bugün uygulanmış uç noktalar** (taban yol şu an `/api`; `/api/v1`'e geçiş henüz yapılmadı):
@@ -406,7 +430,7 @@ infra/
 - DB uygulama kullanıcısı en az yetkiyle çalışır; migration hesabı runtime'da kullanılmaz.
 - Sırlar ortam değişkeni veya secret manager'da; loglarda token, parola, gereksiz kişisel veri bulunmaz.
 - Parametreli SQL; şema tabanlı girdi doğrulama; çıktı kodlama; CSRF ve CORS politikası (yalnız `https://www.bed4book.com`).
-- Giriş için IP + e-posta bazlı hız sınırı ve geçici kilit; sabit süreli yanıt; başarılı/başarısız giriş audit'e yazılır.
+- Giriş için hesap + IP (5), IP (20) ve hesap (100) bazlı hız sınırı, 15 dk; sabit süreli yanıt; hesabın varlığı yanıttan anlaşılmaz; başarılı/başarısız her deneme `login_attempts` tablosuna yazılır. İstemci IP'si yalnız `TRUST_PROXY` ile güvenilen proxy'den alınır.
 - Sistem yöneticisine MFA; oturum süresi; çıkış ve parola değişiminde oturum iptali (`token_version`).
 - TLS, durağan şifreleme, yedek şifrelemesi, düzenli geri yükleme testi.
 - Audit kayıtları değiştirilemez (append-only).
@@ -443,7 +467,14 @@ Her adımın kapanış şartı: kendi testlerinin gerçek PostgreSQL ile CI'de y
 
 ## 11. Test ve kabul matrisi
 
-Durum sütunu yalnız gerçekten çalıştırılmış testleri "Geçti" olarak gösterir. Test adları `tests/server/booking.integration.test.ts` (PostgreSQL 16) ve `tests/server/rules.test.ts` (birim) dosyalarındadır.
+Durum sütunu yalnız gerçekten çalıştırılmış testleri "Geçti" olarak gösterir. Testlerin bulunduğu dosyalar:
+
+- `tests/server/booking.integration.test.ts` — PostgreSQL 16, `01`–`19` (arama, kontenjan, idempotency, yetki, iptal, fiyat, sızıntı, doğrulama)
+- `tests/server/v1-flows.integration.test.ts` — PostgreSQL 16, `A1`–`A3`, `B1`–`B2`, `C1`–`C3`, `D1`–`D4` (yalnız API ile uçtan uca akışlar, taslak, yönetim yetkisi, giriş güvenliği, CLI)
+- `tests/server/rules.test.ts` — birim (fiyat, kazanan, doğrulama, quote, statik kilit taraması)
+- `tests/server/security.test.ts` — birim (parola, oturum, giriş sınırı politikası, `TRUST_PROXY`)
+
+**Sürüm 2.3 notu:** "Geçti" işaretli entegrasyon testleri en son 07.11.2026'da `77ef9dd` üzerinde çalıştırılmıştır (CI). Sürüm 2.3 değişikliklerinden sonra entegrasyon testleri, derleme ve performans testi bu ortamda npm bağımlılıkları kurulamadığı için **çalıştırılamadı — DOĞRULANAMADI**; CI'de yeniden çalışması gerekir. Sürüm 2.3'te çalıştırılanlar: birim testleri (17/17), migration'lar, eski veritabanından yükseltme, yedek/geri yükleme ve bozulmuş yedek öz-testi.
 
 | Test | Beklenen sonuç | Durum |
 |---|---|---|
@@ -454,6 +485,7 @@ Durum sütunu yalnız gerçekten çalıştırılmış testleri "Geçti" olarak g
 | Kısmi düşüm yok | Sonraki gece başarısızsa önceki geceler geri alınır | **Geçti** — `04` |
 | Paralel aynı idempotency anahtarı | Tek rezervasyon, 500 yok | **Geçti** — `05` |
 | Aynı anahtar farklı içerik | 422 | **Geçti** — `05b` |
+| Eski anahtar (`request_hash` NULL) | Uyan tekrar aynı yanıtı döner ve parmak izini bağlar; farklı içerik 422; ikinci rezervasyon yok; yanıtsız eski anahtar 422 | Eklendi — **DOĞRULANAMADI** (`05c`, `05d`) |
 | Başka acentenin rezervasyonuna erişim | 404 | **Geçti** — `06` |
 | Başka acentenin rezervasyonunu iptal | 404, durum ve kontenjan değişmez | **Geçti** — `07` |
 | Ana acente iptali | 403 | **Geçti** — `08` |
@@ -467,6 +499,7 @@ Durum sütunu yalnız gerçekten çalıştırılmış testleri "Geçti" olarak g
 | Kazanan başarısızsa ikinci teklif yok | 409; diğer teklifin kontenjanı ve rezervasyon yok | **Geçti** — `14` |
 | Fiyat değiştiyse | 409 `PRICE_CHANGED`, geçiş yok | **Geçti** — `14b` |
 | Eşdeğerlik | Farklı pansiyondaki ucuz teklif kazananın yerini almaz | **Geçti** — `15`, birim testi |
+| Satış koşulları (B4B-03) | Farklı `sales_conditions` ayrı grup; anahtar sırası grubu bölmez; koşullar yanıtta yok | Birim testi **Geçti** (2.3); entegrasyon `15c` **DOĞRULANAMADI** |
 | Kur eksik | Teklif değerlendirme dışı; kur eklenince dahil | **Geçti** — `15b`, birim testi |
 | Rakip bilgisi sızmaz | Yanıtta kaybeden fiyatı, fiyat planı/acente id, net fiyat, markup yok; acenteler birbirinin fiyatını görmez | **Geçti** — `16` |
 | Başka acentenin quote'u | 404 | **Geçti** — `16b` |
@@ -475,9 +508,9 @@ Durum sütunu yalnız gerçekten çalıştırılmış testleri "Geçti" olarak g
 | Fiyat snapshot'ı | Sonradan fiyat ve markup değişse de rezervasyon tutarı ve gecelik fiyatlar aynı | **Geçti** — `18` |
 | Geçersiz girdi | 500 yok; 400/404 | **Geçti** — `19` |
 | Kodda açık kilit/hold durumu yok | `server/` ve 002+ migration'larda `FOR UPDATE`, advisory lock, `HOLD/LOCKED` yok | **Geçti** — birim testi (statik tarama) |
-| Migration: boş DB | 001 + 002 hatasız | **Geçti** — yerel + CI adımı |
-| Migration: tekrar uygulama | 002 ikinci kez hatasız | **Geçti** — yerel + CI adımı |
-| Migration: mevcut veriyle yükseltme | Eski rezervasyon korunur, back_office acenteden ayrılır, kısıtlar çalışır | **Geçti** — `tests/server/migrations/legacy_upgrade_checks.sql`, yerel + CI adımı |
+| Migration: boş DB | 001 + 002 + 003 hatasız | **Geçti** — yerel (2.3, PostgreSQL 16.15) + CI adımı |
+| Migration: tekrar uygulama | 002 ve 003 ikinci kez hatasız | **Geçti** — yerel (2.3) + CI adımı |
+| Migration: mevcut veriyle yükseltme | Eski rezervasyon ve eski idempotency anahtarı korunur, back_office acenteden ayrılır, kısıtlar çalışır | **Geçti** — `tests/server/migrations/legacy_upgrade_checks.sql`, yerel (2.3) + CI adımı |
 | Kabul 1 (API ile): otel/oda/fiyat/kontenjan → yalnız seçili alt acente doğru fiyatı görür | Taslak otel satılmaz; aktif olunca yalnız yayın yapılan acente 230.00 görür | **Geçti** — `A1` |
 | Kabul 2 (API ile): rezervasyon → Back Office → onay → voucher | Kuyruk, detay, onay, PDF; `pdftotext` ile içerik doğrulaması | **Geçti** — `A2` |
 | Voucher yetkisi | Başka acente/ana acente 404, alt acente Back Office ucunda 403, onaysız 409 | **Geçti** — `A3` |
@@ -486,13 +519,16 @@ Durum sütunu yalnız gerçekten çalıştırılmış testleri "Geçti" olarak g
 | Yönetim yetkisi | Ana acente yalnız kendi otelleri (diğerleri 404), alt acente 403, Back Office tümü | **Geçti** — `C1` |
 | Yönetim kuralları | Yayın hedefi aktif alt acente; override yok; kontenjan rezerve edilenin altına inmez; otel sahibi ana acente; rol ↔ acente tipi | **Geçti** — `C2` |
 | Pasifleştirme aramadan düşürür | Yayın, fiyat planı, otel | **Geçti** — `C3` |
-| Giriş kilidi | 5 hatalı denemeden sonra doğru parolayla da 429 | **Geçti** — `D1` |
+| Giriş kilidi | Aynı IP'den 5 hatalı denemeden sonra doğru parolayla da 429 | **Geçti** — `D1` (2.2 davranışı); 2.3 sonrası **DOĞRULANAMADI** |
+| Hesap kilitleme saldırısı | Başka IP'den 5 hata kurbanı kilitlemez; 100 hesap hatasında 429; pencere dışı hatalar sayılmaz | Politika birim testi **Geçti** (2.3); entegrasyon `D1b` **DOĞRULANAMADI** |
+| Hesap varlığı sızmaz | Var olan / olmayan e-posta için aynı 401 ve 429 gövdesi | Entegrasyon `D1c` **DOĞRULANAMADI** |
+| `X-Forwarded-For` sahteciliği | `TRUST_PROXY` yokken başlık yok sayılır; IP sınırı atlanamaz | `TRUST_PROXY` ayrıştırma birim testi **Geçti** (2.3); entegrasyon `D1d` **DOĞRULANAMADI** |
 | Oturum iptali | Çıkış, kullanıcı ve acente pasifleştirme; pasif acente girişi reddi; `Bearer` öneki zorunlu | **Geçti** — `D2` |
 | Güvenlik başlıkları ve `/ready` | — | **Geçti** — `D3` |
 | İlk yönetici CLI | Parola stdin'den, ekrana yazılmaz, tekrar ve kısa parola reddedilir | **Geçti** — `D4` |
-| Yedekten geri yükleme | Ayrı veritabanına geri yükleme, birebir aynı; bozulmuş kopya yakalanır | **Geçti** — `infra/scripts/backup-restore-drill.sh`, yerel + CI |
-| Temel performans | 200 otel / 400 fiyat planı / 24.000 envanter satırı; 10 eşzamanlı arama p95 < 500 ms | **Geçti** — `infra/scripts/perf-smoke.ts`, yerel (p95 147 ms) + CI |
-| Derlenmiş sunucu | `dist-server` ile voucher fontları ve `/ready` | **Geçti** — CI adımı |
+| Yedekten geri yükleme | Ayrı veritabanına geri yükleme, birebir aynı; bozulmuş kopya yakalanır | **Geçti** — `infra/scripts/backup-restore-drill.sh`, yerel (2.3) + CI |
+| Temel performans | 200 otel / 400 fiyat planı / 24.000 envanter satırı; 10 eşzamanlı arama p95 < 500 ms | **Geçti** — `infra/scripts/perf-smoke.ts`, yerel (p95 147 ms, 2.2) + CI; 2.3 sonrası **DOĞRULANAMADI** |
+| Derlenmiş sunucu | `dist-server` ile voucher fontları ve `/ready` | **Geçti** — CI adımı (2.2); 2.3 sonrası **DOĞRULANAMADI** |
 | Onay anında düşüm (hedef davranış) | — | Uygulanmadı (karar 1 bekliyor) |
 | Rebooking/RateRelay v1 paketinde devre dışı | — | Uygulanmadı (tarayıcı uygulamasını değiştirir; karar 10 bekliyor) |
 | Arayüzün API'ye bağlanması (uçtan uca tarayıcı testi) | — | Uygulanmadı |
@@ -516,7 +552,7 @@ Durum sütunu yalnız gerçekten çalıştırılmış testleri "Geçti" olarak g
 |---|---|---|
 | Fiyat modeli | `inventory_daily.price` net gecelik fiyattır; acente markup'ı yüzde veya sabit tutar. Rezervasyonda gecelik fiyatlar snapshot olarak saklanır; sonraki fiyat değişikliği mevcut rezervasyonu etkilemez. Override modeli yoktur. | `002`, `server/pricing.ts`, test `18` |
 | Back Office kapsamı | Platform geneli: tüm oteller ve rezervasyonlar; ana acente kiracısına bağlı değil; yetki backend'de. Ana acente ve alt acente izolasyonu korunur. | `002`, `server/app.ts`, testler `09`, `10` |
-| İptal yetkileri | Alt acente yalnız kendi oluşturduğu `pending` rezervasyonu iptal eder. Onaylı rezervasyonu Back Office veya sistem yöneticisi iptal eder. Ana acentenin iptal yetkisi yoktur. Tekrarlanan iptal kontenjanı artırmaz. | `server/app.ts`, testler `07`, `08`, `11`, `11b`, `12` |
+| İptal yetkileri | Alt acente yalnız kendi oluşturduğu `draft` (taslak) veya `pending` rezervasyonu iptal eder; taslak iptali kontenjan iadesi yapmaz (taslak kontenjan tüketmemiştir). Onaylı rezervasyonu Back Office veya sistem yöneticisi iptal eder. Ana acentenin iptal yetkisi yoktur. Tekrarlanan iptal kontenjanı artırmaz. | `server/app.ts`, testler `07`, `08`, `11`, `11b`, `12`, `B2` |
 | Zorunlu misafir alanları | Ad, soyad, yetişkin sayısı, çocuk sayısı, çocuk yaşları, e-posta, telefon, uyruk, operasyon notu; backend doğrulaması. | `server/validation.ts`, test `17` |
 
 ### 13.2 Açık kararlar (ÖNERİLEN — ONAY BEKLİYOR)
@@ -530,6 +566,8 @@ Durum sütunu yalnız gerçekten çalıştırılmış testleri "Geçti" olarak g
 | 6 | Eşit fiyatta kazanan | En küçük fiyat planı id (uygulandı) | Aynı veya iş kuralı |
 | 9 | PostgreSQL sürümü ve hosting bölgesi | Testler PostgreSQL 16 ile | PostgreSQL 16; TR veya AB, KVKK değerlendirmesi |
 | 10 | Rebooking/RateRelay | v1 dışı | Ayrı onay |
+| 11 | Pazar / milliyet satış kısıtı (B4B-03) | Veri modelinde yok; eşdeğerlik anahtarında yok; `sales_conditions` içeriği aramada uygulanmaz, yalnız teklifleri ayırır | Fiyat planına yapılandırılmış `markets` alanı + aramada uygunluk filtresi + anahtara ekleme; proje sahibi kararı gerekir |
+| 12 | Acente yayın koşulları (`agency_hotel_sales.agency_conditions`) | Kullanılmıyor; anahtarda yok | Kullanım amacı netleşmeli |
 
 (4, 7 ve 8 numaralı kararlar 13.1'de kesinleşti.)
 
