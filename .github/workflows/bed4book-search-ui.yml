@@ -1,0 +1,18 @@
+name: BED4BOOK B2B Search UI
+on:
+  push:
+    branches: [chatgpt/bed4book-b2b-search-ui]
+  pull_request:
+    paths:
+      - 'prototypes/b2b-search/**'
+      - '.github/workflows/bed4book-search-ui.yml'
+jobs:
+  contract-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Run B2B search UI contract tests
+        run: node --test prototypes/b2b-search/tests/*.test.cjs
