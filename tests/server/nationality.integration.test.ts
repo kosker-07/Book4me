@@ -151,6 +151,39 @@ test("N07 precedence decides eligibility only: a cheaper general contract beats 
   assert.equal(w[0].total, "100.00");
 });
 
+test("N08a excluded family nationality is not offered; eligible TR contract remains", { skip }, async () => {
+  const s = await search(["TR"]);
+  assert.equal(s.status, 200, s.raw);
+  const offers = ai(s.body.results);
+  assert.equal(offers.length, 1);
+  assert.equal(offers[0].total, "180.00");
+  await pool.query("INSERT INTO contract_nationality_rules(contract_id,rule_type,country_code) VALUES ($1,'exclude','TR')", [C_TR]);
+  const after = await search(["TR"]);
+  assert.equal(after.status, 200, after.raw);
+  assert.equal(ai(after.body.results)[0].total, "200.00");
+});
+
+test("N08b multiple nationalities are rejected for a single family", { skip }, async () => {
+  const r = await search(["TR", "DE"]);
+  assert.equal(r.status, 400, r.raw);
+  assert.equal(r.body.details?.nationalities ?? r.body.fields?.nationalities ?? r.body.errors?.nationalities, "ONE_NATIONALITY_PER_FAMILY");
+});
+
+test("N08c omitted secondary nationality is stored as the family nationality", { skip }, async () => {
+  const s = await search(["TR"]);
+  const q = ai(s.body.results)[0];
+  const b = await call("POST", "/api/agency/bookings", {
+    quoteId: q.quoteId,
+    guest: { firstName: "Lead", lastName: "Guest", adults: 2, children: 0, childAges: [], email: "lead@example.com", phone: "+90 555 000 11 22", nationality: "TR" },
+    otherGuests: [{ firstName: "Second", lastName: "Guest", type: "adult" }],
+    operationNote: "Note"
+  }, tok.a, { "Idempotency-Key": randomUUID() });
+  assert.equal(b.status, 201, b.raw);
+  const detail = await call("GET", `/api/agency/bookings/${b.body.id}`, undefined, tok.a);
+  assert.deepEqual(detail.body.guests.map((g: any) => g.nationality.trim()), ["TR", "TR"]);
+  assert.deepEqual(detail.body.priceSnapshot.nationalities.map((n: string) => n.trim()), ["TR"]);
+});
+
 test("N08 family nationality: one code covers two guests; mismatched lead is rejected", { skip }, async () => {
   const w = ai((await search(["DE"])).body.results);
   assert.equal(w.length, 1);
@@ -251,7 +284,7 @@ test("N13 payment currency conversion and the immutable snapshot (contract, nati
   assert.deepEqual([snap.total, snap.contract_currency, snap.eur_per_unit, snap.payment_amount, snap.payment_currency], ["140.00", "GBP", "1.20000000", "168.00", "EUR"]);
   assert.equal(snap.seller_legal_name, "Hotel One Turizm A.Ş.");
   assert.equal(afterChanges.body.total, "140.00");
-  assert.deepEqual(afterChanges.body.guests.map((g: any) => g.nationality.trim()), ["GB"]);
+  assert.deepEqual(afterChanges.body.guests.map((g: any) => g.nationality.trim()), ["GB", "GB"]);
   await assert.rejects(pool.query("UPDATE booking_price_snapshots SET total = 1"), /immutable/);
   await assert.rejects(pool.query("UPDATE booking_guests SET nationality = 'TR'"), /immutable/);
 });
@@ -360,7 +393,7 @@ test("N19 a nationality search with rules and FX still writes nothing", { skip }
     return { counts, inv: (await pool.query("SELECT id, reserved, allotment FROM inventory_daily ORDER BY id")).rows };
   };
   const before = await snapshot();
-  for (const n of [["TR"], ["DE", "CH"], ["GB"], ["RU"]]) assert.equal((await search(n, { paymentCurrency: "USD" })).status, 200);
+  for (const n of [["TR"], ["DE"], ["GB"], ["RU"]]) assert.equal((await search(n, { paymentCurrency: "USD" })).status, 200);
   assert.deepEqual(await snapshot(), before);
 });
 
