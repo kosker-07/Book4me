@@ -23,7 +23,7 @@ const bookingBase=()=>isAgency()?'/api/agency/bookings':'/api/backoffice/booking
 function fail(e){if(e.status===401){resetSession();setAuth(false);message('Oturum sona erdi. Yeniden giriş yapın.');return}message(errText(e))}
 function setAuth(ok){show('login',!ok);show('app',ok);show('logout',ok);$('menuToggle').classList.toggle('hidden',!ok);$('userBadge').textContent=ok?(roleNames[session.user.role]||session.user.role):'';if(ok)nav()}
 function nav(){const root=$('navItems');root.replaceChildren();for(const [id,label] of(isAgency()?navAgency:navAdmin)){const b=btn(label,()=>go(id));b.dataset.testid='nav-'+id;b.classList.toggle('active',id===page);root.append(b)}}
-async function go(id){page=id;$('sidebar').classList.remove('open');$('menuToggle').setAttribute('aria-expanded','false');nav();clear();message('');const title=(isAgency()?navAgency:navAdmin).find(x=>x[0]===id)?.[1]||id;$('pageTitle').textContent=title;try{if(id.startsWith('soon-'))return soon(title);if(id==='account')return account();if(id==='search')return search();if(id==='bookings')return await bookings();if(id==='dashboard')return await dashboard();if(id==='hotels')return await hotels();if(id==='markets')return await markets();if(id==='currencies')return await currencies();if(id==='agencies')return agencies();return soon(title)}catch(e){fail(e);view().append(node('div','Veri yüklenemedi.','card empty'))}}
+async function go(id){page=id;$('sidebar').classList.remove('open');$('menuToggle').setAttribute('aria-expanded','false');nav();clear();message('');const title=(isAgency()?navAgency:navAdmin).find(x=>x[0]===id)?.[1]||id;$('pageTitle').textContent=title;try{if(id.startsWith('soon-'))return soon(title);if(id==='account')return account();if(id==='search')return search();if(id==='bookings')return await bookings();if(id==='dashboard')return await dashboard();if(id==='hotels')return await hotels();if(id==='markets')return await markets();if(id==='currencies')return await currencies();if(id==='agencies')return await agencies();return soon(title)}catch(e){fail(e);view().append(node('div','Veri yüklenemedi.','card empty'))}}
 function soon(name){view().append(card(name,wrap(node('p','Bu modül için kullanılabilir API veya tamamlanmış arayüz henüz bulunmuyor.'),node('span','Yakında','chip'))))}
 $('menuToggle').onclick=()=>{const open=$('sidebar').classList.toggle('open');$('menuToggle').setAttribute('aria-expanded',String(open))};
 $('loginForm').onsubmit=async e=>{e.preventDefault();message('');const f=new FormData(e.currentTarget);try{await signIn(f.get('email'),f.get('password'));e.currentTarget.reset();setAuth(true);go(isAgency()?'search':'dashboard')}catch(err){fail(err)}};
@@ -48,6 +48,70 @@ async function hotelDetail(id){const data=await api('/api/admin/hotels/'+encodeU
 async function contractDetail(id){const data=await api('/api/admin/contracts/'+encodeURIComponent(id));clear();view().append(card('Kontrat',node('pre',JSON.stringify(data,null,2))))}
 async function markets(){const data=await api('/api/admin/market-groups');view().append(card('Pazar grupları',el('div',{},(data.items||[]).map(x=>el('div',{cls:'room'},[node('h3',x.name),node('p',(x.countries||[]).join(', '))])))))}
 async function currencies(){const [currencies,rates]=await Promise.all([api('/api/admin/currencies'),api('/api/admin/fx-rates')]);view().append(card('Para birimleri',el('div',{},(currencies.items||[]).map(x=>node('p',x.code+' · '+x.name+' · '+(x.active?'Aktif':'Pasif'))))));view().append(card('Kurlar',el('div',{},(rates.items||[]).map(x=>node('p',x.currency+' · EUR/birim '+x.eur_per_unit+' · '+x.source)))))}
-function agencies(){view().append(card('Acente ekle',adminForm('/api/admin/agencies','POST',[['Ad','name'],['Tür (master / sub)','type']],()=>go('agencies'))));view().append(card('Kullanıcı ekle',adminForm('/api/admin/users','POST',[['E-posta','email'],['Şifre (en az 12 karakter)','password'],['Rol','role'],['Acente UUID (platform rollerinde boş)','agencyId']],()=>go('agencies'))));view().append(node('p','Acente ve kullanıcı listesi için mevcut backend API uç noktası yok. Düzenleme/aktif-pasif işlemleri yalnızca kimlik biliniyorsa mümkündür.','notice'))}
+async function agencies(){
+  if(session.user?.role!=='system_admin'){
+    view().append(card('Yetki gerekli',node('p','Acente ve kullanıcı yönetimi sistem yöneticisine özeldir.')));
+    return;
+  }
+  const [agenciesData,usersData]=await Promise.all([api('/api/admin/agencies'),api('/api/admin/users')]);
+  const agencyRows=agenciesData.items||[],userRows=usersData.items||[];
+  const agencyNames=new Map(agencyRows.map(a=>[a.id,a.name]));
+  const agencyList=el('div',{cls:'scroll'}),agencyTable=el('table',{cls:'list'});
+  const agencyHead=el('tr');
+  for(const x of ['Acente','Tür','Durum','İşlem'])agencyHead.append(node('th',x));
+  agencyTable.append(agencyHead);
+  for(const a of agencyRows){
+    const tr=el('tr');
+    for(const x of [a.name,a.type,a.active?'Aktif':'Pasif'])tr.append(node('td',x));
+    tr.append(el('td',{},[btn(a.active?'Pasifleştir':'Etkinleştir',async()=>{
+      try{await api('/api/admin/agencies/'+encodeURIComponent(a.id),{method:'PATCH',body:{active:!a.active}});await go('agencies')}catch(e){fail(e)}
+    })]));
+    agencyTable.append(tr);
+  }
+  agencyList.append(agencyTable);
+  view().append(card('Acenteler ('+agencyRows.length+')',agencyRows.length?agencyList:node('p','Henüz acente bulunmuyor.')));
+  const userList=el('div',{cls:'scroll'}),userTable=el('table',{cls:'list'}),userHead=el('tr');
+  for(const x of ['E-posta','Rol','Acente','Durum'])userHead.append(node('th',x));
+  userTable.append(userHead);
+  for(const u of userRows){
+    const tr=el('tr');
+    for(const x of [u.email,roleNames[u.role]||u.role,agencyNames.get(u.agency_id)||'Platform',u.active?'Aktif':'Pasif'])tr.append(node('td',x));
+    userTable.append(tr);
+  }
+  userList.append(userTable);
+  view().append(card('Kullanıcılar ('+userRows.length+')',userRows.length?userList:node('p','Henüz kullanıcı bulunmuyor.')));
+  const agencyForm=el('form',{},[
+    field('Acente adı','name'),
+    el('label',{},[node('span','Acente türü'),el('select',{name:'type'},[
+      el('option',{value:'master',text:'Ana acente'}),el('option',{value:'sub',text:'Alt acente'})
+    ])]),
+    el('button',{text:'Acente oluştur',cls:'primary',type:'submit'})
+  ]);
+  agencyForm.onsubmit=async e=>{
+    e.preventDefault();
+    try{await api('/api/admin/agencies',{method:'POST',body:Object.fromEntries(new FormData(agencyForm))});await go('agencies')}catch(err){fail(err)}
+  };
+  view().append(card('Yeni acente',agencyForm));
+  const userForm=el('form',{},[
+    field('E-posta','email','email'),field('Şifre (en az 12 karakter)','password','password'),
+    el('label',{},[node('span','Rol'),el('select',{name:'role'},[
+      ...['system_admin','back_office','master_agency','sub_agency'].map(role=>el('option',{value:role,text:roleNames[role]}))
+    ])]),
+    el('label',{},[node('span','Acente'),el('select',{name:'agencyId'},[
+      el('option',{value:'',text:'Platform / acente yok'}),
+      ...agencyRows.map(a=>el('option',{value:a.id,text:a.name+' ('+a.type+')'}))
+    ])]),
+    el('button',{text:'Kullanıcı oluştur',cls:'primary',type:'submit'})
+  ]);
+  userForm.onsubmit=async e=>{
+    e.preventDefault();
+    const body=Object.fromEntries(new FormData(userForm));
+    if(['system_admin','back_office'].includes(body.role))delete body.agencyId;
+    else if(!body.agencyId)return message('Bu rol için acente seçin.');
+    try{await api('/api/admin/users',{method:'POST',body});await go('agencies')}catch(err){fail(err)}
+  };
+  view().append(card('Yeni kullanıcı',userForm));
+}
+
 function adminForm(url,method,fields,done){const form=el('form');for(const [label,name] of fields)form.append(field(label,name,name==='password'?'password':'text'));form.append(el('button',{text:'Kaydet',cls:'primary',type:'submit'}));form.onsubmit=async e=>{e.preventDefault();const body=Object.fromEntries(new FormData(form));for(const k of Object.keys(body))if(body[k]==='')delete body[k];try{await api(url,{method,body});message('Kaydedildi.');done()}catch(e){fail(e)}};return form}
 setAuth(false);
