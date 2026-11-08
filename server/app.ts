@@ -630,8 +630,9 @@ async function bookingDetail(bookingId: string, scopeSql: string, scopeParams: u
 async function visibleBooking(detail: any, req: AuthedRequest) {
   if (req.auth!.role === "master_agency") {
     const parent = (await pool.query("SELECT parent_agency_id FROM agencies WHERE id=$1", [detail.agency_id])).rows[0]?.parent_agency_id;
-    const { agency_id, ...safe } = detail;
-    return { ...safe, agency_name: parent === req.auth!.agencyId ? detail.agency_name : "BED4BOOK" };
+    const { agency_id, priceSnapshot, ...safe } = detail;
+    const { seller_legal_name, ...snapshot } = priceSnapshot || {};
+    return { ...safe, priceSnapshot: priceSnapshot ? snapshot : null, agency_name: parent === req.auth!.agencyId ? detail.agency_name : "BED4BOOK" };
   }
   if (req.auth!.role === "sub_agency") {
     const { agency_id, priceSnapshot, ...safe } = detail;
@@ -801,7 +802,8 @@ async function issueProforma(bookingId: string, actorId: string, scopeSql: strin
          ON CONFLICT (year) DO UPDATE SET last_seq = proforma_counters.last_seq + 1 RETURNING last_seq`, [year])).rows[0].last_seq as number;
       const number = `PF-${year}-${String(seq).padStart(6, "0")}`, version = latest ? latest.version + 1 : 1, issuedAt = new Date();
       const pdf = await renderProforma({
-        number, version, supersedesNumber: latest?.number ?? null, issuedAt, sellerLegalName: snap.seller_legal_name || "BED4BOOK",
+        number, version, supersedesNumber: latest?.number ?? null, issuedAt, sellerLegalName: process.env.PLATFORM_LEGAL_NAME?.trim() || "BED4BOOK",
+        sellerAddress: process.env.PLATFORM_ADDRESS?.trim(), sellerTaxOffice: process.env.PLATFORM_TAX_OFFICE?.trim(), sellerTaxNumber: process.env.PLATFORM_TAX_NUMBER?.trim(),
         bookingNo: b.booking_no, bookingStatus: b.status, agencyName: role === "master_agency" && (await pool.query("SELECT parent_agency_id FROM agencies WHERE id=$1", [b.agency_id])).rows[0]?.parent_agency_id !== agencyId ? "BED4BOOK" : b.agency_name, hotelName: b.hotel_name, hotelLocation: b.hotel_location,
         checkIn: b.check_in, checkOut: b.check_out, nights: nightsBetween(b.check_in, b.check_out).length,
         roomName: b.room_name, board: b.board_name, rooms: b.room_count, roomOccupancies: b.room_occupancies,
@@ -818,7 +820,7 @@ async function issueProforma(bookingId: string, actorId: string, scopeSql: strin
                                contract_currency, contract_amount, seller_legal_name, issued_by, issued_at, pdf, sha256)
          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)`,
         [id, bookingId, number, year, seq, version, latest?.id ?? null, reason ?? "", b.status, paymentCurrency, snap.payment_amount,
-         contractCurrency, snap.total, snap.seller_legal_name, actorId, issuedAt.toISOString(), pdf, sha256]);
+         contractCurrency, snap.total, process.env.PLATFORM_LEGAL_NAME?.trim() || "BED4BOOK", actorId, issuedAt.toISOString(), pdf, sha256]);
       await audit(client, actorId, b.agency_id, version === 1 ? "proforma.issued" : "proforma.reissued", "booking", bookingId,
         { targetAgencyId: b.agency_id, after: { number, version, supersedes: latest?.number ?? null, reason, paymentCurrency, paymentAmount: snap.payment_amount, sha256 } });
       return { pdf, sha256, number, created: true };
@@ -868,7 +870,7 @@ app.get("/api/backoffice/bookings/:id/proformas", ...backoffice, async (req: Aut
       `SELECT number, version, reason, booking_status, payment_currency, payment_amount::text AS payment_amount, contract_currency,
               contract_amount::text AS contract_amount, seller_legal_name, issued_by, issued_at, sha256
          FROM proformas WHERE booking_id = $1 ORDER BY version`, [bookingId])).rows;
-    res.json({ items });
+    res.json({ items: req.auth!.role === "master_agency" ? items.map(({ seller_legal_name, ...safe }: any) => safe) : items });
   } catch (error) { next(error); }
 });
 
@@ -883,6 +885,7 @@ app.use((error: any, _req: Request, res: Response, _next: NextFunction) => {
 });
 
 const port = Number(process.env.PORT || 3000);
+if (!process.env.PLATFORM_LEGAL_NAME?.trim()) console.warn("PLATFORM_LEGAL_NAME tanımlı değil; satıcı adı BED4BOOK olarak kullanılacak.");
 if (require.main === module) {
   if (!process.env.DATABASE_URL || sessionSecret().length < 32) throw new Error("DATABASE_URL and SESSION_SECRET (32+ chars) are required.");
   // A failed admin bootstrap must never keep the API down: log the reason (never the password) and start anyway.

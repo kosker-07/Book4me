@@ -1,5 +1,4 @@
 import { VALID_TERMS } from "./fixtures/rate-plan-terms";
-import { VALID_TERMS } from "./fixtures/rate-plan-terms";
 // Nationality-based contract pricing, FX, price snapshots and proformas — integration tests against real
 // PostgreSQL with all migrations applied. Required: DATABASE_URL pointing to a THROWAWAY database.
 import test, { before, after, beforeEach } from "node:test";
@@ -13,6 +12,7 @@ import type { AddressInfo } from "node:net";
 import type { Server } from "node:http";
 
 const DB_URL = process.env.DATABASE_URL;
+process.env.PLATFORM_LEGAL_NAME = "BED4BOOK Platform Test Ltd.";
 process.env.SESSION_SECRET = process.env.SESSION_SECRET || "integration-test-secret-at-least-32-chars";
 if (!DB_URL && process.env.CI) throw new Error("DATABASE_URL is required for integration tests in CI.");
 const skip = DB_URL ? false : "DATABASE_URL not set; integration tests skipped locally";
@@ -366,11 +366,13 @@ test("N17 proforma: pending/approved only, numbered, stored once, from the snaps
   await pool.query("UPDATE fx_rates SET eur_per_unit=5, valid_at=now() WHERE currency='GBP'"); // later FX change
   const row = (await pool.query("SELECT payment_amount::text AS p, contract_amount::text AS c FROM proformas WHERE booking_id=$1", [id1])).rows[0];
   assert.deepEqual(row, { p: "168.00", c: "140.00" });
+  assert.equal((await pool.query("SELECT seller_legal_name FROM proformas WHERE booking_id=$1",[id1])).rows[0].seller_legal_name,"BED4BOOK Platform Test Ltd.");
   if (hasPdftotext) {
     const dir = mkdtempSync(join(tmpdir(), "proforma-")), file = join(dir, "p.pdf"); writeFileSync(file, first.buf);
     const text = execFileSync("pdftotext", ["-layout", file, "-"]).toString("utf8").replace(/\s+/g, " ");
-    for (const s of ["PROFORMA", "Not a tax invoice", "Vergi faturası değildir", `PF-${year}-000001`, "Hotel One Turizm A.Ş.", "140.00 GBP", "168.00 EUR", "UK-MARKET", "Lead Guest (yetişkin/adult, GB)", "half-up"])
+    for (const s of ["PROFORMA", "Not a tax invoice", "Vergi faturası değildir", `PF-${year}-000001`, "BED4BOOK Platform Test Ltd.", "140.00 GBP", "168.00 EUR", "UK-MARKET", "Lead Guest (yetişkin/adult, GB)", "half-up"])
       assert.ok(text.includes(s), `proforma must contain "${s}"; got ${text}`);
+    assert.ok(!text.includes("Hotel One Turizm A.Ş."), "DMC legal name must not appear on buyer proforma");
   }
   // access scope
   assert.equal((await call("GET", `/api/agency/bookings/${id1}/proforma`, undefined, tok.b)).status, 404);

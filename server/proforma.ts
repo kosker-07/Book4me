@@ -13,6 +13,9 @@ export interface ProformaData {
   supersedesNumber: string | null;
   issuedAt: Date;
   sellerLegalName: string;
+  sellerAddress?: string;
+  sellerTaxOffice?: string;
+  sellerTaxNumber?: string;
   bookingNo: string;
   bookingStatus: string;
   agencyName: string;
@@ -65,6 +68,9 @@ export function renderProforma(p: ProformaData): Promise<Buffer> {
       ["Proforma No", `${p.number}${p.version > 1 ? `  (sürüm / version ${p.version}${p.supersedesNumber ? `, ${p.supersedesNumber} yerine / replaces ${p.supersedesNumber}` : ""})` : ""}`],
       ["Düzenlenme / Issued", `${trDate(p.issuedAt.toISOString())} ${p.issuedAt.toISOString().slice(11, 16)} UTC`],
       ["Satıcı / Seller", p.sellerLegalName],
+      ...(p.sellerAddress ? [["Adres / Address", p.sellerAddress] as [string,string]] : []),
+      ...(p.sellerTaxOffice ? [["Vergi Dairesi / Tax Office", p.sellerTaxOffice] as [string,string]] : []),
+      ...(p.sellerTaxNumber ? [["Vergi No / Tax Number", p.sellerTaxNumber] as [string,string]] : []),
       ["Acente / Agency", p.agencyName],
       ["Rezervasyon No / Booking No", p.bookingNo],
       ["Durum / Status", STATUS_TR[p.bookingStatus] ?? p.bookingStatus],
