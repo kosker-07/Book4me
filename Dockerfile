@@ -13,5 +13,6 @@ ENV NODE_ENV=production
 WORKDIR /app
 COPY --from=build /app /app
 EXPOSE 8080
-# Railway runs "npm run db:migrate:compiled" as the pre-deploy command.
+# Railway runs "npm run db:migrate:compiled" as the pre-deploy command
+# (database migrations), then starts the API with this command.
 CMD ["npm", "run", "start:server"]
