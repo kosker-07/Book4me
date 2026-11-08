@@ -399,7 +399,7 @@ adminRouter.patch("/api/admin/agencies/:id", authenticate, roles("system_admin",
 }));
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-adminRouter.post("/api/admin/users", authenticate, roles("system_admin"), h(async (req, res) => {
+adminRouter.post("/api/admin/users", authenticate, roles("system_admin", "master_agency"), h(async (req, res) => {
   const { email, password, role, agencyId } = req.body || {};
   if (typeof email !== "string" || !EMAIL_RE.test(email.trim()) || typeof password !== "string" || password.length < 12
       || !["system_admin", "back_office", "master_agency", "sub_agency"].includes(role)) throw httpError(400, "INVALID_USER");
@@ -410,6 +410,13 @@ adminRouter.post("/api/admin/users", authenticate, roles("system_admin"), h(asyn
     const agency = (await pool.query("SELECT type FROM agencies WHERE id::text = $1", [agencyId])).rows[0];
     if (!agency) throw httpError(400, "AGENCY_NOT_FOUND");
     if (agency.type !== (role === "master_agency" ? "master" : "sub")) throw httpError(400, "ROLE_AGENCY_TYPE_MISMATCH");
+  }
+  if (req.auth!.role === "master_agency") {
+    if (role !== "master_agency" && role !== "sub_agency") throw httpError(403, "FORBIDDEN");
+    const agency = await hierarchyAgency(req, agencyId, true);
+    if (role === "master_agency" && agency.id !== req.auth!.agencyId) throw httpError(404, "NOT_FOUND");
+    if (role === "sub_agency" && (agency.type !== "sub" || agency.parent_agency_id !== req.auth!.agencyId))
+      throw httpError(404, "NOT_FOUND");
   }
   const id = randomUUID();
   await withTransaction(async client => {
@@ -423,9 +430,17 @@ adminRouter.post("/api/admin/users", authenticate, roles("system_admin"), h(asyn
   res.status(201).json({ id, email: email.trim().toLowerCase(), role, agencyId: platform ? null : agencyId });
 }));
 
-adminRouter.patch("/api/admin/users/:id", authenticate, roles("system_admin"), h(async (req, res) => {
+adminRouter.patch("/api/admin/users/:id", authenticate, roles("system_admin", "master_agency"), h(async (req, res) => {
   const id = uuidParam(req), b = req.body || {};
   if (typeof b.active !== "boolean") throw httpError(400, "ACTIVE_REQUIRED");
+  if (req.auth!.role === "master_agency") {
+    const user = (await pool.query("SELECT agency_id, role FROM users WHERE id = $1", [id])).rows[0];
+    if (!user) throw httpError(404, "NOT_FOUND");
+    const agency = await hierarchyAgency(req, user.agency_id, true);
+    if (user.role === "master_agency" ? agency.id !== req.auth!.agencyId :
+        user.role !== "sub_agency" || agency.parent_agency_id !== req.auth!.agencyId)
+      throw httpError(404, "NOT_FOUND");
+  }
   const row = await withTransaction(async client => {
     const before = await rowJson(client, "users", id);
     const r = (await client.query(
