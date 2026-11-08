@@ -15,7 +15,7 @@ const skip = DB_URL ? false : "DATABASE_URL not set; integration tests skipped l
 
 // Fixed ids: rate plan ids are ordered so the deterministic tie-break (lowest id) is predictable.
 const id = (prefix: string, n: number) => `${prefix}0000000-0000-4000-8000-${String(n).padStart(12, "0")}`;
-const M1 = id("a", 1), M2 = id("a", 2), SA = id("a", 3), SB = id("a", 4);
+const M1 = id("a", 1), M2 = id("a", 2), SA = id("a", 3), SB = id("a", 4), SC = id("a", 5);
 const H1 = id("c", 1), H2 = id("c", 2), R1 = id("d", 1), R2 = id("d", 2), RU = id("d", 3);
 const RP1 = id("b", 1);   // H1/R1 AI EUR net 100 — winner for agency A
 const RP2 = id("b", 2);   // H1/R1 AI EUR net 120 — equivalent, more expensive
@@ -85,11 +85,11 @@ beforeEach(async () => {
   if (skip) return;
   await pool.query(`TRUNCATE agencies, users, hotels, rooms, rate_plans, inventory_daily, agency_hotel_sales, bookings,
     booking_status_history, booking_nights, audit_logs, idempotency_keys, fx_rates, login_attempts, vouchers, market_groups, fx_rate_history, proforma_counters CASCADE`);
-  await pool.query(`INSERT INTO agencies(id,name,type,parent_agency_id) VALUES ($1,'Master One','master',NULL),($2,'Master Two','master',NULL),($3,'Sub A','sub',$1),($4,'Sub B','sub',$2)`, [M1, M2, SA, SB]);
+  await pool.query(`INSERT INTO agencies(id,name,type,parent_agency_id) VALUES ($1,'Master One','master',NULL),($2,'Master Two','master',NULL),($3,'Sub A','sub',$1),($4,'Sub B','sub',$1),($5,'Sub C','sub',$2)`, [M1, M2, SA, SB, SC]);
   const pw = hashPassword("integration-password-1");
   const users: [string, string, string | null][] = [
     ["admin", "system_admin", null], ["bo", "back_office", null], ["m1", "master_agency", M1], ["m2", "master_agency", M2],
-    ["a", "sub_agency", SA], ["b", "sub_agency", SB]
+    ["a", "sub_agency", SA], ["b", "sub_agency", SB], ["c", "sub_agency", SC]
   ];
   for (const [name, role, agency] of users)
     await pool.query("INSERT INTO users(email,password_hash,role,agency_id) VALUES ($1,$2,$3,$4)", [`${name}@test.local`, pw, role, agency]);
@@ -105,7 +105,7 @@ beforeEach(async () => {
   for (const rp of [RP1, RP2, RP3]) await publish(SA, H1, rp, "percent", 10);
   await publish(SA, H1, RPUSD, "percent", 10);
   await publish(SB, H1, RP1, "fixed", 5);
-  await publish(SB, H2, RPH2, "percent", 0);
+  await publish(SC, H2, RPH2, "percent", 0);
   for (const [name] of users) {
     const r = await call("POST", "/api/auth/login", { email: `${name}@test.local`, password: "integration-password-1" });
     assert.equal(r.status, 200, `login ${name}`);
@@ -246,7 +246,7 @@ test("08 a master agency has no cancel right, even for its own hotel", { skip },
 });
 
 test("09 Back Office works platform-wide: all hotels and all bookings across master agencies", { skip }, async () => {
-  const onH1 = await createBooking(tok.a!, H1), onH2 = await createBooking(tok.b!, H2);
+  const onH1 = await createBooking(tok.a!, H1), onH2 = await createBooking(tok.c!, H2);
   const list = await call("GET", "/api/backoffice/bookings", undefined, tok.bo);
   assert.equal(list.status, 200);
   assert.deepEqual(new Set(list.body.items.map((x: any) => x.id)), new Set([onH1, onH2]));

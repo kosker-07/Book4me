@@ -1,3 +1,4 @@
+import { VALID_TERMS } from "./fixtures/rate-plan-terms";
 import test, { before, after, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
@@ -68,13 +69,26 @@ test("two-DMC agency/user isolation, parent enforcement, platform role denial an
   const hotel = randomUUID(), room = randomUUID(), rp = randomUUID();
   await pool.query("INSERT INTO hotels(id,owner_agency_id,name,location,status) VALUES ($1,$2,'Hierarchy Hotel','Antalya','active')",[hotel,ma]);
   await pool.query("INSERT INTO rooms(id,hotel_id,name) VALUES ($1,$2,'Room')",[room,hotel]);
-  await pool.query("INSERT INTO rate_plans(id,room_id,board_name,currency,cancellation_policy,payment_terms) VALUES ($1,$2,'BB','EUR',$3::jsonb,$4::jsonb)",[rp,room,JSON.stringify({freeUntilDays:7,penaltyType:"nights",penaltyValue:1,noShowPenaltyType:"percent",noShowPenaltyValue:100}),JSON.stringify({dueDaysBeforeCheckIn:14})]);
+  await pool.query("INSERT INTO rate_plans(id,room_id,board_name,currency,cancellation_policy,payment_terms) VALUES ($1,$2,'BB','EUR',$3::jsonb,$4::jsonb)",[rp,room,JSON.stringify(VALID_TERMS.cancellationPolicy),JSON.stringify(VALID_TERMS.paymentTerms)]);
   for (const agencyId of [sb,orphan]) {
     const response = await request("POST","/api/admin/publications",admin,{ratePlanId:rp,agencyId,markupType:"percent",markupValue:10});
     assert.equal(response.status,409,JSON.stringify(response.body));
     assert.equal(response.body.error,"TARGET_NOT_IN_HIERARCHY");
   }
   assert.equal((await request("POST","/api/admin/publications",a,{ratePlanId:rp,agencyId:sb,markupType:"percent",markupValue:10})).status,409);
+  // A valid DMC-A publication must never appear in DMC-B's sub-agency search.
+  const valid = await request("POST","/api/admin/publications",admin,{ratePlanId:rp,agencyId:sa,markupType:"percent",markupValue:10});
+  assert.equal(valid.status,201,JSON.stringify(valid.body));
+  const checkIn = new Date(Date.now()+40*86400000).toISOString().slice(0,10);
+  const checkOut = new Date(Date.now()+42*86400000).toISOString().slice(0,10);
+  const next = new Date(Date.now()+41*86400000).toISOString().slice(0,10);
+  await pool.query("INSERT INTO inventory_daily(rate_plan_id,stay_date,price,allotment) VALUES ($1,$2,100,5),($1,$3,100,5)",[rp,checkIn,next]);
+  const search = await request("POST","/api/agency/searches",sub,{
+    checkIn,checkOut,rooms:1,adults:2,children:0,childAges:[],
+    roomOccupancies:[{adults:2,children:0,childAges:[]}],nationalities:["TR"]
+  });
+  assert.equal(search.status,200,JSON.stringify(search.body));
+  assert.equal(search.body.results.some((x:any)=>x.hotel.id===hotel),false,"DMC-B cannot search DMC-A hotels");
   assert.equal((await request("GET","/api/admin/agencies/"+sa,a)).status,200);
   assert.equal((await request("GET","/api/admin/agencies/"+sb,b)).status,200);
 });
