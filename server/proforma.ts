@@ -1,3 +1,4 @@
+import { ratePlanTermsText } from "./rate-plan-terms";
 // Proforma PDF. Informational pre-payment document — NOT a tax invoice or e-invoice.
 // Amounts come only from the booking's immutable price snapshot; nothing is re-priced or re-converted.
 import PDFDocument from "pdfkit";
@@ -24,6 +25,8 @@ export interface ProformaData {
   board: string;
   rooms: number;
   roomOccupancies: { adults: number; children: number; childAges: number[] }[] | null;
+  cancellationPolicy?: unknown;
+  paymentTerms?: unknown;
   guests: { name: string; type: string; age: number | null; nationality: string }[];
   contractCode: string;
   contractCurrency: string;
@@ -69,6 +72,7 @@ export function renderProforma(p: ProformaData): Promise<Buffer> {
       ["Konaklama / Stay", `${trDate(p.checkIn)} – ${trDate(p.checkOut)} (${p.nights} gece / nights)`],
       ["Oda / Room", `${p.roomName} × ${p.rooms} · ${p.board}`],
       ["Kontrat / Contract", p.contractCode],
+      ["İptal ve ödeme / Cancellation and payment", ratePlanTermsText(p.cancellationPolicy, p.paymentTerms)],
       ["Oda dağılımı / Per-room occupancy", p.roomOccupancies?.map((r, i) => `Oda ${i + 1}: ${r.adults} yetişkin, ${r.children} çocuk${r.children ? ` (${r.childAges.join(", ")})` : ""}`).join("\n") || "Eski rezervasyon / Legacy booking"],
       ["Misafirler / Guests", p.guests.map(g => `${g.name} (${g.type === "child" ? `çocuk/child ${g.age}` : "yetişkin/adult"}, ${g.nationality})`).join("\n")],
       ["Kontrat tutarı / Contract amount", `${p.contractAmount} ${p.contractCurrency}`],
