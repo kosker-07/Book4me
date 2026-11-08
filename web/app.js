@@ -93,7 +93,7 @@ async function hotelDetail(id){
   section.append(btn('Fiyat planı ekle',()=>ratePlanCreate(id,room),false));
   for(const plan of plans.filter(x=>x.room_id===room.id))section.append(el('div',{cls:'room'},[
    node('p',plan.board_name+' · '+plan.currency),
-   btn('Takvim',()=>rateCalendar(id,plan)),btn('Yayınlar',()=>publicationEditor(id,plan,publications))
+   btn('Takvim',()=>rateCalendar(id,plan)),btn('Yayınlar',()=>publicationEditor(id,plan,publications)),btn('Fiyat planını düzenle',()=>ratePlanEdit(id,plan))
   ]));
   view().append(card('Oda',section));
  }
@@ -116,6 +116,13 @@ async function ratePlanCreate(hotelId,room){
   ['Pansiyon','boardName'],['Para birimi','currency','text','EUR'],
   choice('Kontrat','contractId',contracts.map(x=>[x.id,x.name||x.code]))
  ],()=>hotelDetail(hotelId),raw=>({...raw,cancellationPolicy:{},paymentTerms:{},salesConditions:{}})));
+}
+async function ratePlanEdit(hotelId,plan){
+ clear();view().append(btn('Otele dön',()=>hotelDetail(hotelId)));
+ view().append(editor('Fiyat planı düzenle','/api/admin/rate-plans/'+plan.id,'PATCH',[
+  ['Pansiyon','boardName','text',plan.board_name],
+  choice('Aktif','active',[['true','Evet'],['false','Hayır']],String(plan.active))
+ ],()=>hotelDetail(hotelId),raw=>({...raw,active:raw.active==='true'})));
 }
 async function rateCalendar(hotelId,plan){
  clear();view().append(btn('Otele dön',()=>hotelDetail(hotelId)));
@@ -148,6 +155,7 @@ async function publicationEditor(hotelId,plan,publications){
 async function contractDetail(id){
  const data=await api('/api/admin/contracts/'+id);clear();
  view().append(card('Kontrat detayı',node('pre',JSON.stringify(data,null,2))));
+ for(const rule of data.nationalityRules||[])view().append(card('Milliyet kuralı',el('div',{},[node('p',(rule.rule_type||rule.ruleType)+' · '+(rule.country_code||rule.countryCode||rule.market_group_id||rule.marketGroupId||'')),btn('Kuralı sil',()=>askInline('Milliyet kuralı silinsin mi?',async()=>{await api('/api/admin/nationality-rules/'+rule.id,{method:'DELETE'});await contractDetail(id)}))])));
  view().append(editor('Kontrat düzenle','/api/admin/contracts/'+id,'PATCH',[
   ['Ad','name','text',data.name],['Satıcı tüzel kişi','sellerLegalName','text',data.seller_legal_name],
   choice('Durum','status',[['active','Aktif'],['inactive','Pasif'],['draft','Taslak']],data.status)
@@ -202,7 +210,9 @@ async function agencies(){
   for(const a of agencyRows){
     const tr=el('tr');
     for(const x of [a.name,a.type,a.active?'Aktif':'Pasif'])tr.append(node('td',x));
-    tr.append(el('td',{},[btn(a.active?'Pasifleştir':'Etkinleştir',async()=>{
+    tr.append(el('td',{},[btn('Düzenle',()=>{clear();view().append(editor('Acente düzenle','/api/admin/agencies/'+a.id,'PATCH',[
+      ['Acente adı','name','text',a.name],choice('Aktif','active',[['true','Evet'],['false','Hayır']],String(a.active))
+    ],()=>go('agencies'),raw=>({...raw,active:raw.active==='true'}))) }),btn(a.active?'Pasifleştir':'Etkinleştir',async()=>{
       try{await api('/api/admin/agencies/'+encodeURIComponent(a.id),{method:'PATCH',body:{active:!a.active}});await go('agencies')}catch(e){fail(e)}
     })]));
     agencyTable.append(tr);
