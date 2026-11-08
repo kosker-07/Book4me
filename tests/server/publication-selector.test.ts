@@ -40,7 +40,7 @@ test("publication agency selector: manager roles, tenant scope and sub-agency de
       if (i === 3) continue;
       const data = await response.json() as { items: { id: string; name: string }[] };
       assert.ok(data.items.some(a => a.id === subA), `${roles[i]} should see published sub-agency`);
-      assert.equal(data.items.some(a => a.id === subB), false, `${roles[i]} must not see other DMC sub-agencies`);
+      assert.equal(data.items.some(a => a.id === subB), i !== 2, `${roles[i]} selector scope`);
       assert.ok(data.items.every(a => Object.keys(a).sort().join(",") === "id,name"), "selector exposes only id/name");
     }
   } finally {

@@ -90,7 +90,7 @@ adminRouter.get("/api/admin/hotels/:id", ...managers, h(async (req, res) => {
   const publications = (await pool.query(
     `SELECT s.id, s.agency_id, a.name AS agency_name, s.rate_plan_id, s.markup_type, s.markup_value, s.active
        FROM agency_hotel_sales s JOIN agencies a ON a.id = s.agency_id JOIN rate_plans rp ON rp.id = s.rate_plan_id
-       JOIN rooms r ON r.id = rp.room_id WHERE r.hotel_id = $1`, [id])).rows;
+       JOIN rooms r ON r.id = rp.room_id WHERE r.hotel_id = $1 AND ($2::boolean OR a.parent_agency_id = $3)`, [id, isPlatformWide(req.auth!.role), req.auth!.agencyId])).rows;
   res.json({ ...hotel, rooms, ratePlans, publications });
 }));
 
@@ -258,7 +258,7 @@ adminRouter.post("/api/admin/publications", ...managers, h(async (req, res) => {
   await requirePublishableRatePlan(ratePlanId);
   const target = (await pool.query("SELECT type, active FROM agencies WHERE id::text = $1", [agencyId])).rows[0];
   if (!target || target.type !== "sub" || !target.active) throw httpError(400, "TARGET_MUST_BE_ACTIVE_SUB_AGENCY");
-  await publicationHierarchy(ratePlanId, agencyId);
+  await publicationHierarchy(ratePlanId, agencyId, req.auth!.role === "master_agency");
   const row = await withTransaction(async client => {
     const r = (await client.query(
       `INSERT INTO agency_hotel_sales(agency_id, hotel_id, rate_plan_id, markup_type, markup_value, active)
@@ -308,8 +308,8 @@ adminRouter.get("/api/admin/publication-agencies", ...managers, h(async (req, re
   if (typeof ratePlanId !== "string" || !UUID_RE.test(ratePlanId)) throw httpError(400, "RATE_PLAN_REQUIRED");
   const owner = await ownedHotel(pool, req, RATE_PLAN_SQL, ratePlanId);
   const result = await pool.query(
-    "SELECT id, name FROM agencies WHERE type = 'sub' AND active AND parent_agency_id = $1 ORDER BY name, id",
-    [owner.owner_agency_id]);
+    "SELECT id, name FROM agencies WHERE type = 'sub' AND active AND parent_agency_id IS NOT NULL AND ($1::boolean OR parent_agency_id = $2) ORDER BY name, id",
+    [isPlatformWide(req.auth!.role), owner.owner_agency_id]);
   res.json({ items: result.rows });
 }));
 
@@ -321,13 +321,13 @@ async function hierarchyAgency(req: AuthedRequest, agencyId: string, allowSelf =
     !(allowSelf && agency.id === req.auth!.agencyId))) throw httpError(404, "NOT_FOUND");
   return agency;
 }
-async function publicationHierarchy(ratePlanId: string, targetAgencyId: string) {
+async function publicationHierarchy(ratePlanId: string, targetAgencyId: string, restrictToOwner: boolean) {
   const row = (await pool.query(
     `SELECT a.parent_agency_id, h.owner_agency_id
        FROM agencies a CROSS JOIN rate_plans rp
        JOIN rooms r ON r.id = rp.room_id JOIN hotels h ON h.id = r.hotel_id
       WHERE a.id::text = $1 AND rp.id = $2`, [targetAgencyId, ratePlanId])).rows[0];
-  if (!row || !row.parent_agency_id || row.parent_agency_id !== row.owner_agency_id)
+  if (!row || !row.parent_agency_id || (restrictToOwner && row.parent_agency_id !== row.owner_agency_id))
     throw httpError(409, "TARGET_NOT_IN_HIERARCHY");
 }
 

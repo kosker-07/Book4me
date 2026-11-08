@@ -213,8 +213,7 @@ test("C1 management: master agency manages only its own hotels; sub-agency has n
   assert.equal(await count("SELECT count(*)::int AS c FROM rooms"), 1, "no room was created by unauthorized callers");
   assert.equal((await call("PATCH", `/api/admin/hotels/${s.hotelId}`, { status: "active" }, s.t.bo)).status, 200, "Back Office manages platform-wide");
   const cross = await call("POST", "/api/admin/publications", { ratePlanId: s.ratePlanId, agencyId: s.SB, markupType: "fixed", markupValue: 5 }, s.t.bo);
-  assert.equal(cross.status, 409);
-  assert.equal(cross.body.error, "TARGET_NOT_IN_HIERARCHY");
+  assert.equal(cross.status, 201);
   const sibling = await call("POST", "/api/admin/agencies", { name: "M1 ikinci alt acente", type: "sub", parentAgencyId: s.M1 }, s.t.admin);
   assert.equal(sibling.status, 201);
   const siblingUser = await call("POST", "/api/admin/users", { email: "m1-sibling@test.local", password: PW, role: "sub_agency", agencyId: sibling.body.id }, s.t.admin);
@@ -223,7 +222,7 @@ test("C1 management: master agency manages only its own hotels; sub-agency has n
   const published = await call("POST", "/api/admin/publications", { ratePlanId: s.ratePlanId, agencyId: sibling.body.id, markupType: "fixed", markupValue: 5 }, s.t.bo);
   assert.equal(published.status, 201);
   assert.equal((await search(siblingToken)).body.results[0].total, "210.00"); // (100 + 5) × 2
-  assert.equal((await search(s.t.b)).body.results.length, 0, "other DMC must not see M1 hotel");
+  assert.equal((await search(s.t.b)).body.results[0].total, "210.00", "platform publication reaches other DMC");
   assert.equal((await call("POST", "/api/admin/users", { email: "x@test.local", password: PW, role: "sub_agency", agencyId: s.SA }, s.t.bo)).status, 403, "user management is system_admin only");
 });
 

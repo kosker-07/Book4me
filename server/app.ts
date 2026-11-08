@@ -177,7 +177,7 @@ async function loadCandidates(db: { query: PoolClient["query"] }, agencyId: stri
             AND (hc.valid_from IS NULL OR hc.valid_from <= $2::date) AND (hc.valid_to IS NULL OR hc.valid_to >= $3::date - 1)
        JOIN rooms r ON r.id = rp.room_id AND r.active
        JOIN hotels h ON h.id = r.hotel_id AND h.status = 'active'
-       JOIN agencies oa ON oa.id = h.owner_agency_id AND oa.active AND sa.parent_agency_id = oa.id
+       JOIN agencies oa ON oa.id = h.owner_agency_id AND oa.active
        JOIN inventory_daily d ON d.rate_plan_id = rp.id
             AND d.stay_date >= $2::date AND d.stay_date < $3::date AND d.allotment - d.reserved >= $4
       WHERE s.agency_id = $1 AND s.active
@@ -627,11 +627,26 @@ async function bookingDetail(bookingId: string, scopeSql: string, scopeParams: u
   return { ...b, nights, history, guests, priceSnapshot: snapshot };
 }
 
+async function visibleBooking(detail: any, req: AuthedRequest) {
+  if (req.auth!.role === "master_agency") {
+    const parent = (await pool.query("SELECT parent_agency_id FROM agencies WHERE id=$1", [detail.agency_id])).rows[0]?.parent_agency_id;
+    const { agency_id, ...safe } = detail;
+    return { ...safe, agency_name: parent === req.auth!.agencyId ? detail.agency_name : "BED4BOOK" };
+  }
+  if (req.auth!.role === "sub_agency") {
+    const { agency_id, priceSnapshot, ...safe } = detail;
+    if (!priceSnapshot) return { ...safe, priceSnapshot: null };
+    const { seller_legal_name, ...snapshot } = priceSnapshot;
+    return { ...safe, priceSnapshot: snapshot };
+  }
+  return detail;
+}
+
 app.get("/api/agency/bookings/:id", authenticate, roles("sub_agency"), requireAgency, async (req: AuthedRequest, res, next) => {
   try {
     const detail = await bookingDetail(uuidParam(req, "BOOKING_NOT_FOUND"), "b.agency_id = $2", [req.auth!.agencyId]);
     if (!detail) return res.status(404).json({ error: "BOOKING_NOT_FOUND" });
-    res.json(detail);
+    res.json(await visibleBooking(detail, req));
   } catch (error) { next(error); }
 });
 
@@ -665,10 +680,10 @@ app.get("/api/backoffice/bookings", ...backoffice, async (req: AuthedRequest, re
     const scope = backofficeScope(req);
     const result = await pool.query(
       `SELECT b.id, b.booking_no, b.status, b.check_in::text, b.check_out::text, b.total, b.currency, b.created_at,
-              h.name AS hotel_name, a.name AS agency_name
+              h.name AS hotel_name, CASE WHEN $1::boolean OR a.parent_agency_id = $2 THEN a.name ELSE 'BED4BOOK' END AS agency_name
          FROM bookings b JOIN hotels h ON h.id = b.hotel_id JOIN agencies a ON a.id = b.agency_id
-        WHERE ${withParamIndex(scope.sql, 1)}
-        ORDER BY b.created_at DESC LIMIT 500`, scope.params);
+        WHERE ${withParamIndex(scope.sql, 3)}
+        ORDER BY b.created_at DESC LIMIT 500`, [isPlatformWide(req.auth!.role), req.auth!.agencyId, ...scope.params]);
     res.json({ items: result.rows });
   } catch (error) { next(error); }
 });
@@ -678,7 +693,7 @@ app.get("/api/backoffice/bookings/:id", ...backoffice, async (req: AuthedRequest
     const scope = backofficeScope(req);
     const detail = await bookingDetail(uuidParam(req, "BOOKING_NOT_FOUND"), withParamIndex(scope.sql, 2), scope.params);
     if (!detail) return res.status(404).json({ error: "BOOKING_NOT_FOUND" });
-    res.json(detail);
+    res.json(await visibleBooking(detail, req));
   } catch (error) { next(error); }
 });
 
@@ -733,7 +748,7 @@ async function sendVoucher(req: AuthedRequest, res: Response, scopeSql: string, 
     roomName: b.room_name, board: b.board_name, rooms: b.room_count, roomOccupancies: b.room_occupancies,
     cancellationPolicy: b.cancellation_policy, paymentTerms: b.payment_terms,
     guestName: `${b.guest_first_name} ${b.guest_last_name}`, adults: b.adults, children: b.children, childAges: b.child_ages,
-    nationality: b.guest_nationality, operationNote: b.operation_note, agencyName: b.agency_name, issuedAt: new Date()
+    nationality: b.guest_nationality, operationNote: b.operation_note, agencyName: (await visibleBooking(b, req)).agency_name, issuedAt: new Date()
   });
   const sha256 = createHash("sha256").update(pdf).digest("hex");
   await withTransaction(async client => {
@@ -763,7 +778,7 @@ app.get("/api/backoffice/bookings/:id/voucher", ...backoffice, async (req: Authe
 // ---------------------------------------------------------------------------------------------
 const PROFORMA_STATUSES = new Set(["pending", "approved"]);
 
-async function issueProforma(bookingId: string, actorId: string, scopeSql: string, scopeParams: unknown[], reason: string | null) {
+async function issueProforma(bookingId: string, actorId: string, scopeSql: string, scopeParams: unknown[], reason: string | null, role?: string, agencyId?: string | null) {
   const b = await bookingDetail(bookingId, scopeSql, scopeParams);
   if (!b) throw httpError(404, "BOOKING_NOT_FOUND");
   // A cancelled or rejected booking gets no proforma, not even a previously issued one (its history stays
@@ -787,7 +802,7 @@ async function issueProforma(bookingId: string, actorId: string, scopeSql: strin
       const number = `PF-${year}-${String(seq).padStart(6, "0")}`, version = latest ? latest.version + 1 : 1, issuedAt = new Date();
       const pdf = await renderProforma({
         number, version, supersedesNumber: latest?.number ?? null, issuedAt, sellerLegalName: snap.seller_legal_name || "BED4BOOK",
-        bookingNo: b.booking_no, bookingStatus: b.status, agencyName: b.agency_name, hotelName: b.hotel_name, hotelLocation: b.hotel_location,
+        bookingNo: b.booking_no, bookingStatus: b.status, agencyName: role === "master_agency" && (await pool.query("SELECT parent_agency_id FROM agencies WHERE id=$1", [b.agency_id])).rows[0]?.parent_agency_id !== agencyId ? "BED4BOOK" : b.agency_name, hotelName: b.hotel_name, hotelLocation: b.hotel_location,
         checkIn: b.check_in, checkOut: b.check_out, nights: nightsBetween(b.check_in, b.check_out).length,
         roomName: b.room_name, board: b.board_name, rooms: b.room_count, roomOccupancies: b.room_occupancies,
         cancellationPolicy: b.cancellation_policy, paymentTerms: b.payment_terms,
@@ -833,7 +848,7 @@ app.get("/api/agency/bookings/:id/proforma", authenticate, roles("sub_agency"), 
 });
 
 app.get("/api/backoffice/bookings/:id/proforma", ...backoffice, async (req: AuthedRequest, res, next) => {
-  try { const scope = backofficeScope(req); sendProforma(res, await issueProforma(uuidParam(req, "BOOKING_NOT_FOUND"), req.auth!.sub, withParamIndex(scope.sql, 2), scope.params, null)); }
+  try { const scope = backofficeScope(req); sendProforma(res, await issueProforma(uuidParam(req, "BOOKING_NOT_FOUND"), req.auth!.sub, withParamIndex(scope.sql, 2), scope.params, null, req.auth!.role, req.auth!.agencyId)); }
   catch (error) { next(error); }
 });
 
