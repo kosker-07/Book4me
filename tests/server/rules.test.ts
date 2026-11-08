@@ -101,3 +101,54 @@ test("no explicit row locks or hold states in server code and migrations", async
     assert.ok(!/'(HOLD|HELD|LOCKED|OPTION)'/i.test(src), `${f} contains a hold/lock status`);
   }
 });
+
+test("eligibility: exclusion first, exact, group, general, not included; all guests must be eligible", async () => {
+  const { evaluateNationality, evaluateContract } = await import("../../server/eligibility");
+  const rule = (id: string, type: "include" | "exclude", countryCode: string | null, members: string[] = []) =>
+    ({ id, contractId: "c", type, countryCode, marketGroupId: countryCode ? null : "g", marketGroupCode: countryCode ? null : "DACH", members });
+  const dach = [rule("r1", "include", null, ["DE", "AT", "CH"]), rule("r2", "exclude", "CH"), rule("r3", "include", "TR")];
+  assert.equal(evaluateNationality(dach, "CH").reason, "EXCLUDED");
+  assert.equal(evaluateNationality(dach, "TR").reason, "EXACT");
+  assert.equal(evaluateNationality(dach, "DE").reason, "GROUP");
+  assert.equal(evaluateNationality(dach, "GB").reason, "NOT_INCLUDED");
+  assert.equal(evaluateNationality([rule("r9", "exclude", "RU")], "GB").reason, "GENERAL");
+  assert.equal(evaluateNationality([rule("r9", "exclude", "RU")], "RU").eligible, false);
+  // an exclusion through a group overrides an exact inclusion
+  assert.equal(evaluateNationality([rule("a", "include", "DE"), rule("b", "exclude", null, ["DE"])], "DE").reason, "EXCLUDED");
+  assert.equal(evaluateContract(dach, ["DE", "TR"]).eligible, true);
+  assert.equal(evaluateContract(dach, ["DE", "CH"]).eligible, false);
+  assert.equal(evaluateContract(dach, []).eligible, false);
+});
+
+test("equivalence key separates different nationality sets but not their order", async () => {
+  const { equivalenceKey } = await import("../../server/pricing");
+  const c = cand("x", 100), o = { adults: 2, children: 0, childAges: [] };
+  assert.equal(equivalenceKey(c, o, "a", "b", 1, ["TR", "DE"]), equivalenceKey(c, o, "a", "b", 1, ["DE", "TR"]));
+  assert.notEqual(equivalenceKey(c, o, "a", "b", 1, ["TR", "TR"]), equivalenceKey(c, o, "a", "b", 1, ["TR", "DE"]));
+});
+
+test("minor units and exact conversion: JPY 0, EUR 2, KWD 3 decimals, half-up", async () => {
+  const { parseMinor, formatMinor, nightlySellMinor, convertMinor, normalizeDecimal } = await import("../../server/pricing");
+  assert.equal(parseMinor("1.005", 2), 101);
+  assert.equal(parseMinor(1.005, 2), 101);
+  assert.equal(parseMinor("99.5", 0), 100);
+  assert.equal(formatMinor(1100, 0), "1100");
+  assert.equal(formatMinor(1234567, 3), "1234.567");
+  assert.equal(nightlySellMinor(33333, { type: "percent", value: "10" }, 3), 36666);   // 36.6663 KWD
+  assert.equal(nightlySellMinor(10001, { type: "percent", value: "10" }, 0), 11001);   // 11001.1 JPY
+  assert.equal(convertMinor(22000, 2, "1", 2, "0.9"), 24444);                        // 220 EUR → 244.44 USD
+  assert.equal(convertMinor(100000, 3, "2.98", 2, "1"), 29800);                      // 100 KWD → 298.00 EUR
+  assert.equal(convertMinor(1, 2, "1", 0, "0.02"), 1);                               // 0.01 EUR = 0.5 JPY → 1 (half-up)
+  assert.equal(normalizeDecimal("10"), "10.00");
+  assert.equal(normalizeDecimal("1.234"), "1.234");
+});
+
+test("ECB parser inverts 'units per EUR' into 'EUR per unit' and rejects malformed input", async () => {
+  const { parseEcbDailyXml } = await import("../../server/fx");
+  const { readFileSync } = await import("node:fs");
+  const parsed = parseEcbDailyXml(readFileSync("tests/server/fixtures/ecb-eurofxref-sample.xml", "utf8"));
+  assert.equal(parsed.date, "2030-01-04");
+  assert.deepEqual(Object.fromEntries(parsed.rates.map(r => [r.currency, r.eurPerUnit])),
+    { USD: "0.80000000", JPY: "0.00625000", GBP: "1.25000000", TRY: "0.02500000", THB: "0.02631579" });
+  assert.throws(() => parseEcbDailyXml("<Cube/>"));
+});
