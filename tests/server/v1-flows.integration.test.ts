@@ -90,7 +90,7 @@ async function setupViaApi() {
   assert.equal(pub.status, 201, JSON.stringify(pub.body));
   return { t, M1, M2, SA, SB, hotelId: hotel.body.id as string, roomId: room.body.id as string, ratePlanId: rp.body.id as string, publicationId: pub.body.id as string };
 }
-const STAY = { checkIn: D1, checkOut: D3, rooms: 1, adults: 2, children: 1, childAges: [7], nationalities: ["TR", "TR", "TR"] };
+const STAY = { checkIn: D1, checkOut: D3, rooms: 1, adults: 2, children: 1, childAges: [7], roomOccupancies: [{ adults: 2, children: 1, childAges: [7] }], nationalities: ["TR", "TR", "TR"] };
 const search = (tok: string) => call("POST", "/api/agency/searches", STAY, tok);
 const book = (tok: string, quoteId: string, extra: object = {}) =>
   call("POST", "/api/agency/bookings", { quoteId, guest: GUEST, otherGuests: OTHER_GUESTS, operationNote: NOTE, ...extra }, tok, { "Idempotency-Key": randomUUID() });
