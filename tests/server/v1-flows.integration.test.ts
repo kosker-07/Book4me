@@ -65,10 +65,10 @@ beforeEach(async () => {
 /** Builds the whole catalogue through the API, as the specification's user journeys describe. */
 async function setupViaApi() {
   const admin = await token("admin@test.local");
-  const agency = async (name: string, type: string) => {
-    const r = await call("POST", "/api/admin/agencies", { name, type }, admin); assert.equal(r.status, 201); return r.body.id as string; };
+  const agency = async (name: string, type: string, parentAgencyId?: string) => {
+    const r = await call("POST", "/api/admin/agencies", { name, type, ...(parentAgencyId ? { parentAgencyId } : {}) }, admin); assert.equal(r.status, 201); return r.body.id as string; };
   const M1 = await agency("Ana Acente Bir", "master"), M2 = await agency("Ana Acente İki", "master");
-  const SA = await agency("Alt Acente A", "sub"), SB = await agency("Alt Acente B", "sub");
+  const SA = await agency("Alt Acente A", "sub", M1), SB = await agency("Alt Acente B", "sub", M2);
   const user = async (email: string, role: string, agencyId: string | null) => {
     const r = await call("POST", "/api/admin/users", { email, password: PW, role, agencyId }, admin); assert.equal(r.status, 201, JSON.stringify(r.body)); return r.body.id as string; };
   await user("bo@test.local", "back_office", null);
