@@ -12,6 +12,11 @@ import { formatMinor, normalizeDecimal, parseMinor } from "./pricing";
 
 export const adminRouter = Router();
 
+export const managers = [authenticate, roles("system_admin", "back_office", "master_agency")] as const;
+type Handler = (req: AuthedRequest, res: Response) => Promise<unknown>;
+export const h = (fn: Handler) => async (req: AuthedRequest, res: Response, next: NextFunction) => {
+  try { await fn(req, res); } catch (error) { next(error); }
+};
 const settingsKeys = ["legal_name","address","tax_office","tax_number","phone","email"] as const;
 const settingsLimits: Record<string,number> = {legal_name:200,address:1000,tax_office:200,tax_number:40,phone:40,email:254};
 adminRouter.get("/api/admin/platform-settings",authenticate,roles("system_admin","back_office"),h(async (_req,res)=>{
@@ -25,7 +30,7 @@ adminRouter.put("/api/admin/platform-settings",authenticate,roles("system_admin"
   for(const k of settingsKeys){
     const v=body[k];
     if(v!==undefined&&v!==null&&typeof v!=="string")throw httpError(400,"INVALID_PLATFORM_SETTINGS");
-    if(typeof v==="string"&&v.length>settingsLimits[k])throw httpError(400,"INVALID_PLATFORM_SETTINGS");
+    if(typeof v==="string"&&v.length>(settingsLimits[k] ?? 0))throw httpError(400,"INVALID_PLATFORM_SETTINGS");
     values[k]=typeof v==="string"?v.trim()||null:null;
   }
   if(values.email&&!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(values.email))throw httpError(400,"INVALID_PLATFORM_SETTINGS");
@@ -40,11 +45,7 @@ adminRouter.put("/api/admin/platform-settings",authenticate,roles("system_admin"
   res.json(result);
 }));
 
-export const managers = [authenticate, roles("system_admin", "back_office", "master_agency")] as const;
-type Handler = (req: AuthedRequest, res: Response) => Promise<unknown>;
-export const h = (fn: Handler) => async (req: AuthedRequest, res: Response, next: NextFunction) => {
-  try { await fn(req, res); } catch (error) { next(error); }
-};
+
 const text = (v: unknown, max = 500) => typeof v === "string" && v.trim().length > 0 && v.trim().length <= max;
 const optText = (v: unknown, max = 5000) => v === undefined || (typeof v === "string" && v.length <= max);
 const optBool = (v: unknown) => v === undefined || typeof v === "boolean";
