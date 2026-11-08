@@ -7,12 +7,14 @@
     "node": ">=22"
   },
   "scripts": {
-    "build:server": "tsc -p tsconfig.server.json && node -e \"require('fs').cpSync('server/assets','dist-server/server/assets',{recursive:true})\"",
+    "build:server": "tsc -p tsconfig.server.json && node -e \"const fs=require('fs');fs.cpSync('server/assets','dist-server/server/assets',{recursive:true});fs.cpSync('server/migrations','dist-server/server/migrations',{recursive:true})\"",
     "start:server": "node dist-server/server/app.js",
     "dev:server": "tsx watch server/app.ts",
     "test:server": "tsx --test --test-concurrency=1 tests/server/*.test.ts",
     "admin:create": "tsx server/cli/create-admin.ts",
-    "perf:smoke": "tsx infra/scripts/perf-smoke.ts"
+    "perf:smoke": "tsx infra/scripts/perf-smoke.ts",
+    "db:migrate": "tsx server/migrate.ts",
+    "db:migrate:compiled": "node dist-server/server/migrate.js"
   },
   "dependencies": {
     "express": "^5.1.0",
