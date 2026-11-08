@@ -1,3 +1,4 @@
+import { VALID_TERMS } from "./fixtures/rate-plan-terms";
 // Nationality-based contract pricing, FX, price snapshots and proformas — integration tests against real
 // PostgreSQL with all migrations applied. Required: DATABASE_URL pointing to a THROWAWAY database.
 import test, { before, after, beforeEach } from "node:test";
@@ -315,9 +316,9 @@ test("N14 payment currency must be allow-listed, active and have a fresh rate", 
 test("N15 minor units: JPY (0), EUR (2) and KWD (3) prices, markups and conversions round half-up correctly", { skip }, async () => {
   // management API enforces precision per currency
   const room = (await call("POST", `/api/admin/hotels/${H1}/rooms`, { name: "Suite", maxAdults: 2, maxChildren: 0 }, tok.m1)).body.id;
-  const jpy = (await call("POST", `/api/admin/rooms/${room}/rate-plans`, { boardName: "RO", currency: "JPY" }, tok.m1)).body.id;
-  const kwd = (await call("POST", `/api/admin/rooms/${room}/rate-plans`, { boardName: "HB", currency: "KWD" }, tok.m1)).body.id;
-  const eur = (await call("POST", `/api/admin/rooms/${room}/rate-plans`, { boardName: "BB", currency: "EUR" }, tok.m1)).body.id;
+  const jpy = (await call("POST", `/api/admin/rooms/${room}/rate-plans`, { boardName: "RO", currency: "JPY", ...VALID_TERMS }, tok.m1)).body.id;
+  const kwd = (await call("POST", `/api/admin/rooms/${room}/rate-plans`, { boardName: "HB", currency: "KWD", ...VALID_TERMS }, tok.m1)).body.id;
+  const eur = (await call("POST", `/api/admin/rooms/${room}/rate-plans`, { boardName: "BB", currency: "EUR", ...VALID_TERMS }, tok.m1)).body.id;
   const cal = (rp: string, price: number) => call("PUT", `/api/admin/rate-plans/${rp}/calendar`, { dateFrom: IN, dateTo: N2, price, allotment: 3 }, tok.m1);
   assert.equal((await cal(jpy, 10000.5)).status, 400);
   assert.equal((await cal(eur, 100.123)).status, 400);
