@@ -258,6 +258,7 @@ adminRouter.post("/api/admin/publications", ...managers, h(async (req, res) => {
   await requirePublishableRatePlan(ratePlanId);
   const target = (await pool.query("SELECT type, active FROM agencies WHERE id::text = $1", [agencyId])).rows[0];
   if (!target || target.type !== "sub" || !target.active) throw httpError(400, "TARGET_MUST_BE_ACTIVE_SUB_AGENCY");
+  await publicationHierarchy(ratePlanId, agencyId);
   const row = await withTransaction(async client => {
     const r = (await client.query(
       `INSERT INTO agency_hotel_sales(agency_id, hotel_id, rate_plan_id, markup_type, markup_value, active)
@@ -280,6 +281,8 @@ adminRouter.patch("/api/admin/publications/:id", ...managers, h(async (req, res)
   if (b.active === true) {
     const rp = (await pool.query("SELECT rate_plan_id FROM agency_hotel_sales WHERE id = $1", [id])).rows[0]?.rate_plan_id;
     await requirePublishableRatePlan(rp);
+    const target = (await pool.query("SELECT agency_id FROM agency_hotel_sales WHERE id = $1", [id])).rows[0];
+    await publicationHierarchy(rp, target.agency_id);
   }
   if (b.markupValue !== undefined) {
     const rp = (await pool.query("SELECT rate_plan_id FROM agency_hotel_sales WHERE id = $1", [id])).rows[0].rate_plan_id;
@@ -300,10 +303,33 @@ adminRouter.patch("/api/admin/publications/:id", ...managers, h(async (req, res)
 
 // Active sub-agencies eligible for publication selectors. Master agencies only see
 // sub-agencies already associated with hotels they own through publications.
-adminRouter.get("/api/admin/publication-agencies", ...managers, h(async (_req, res) => {
-  const result = await pool.query("SELECT id, name FROM agencies WHERE type = 'sub' AND active ORDER BY name, id");
+adminRouter.get("/api/admin/publication-agencies", ...managers, h(async (req, res) => {
+  const ratePlanId = req.query.ratePlanId;
+  if (typeof ratePlanId !== "string" || !UUID_RE.test(ratePlanId)) throw httpError(400, "RATE_PLAN_REQUIRED");
+  const owner = await ownedHotel(pool, req, RATE_PLAN_SQL, ratePlanId);
+  const result = await pool.query(
+    "SELECT id, name FROM agencies WHERE type = 'sub' AND active AND parent_agency_id = $1 ORDER BY name, id",
+    [owner.owner_agency_id]);
   res.json({ items: result.rows });
 }));
+
+// One hierarchy scope gate for agency and user management. Out-of-scope IDs are 404.
+async function hierarchyAgency(req: AuthedRequest, agencyId: string, allowSelf = false) {
+  const agency = (await pool.query("SELECT id, type, parent_agency_id, active FROM agencies WHERE id::text = $1", [agencyId])).rows[0];
+  if (!agency || (req.auth!.role === "master_agency" &&
+    !(agency.type === "sub" && agency.parent_agency_id === req.auth!.agencyId) &&
+    !(allowSelf && agency.id === req.auth!.agencyId))) throw httpError(404, "NOT_FOUND");
+  return agency;
+}
+async function publicationHierarchy(ratePlanId: string, targetAgencyId: string) {
+  const row = (await pool.query(
+    `SELECT a.parent_agency_id, h.owner_agency_id
+       FROM agencies a CROSS JOIN rate_plans rp
+       JOIN rooms r ON r.id = rp.room_id JOIN hotels h ON h.id = r.hotel_id
+      WHERE a.id::text = $1 AND rp.id = $2`, [targetAgencyId, ratePlanId])).rows[0];
+  if (!row || !row.parent_agency_id || row.parent_agency_id !== row.owner_agency_id)
+    throw httpError(409, "TARGET_NOT_IN_HIERARCHY");
+}
 
 // Read-only lists for management selectors; never expose password hashes.
 adminRouter.get("/api/admin/agencies", authenticate, roles("system_admin"), h(async (_req, res) => {
