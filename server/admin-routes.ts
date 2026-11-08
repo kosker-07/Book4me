@@ -7,7 +7,7 @@ import { randomUUID } from "node:crypto";
 import { pool, withTransaction } from "./db";
 import { hashPassword } from "./security";
 import { audit, authenticate, AuthedRequest, httpError, isPlatformWide, roles, uuidParam } from "./http";
-import { isCalendarDate, nightsBetween, UUID_RE } from "./validation";
+import { isCalendarDate, nightsBetween, UUID_RE, validateRatePlanTerms } from "./validation";
 import { formatMinor, normalizeDecimal, parseMinor } from "./pricing";
 
 export const adminRouter = Router();
@@ -148,6 +148,8 @@ adminRouter.post("/api/admin/rooms/:id/rate-plans", ...managers, h(async (req, r
   const roomId = uuidParam(req), { boardName, currency, cancellationPolicy, paymentTerms, salesConditions, contractId } = req.body || {};
   if (!text(boardName, 50) || typeof currency !== "string" || !CURRENCY_RE.test(currency)
       || !isObj(cancellationPolicy) || !isObj(paymentTerms) || !isObj(salesConditions)) throw httpError(400, "INVALID_RATE_PLAN");
+  const termErrors: Record<string, string> = {};
+  if (!validateRatePlanTerms(cancellationPolicy, paymentTerms, termErrors)) throw httpError(400, "VALIDATION_FAILED", { fields: termErrors });
   const owner = await ownedHotel(pool, req, ROOM_SQL, roomId);
   if (!(await pool.query("SELECT 1 FROM currencies WHERE code = $1 AND active", [currency])).rowCount) throw httpError(400, "CURRENCY_NOT_SUPPORTED");
   if (contractId !== undefined) {
@@ -175,6 +177,12 @@ adminRouter.post("/api/admin/rooms/:id/rate-plans", ...managers, h(async (req, r
 adminRouter.patch("/api/admin/rate-plans/:id", ...managers, h(async (req, res) => {
   const id = uuidParam(req), b = req.body || {};
   if (!optBool(b.active) || !isObj(b.cancellationPolicy) || !isObj(b.paymentTerms)) throw httpError(400, "INVALID_RATE_PLAN");
+  if (b.cancellationPolicy !== undefined || b.paymentTerms !== undefined) {
+    const current = (await pool.query("SELECT cancellation_policy, payment_terms FROM rate_plans WHERE id = $1", [id])).rows[0];
+    const termErrors: Record<string, string> = {};
+    if (!validateRatePlanTerms(b.cancellationPolicy ?? current?.cancellation_policy, b.paymentTerms ?? current?.payment_terms, termErrors))
+      throw httpError(400, "VALIDATION_FAILED", { fields: termErrors });
+  }
   const owner = await ownedHotel(pool, req, RATE_PLAN_SQL, id);
   const fields = { active: b.active, cancellationPolicy: b.cancellationPolicy && JSON.stringify(b.cancellationPolicy), paymentTerms: b.paymentTerms && JSON.stringify(b.paymentTerms) };
   const { sets, values } = patchSet(fields, { active: "active", cancellationPolicy: "cancellation_policy", paymentTerms: "payment_terms" });
@@ -230,6 +238,12 @@ adminRouter.get("/api/admin/rate-plans/:id/calendar", ...managers, h(async (req,
 }));
 
 // ---------------------------------------------------------------- publications (open a rate plan to a sub-agency)
+async function requirePublishableRatePlan(ratePlanId: string) {
+  const plan = (await pool.query("SELECT cancellation_policy, payment_terms FROM rate_plans WHERE id = $1", [ratePlanId])).rows[0];
+  if (!plan || !validateRatePlanTerms(plan.cancellation_policy, plan.payment_terms))
+    throw httpError(409, "RATE_PLAN_TERMS_REQUIRED");
+}
+
 const MARKUP_TYPES = ["percent", "fixed"];
 const validMarkup = (type: unknown, value: unknown) =>
   MARKUP_TYPES.includes(type as string) && typeof value === "number" && Number.isFinite(value) && value >= 0 && value <= (type === "percent" ? 1000 : 1e9);
@@ -241,6 +255,7 @@ adminRouter.post("/api/admin/publications", ...managers, h(async (req, res) => {
   const owner = await ownedHotel(pool, req, RATE_PLAN_SQL, ratePlanId);
   if (!hasAtMostDecimals(markupValue, markupType === "fixed" ? await currencyDigitsOfRatePlan(ratePlanId) : 3))
     throw httpError(400, "INVALID_PUBLICATION", { reason: "MARKUP_PRECISION" });
+  await requirePublishableRatePlan(ratePlanId);
   const target = (await pool.query("SELECT type, active FROM agencies WHERE id::text = $1", [agencyId])).rows[0];
   if (!target || target.type !== "sub" || !target.active) throw httpError(400, "TARGET_MUST_BE_ACTIVE_SUB_AGENCY");
   const row = await withTransaction(async client => {
@@ -262,6 +277,10 @@ adminRouter.patch("/api/admin/publications/:id", ...managers, h(async (req, res)
   if (!optBool(b.active) || ((b.markupType !== undefined || b.markupValue !== undefined) && !validMarkup(b.markupType, b.markupValue)))
     throw httpError(400, "INVALID_PUBLICATION");
   const owner = await ownedHotel(pool, req, PUBLICATION_SQL, id);
+  if (b.active === true) {
+    const rp = (await pool.query("SELECT rate_plan_id FROM agency_hotel_sales WHERE id = $1", [id])).rows[0]?.rate_plan_id;
+    await requirePublishableRatePlan(rp);
+  }
   if (b.markupValue !== undefined) {
     const rp = (await pool.query("SELECT rate_plan_id FROM agency_hotel_sales WHERE id = $1", [id])).rows[0].rate_plan_id;
     if (!hasAtMostDecimals(b.markupValue, b.markupType === "fixed" ? await currencyDigitsOfRatePlan(rp) : 3))
