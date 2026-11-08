@@ -282,7 +282,7 @@ adminRouter.patch("/api/admin/publications/:id", ...managers, h(async (req, res)
     const rp = (await pool.query("SELECT rate_plan_id FROM agency_hotel_sales WHERE id = $1", [id])).rows[0]?.rate_plan_id;
     await requirePublishableRatePlan(rp);
     const target = (await pool.query("SELECT agency_id FROM agency_hotel_sales WHERE id = $1", [id])).rows[0];
-    await publicationHierarchy(rp, target.agency_id);
+    await publicationHierarchy(rp, target.agency_id, req.auth!.role === "master_agency");
   }
   if (b.markupValue !== undefined) {
     const rp = (await pool.query("SELECT rate_plan_id FROM agency_hotel_sales WHERE id = $1", [id])).rows[0].rate_plan_id;
