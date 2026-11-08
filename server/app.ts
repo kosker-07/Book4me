@@ -48,7 +48,7 @@ app.get("/demo", (_req, res) => {
 app.use("/app", (_req, res, next) => {
   res.setHeader("Content-Security-Policy", "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'; object-src 'none'");
   next();
-}, express.static(path.resolve(__dirname, "../../web")));
+}, express.static(path.resolve(process.cwd(), "web")));
 
 app.get("/health", (_req, res) => res.json({ ok: true, service: "bed4book-api" }));
 app.get("/ready", async (_req, res) => {
@@ -107,20 +107,16 @@ app.post("/api/auth/change-password", authenticate, async (req: AuthedRequest, r
     if (typeof currentPassword !== "string" || typeof newPassword !== "string")
       return res.status(400).json({ error: "CURRENT_AND_NEW_PASSWORD_REQUIRED" });
     if (newPassword.length < 12) return res.status(400).json({ error: "PASSWORD_TOO_SHORT" });
-    const client = await pool.connect();
-    try {
-      await client.query("BEGIN");
-      const user = (await client.query("SELECT password_hash FROM users WHERE id = $1 FOR UPDATE", [req.auth!.sub])).rows[0];
-      if (!user || !verifyPassword(currentPassword, user.password_hash)) {
-        await client.query("ROLLBACK");
-        return res.status(401).json({ error: "INVALID_CURRENT_PASSWORD" });
-      }
-      await client.query("UPDATE users SET password_hash = $1, token_version = token_version + 1 WHERE id = $2",
-        [hashPassword(newPassword), req.auth!.sub]);
-      await client.query("COMMIT");
-      res.json({ ok: true, sessionsRevoked: true });
-    } catch (error) { await client.query("ROLLBACK"); throw error; }
-    finally { client.release(); }
+    // No explicit row lock (product rule): the UPDATE only applies if the hash is still the one just verified, so a
+    // concurrent password change makes this request fail instead of silently overwriting it.
+    const user = (await pool.query("SELECT password_hash FROM users WHERE id = $1", [req.auth!.sub])).rows[0];
+    if (!user || !verifyPassword(currentPassword, user.password_hash))
+      return res.status(401).json({ error: "INVALID_CURRENT_PASSWORD" });
+    const updated = await pool.query(
+      "UPDATE users SET password_hash = $1, token_version = token_version + 1 WHERE id = $2 AND password_hash = $3",
+      [hashPassword(newPassword), req.auth!.sub, user.password_hash]);
+    if (!updated.rowCount) return res.status(401).json({ error: "INVALID_CURRENT_PASSWORD" });
+    res.json({ ok: true, sessionsRevoked: true });
   } catch (error) { next(error); }
 });
 
