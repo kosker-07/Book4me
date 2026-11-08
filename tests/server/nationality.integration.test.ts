@@ -1,4 +1,5 @@
 import { VALID_TERMS } from "./fixtures/rate-plan-terms";
+import { VALID_TERMS } from "./fixtures/rate-plan-terms";
 // Nationality-based contract pricing, FX, price snapshots and proformas — integration tests against real
 // PostgreSQL with all migrations applied. Required: DATABASE_URL pointing to a THROWAWAY database.
 import test, { before, after, beforeEach } from "node:test";
@@ -81,9 +82,9 @@ beforeEach(async () => {
   await pool.query("INSERT INTO hotels(id,owner_agency_id,name,location,status) VALUES ($1,$2,'Hotel One','Antalya','active'),($3,$4,'Hotel Two','Bodrum','active')", [H1, M1, H2, M2]);
   await pool.query("INSERT INTO rooms(id,hotel_id,name,max_adults,max_children) VALUES ($1,$2,'Double',3,2),($3,$4,'Double',3,2)", [R1, H1, R2, H2]);
   // Same room, board and policies → one equivalence class; each rate plan sits in a different contract.
-  await pool.query(`INSERT INTO rate_plans(id,room_id,board_name,currency,cancellation_policy) VALUES
-    ($1,$6,'AI','EUR','{"freeUntilDays":7}'),($2,$6,'AI','EUR','{"freeUntilDays":7}'),($3,$6,'AI','EUR','{"freeUntilDays":7}'),
-    ($4,$6,'AI','GBP','{"freeUntilDays":7}'),($5,$7,'AI','EUR','{"freeUntilDays":7}')`, [RP_GEN, RP_TR, RP_DACH, RP_UK, RP_H2, R1, R2]);
+  await pool.query(`INSERT INTO rate_plans(id,room_id,board_name,currency,cancellation_policy,payment_terms) VALUES
+    ($1,$6,'AI','EUR',$9::jsonb,$10::jsonb),($2,$6,'AI','EUR',$9::jsonb,$10::jsonb),($3,$6,'AI','EUR',$9::jsonb,$10::jsonb),
+    ($4,$6,'AI','GBP',$9::jsonb,$10::jsonb),($5,$7,'AI','EUR',$9::jsonb,$10::jsonb)`, [RP_GEN, RP_TR, RP_DACH, RP_UK, RP_H2, R1, R2, null, JSON.stringify(VALID_TERMS.cancellationPolicy), JSON.stringify(VALID_TERMS.paymentTerms)]);
   await pool.query(`INSERT INTO hotel_contracts(id,hotel_id,code,name,currency,seller_legal_name,status) VALUES
     ($1,$4,'TR-MARKET','Turkey market','EUR','Hotel One Turizm A.Ş.','active'),
     ($2,$4,'DACH-MARKET','DACH market','EUR','Hotel One Turizm A.Ş.','active'),
