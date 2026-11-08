@@ -495,13 +495,52 @@ test("room distribution: child capacity is checked per room", { skip }, async ()
   assert.equal(s.body.results.some((r: any) => r.room.name === "Double"), false);
 });
 
-test("room distribution: booking rechecks changed capacity", { skip }, async () => {
-  const q = await winnerQuote(tok.a!);
-  await pool.query("UPDATE rooms SET max_adults=1 WHERE id=$1", [R1]);
-  const b = await book(tok.a!, q.quoteId);
+const fiveAdults = {
+  rooms: 3, adults: 5, children: 0, childAges: [],
+  nationalities: ["TR", "TR", "TR", "TR", "TR"],
+  roomOccupancies: [
+    { adults: 3, children: 0, childAges: [] },
+    { adults: 1, children: 0, childAges: [] },
+    { adults: 1, children: 0, childAges: [] }
+  ]
+};
+const fiveAdultGuests = {
+  guest: { ...GUEST, adults: 5, children: 0, childAges: [] },
+  otherGuests: Array.from({ length: 4 }, (_, i) => ({
+    firstName: `Guest${i}`, lastName: "Test", type: "adult", nationality: "TR"
+  }))
+};
+
+test("room distribution: booking rechecks per-room capacity even when aggregate fits", { skip }, async () => {
+  await pool.query("UPDATE rooms SET max_adults=3 WHERE id=$1", [R1]);
+  const s = await search(tok.a!, fiveAdults);
+  assert.equal(s.status, 200, s.raw);
+  const q = findResult(s.body.results, H1, "AI")[0];
+  assert.ok(q, "3+1+1 quote must be available at max_adults=3");
+  await pool.query("UPDATE rooms SET max_adults=2 WHERE id=$1", [R1]);
+  assert.ok(fiveAdults.adults <= 2 * fiveAdults.rooms, "aggregate capacity would pass");
+  const b = await book(tok.a!, q.quoteId, randomUUID(), fiveAdultGuests);
   assert.equal(b.status, 409, b.raw);
   assert.equal(b.body.error, "OCCUPANCY_EXCEEDS_CAPACITY");
   assert.equal(await count("bookings"), 0);
+});
+
+test("room distribution: draft submit rechecks per-room capacity even when aggregate fits", { skip }, async () => {
+  await pool.query("UPDATE rooms SET max_adults=3 WHERE id=$1", [R1]);
+  const s = await search(tok.a!, fiveAdults);
+  assert.equal(s.status, 200, s.raw);
+  const q = findResult(s.body.results, H1, "AI")[0];
+  assert.ok(q);
+  const draft = await book(tok.a!, q.quoteId, randomUUID(), { ...fiveAdultGuests, draft: true });
+  assert.equal(draft.status, 201, draft.raw);
+  assert.equal(draft.body.status, "draft");
+  await pool.query("UPDATE rooms SET max_adults=2 WHERE id=$1", [R1]);
+  assert.ok(fiveAdults.adults <= 2 * fiveAdults.rooms);
+  const submitted = await call("POST", `/api/agency/bookings/${draft.body.id}/submit`, {}, tok.a);
+  assert.equal(submitted.status, 409, submitted.raw);
+  assert.equal(submitted.body.error, "OCCUPANCY_EXCEEDS_CAPACITY");
+  const detail = await call("GET", `/api/agency/bookings/${draft.body.id}`, undefined, tok.a);
+  assert.equal(detail.body.status, "draft");
 });
 
 test("room distribution: booking detail returns signed per-room occupancy", { skip }, async () => {
