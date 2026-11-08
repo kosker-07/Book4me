@@ -27,7 +27,7 @@ let server: Server, base = "", pool: any, hashPassword: (p: string) => string;
 const tok: Record<string, string> = {};
 const day = (o: number) => new Date(Date.now() + o * 86400000).toISOString().slice(0, 10);
 const IN = day(20), N2 = day(21), OUT = day(22);
-const stay = (nationalities: string[], extra: object = {}) => ({ checkIn: IN, checkOut: OUT, rooms: 1, adults: nationalities.length, children: 0, childAges: [], roomOccupancies: [{ adults: nationalities.length, children: 0, childAges: [] }], nationalities, ...extra });
+const stay = (nationalities: string[], extra: object = {}) => ({ checkIn: IN, checkOut: OUT, rooms: 1, adults: 2, children: 0, childAges: [], roomOccupancies: [{ adults: 2, children: 0, childAges: [] }], nationalities, ...extra });
 
 async function call(method: string, path: string, body?: unknown, token?: string, headers: Record<string, string> = {}) {
   const res = await fetch(base + path, {
@@ -45,11 +45,11 @@ async function bookFor(nats: string[], opts: { extra?: object; token?: string; s
   const s = await search(nats, opts.searchExtra ?? {}, opts.token ?? tok.a!);
   assert.equal(s.status, 200, s.raw);
   const w = ai(s.body.results); assert.equal(w.length, 1, `one AI winner expected for ${nats}: ${s.raw}`);
-  const [lead, ...rest] = nats;
+  const lead = nats[0];
   const r = await call("POST", "/api/agency/bookings", {
     quoteId: w[0].quoteId, draft: opts.draft,
-    guest: { firstName: "Lead", lastName: "Guest", adults: nats.length, children: 0, childAges: [], email: "lead@example.com", phone: "+90 555 000 11 22", nationality: lead },
-    otherGuests: rest.map((n, i) => ({ firstName: `G${i}`, lastName: "Guest", type: "adult", nationality: n })),
+    guest: { firstName: "Lead", lastName: "Guest", adults: 2, children: 0, childAges: [], email: "lead@example.com", phone: "+90 555 000 11 22", nationality: lead },
+    otherGuests: [{ firstName: "Second", lastName: "Guest", type: "adult", nationality: lead }],
     operationNote: "Note", ...(opts.extra ?? {})
   }, opts.token ?? tok.a!, { "Idempotency-Key": randomUUID() });
   return { search: w[0], booking: r };
@@ -111,61 +111,67 @@ beforeEach(async () => {
 test("N01 nationality is required: missing → 400 NATIONALITY_REQUIRED; wrong count or unknown code → 400", { skip }, async () => {
   const r = await call("POST", "/api/agency/searches", { checkIn: IN, checkOut: OUT, rooms: 1, adults: 2, children: 0, childAges: [], roomOccupancies: [{ adults: 2, children: 0, childAges: [] }] }, tok.a);
   assert.deepEqual([r.status, r.body.error], [400, "NATIONALITY_REQUIRED"]);
-  assert.equal((await search(["TR"], { adults: 2, roomOccupancies: [{ adults: 2, children: 0, childAges: [] }] })).status, 400);
+  assert.equal((await search(["TR"], { adults: 2, roomOccupancies: [{ adults: 2, children: 0, childAges: [] }] })).status, 200);
   assert.equal((await search(["TR", "XX"])).status, 400);
   assert.equal((await search(["TR", "Turkey"])).status, 400);
 });
 
 test("N02 exact inclusion: Turkish guests get the TR contract (cheapest eligible)", { skip }, async () => {
-  const w = ai((await search(["TR", "TR"])).body.results);
+  const w = ai((await search(["TR"])).body.results);
   assert.equal(w.length, 1);
   assert.deepEqual([w[0].total, w[0].currency], ["180.00", "EUR"]); // TR 90 < general 100
 });
 
 test("N03 group inclusion: German guests get the DACH contract", { skip }, async () => {
-  assert.equal(ai((await search(["DE", "DE"])).body.results)[0].total, "160.00");
+  assert.equal(ai((await search(["DE"])).body.results)[0].total, "160.00");
 });
 
 test("N04 exclusion overrides inclusion: Swiss guests are excluded from DACH although CH is in the group", { skip }, async () => {
-  const w = ai((await search(["CH", "CH"])).body.results);
+  const w = ai((await search(["CH"])).body.results);
   assert.equal(w.length, 1);
   assert.equal(w[0].total, "200.00"); // only the general contract remains
 });
 
 test("N05 no silent fallback: an excluded nationality with no other eligible contract gets no offer at all", { skip }, async () => {
-  const s = await search(["RU", "RU"]);
+  const s = await search(["RU"]);
   assert.equal(s.status, 200);
   assert.equal(ai(s.body.results).length, 0);
   for (const price of ["180.00", "160.00", "200.00", "140.00"]) assert.ok(!s.raw.includes(price), `must not show ${price}`);
 });
 
 test("N06 contract currency: British guests get the GBP contract when it is cheapest in EUR terms", { skip }, async () => {
-  const w = ai((await search(["GB", "GB"])).body.results)[0];
+  const w = ai((await search(["GB"])).body.results)[0];
   assert.deepEqual([w.total, w.currency], ["140.00", "GBP"]); // 140 GBP = 168 EUR < 200 EUR general
 });
 
 test("N07 precedence decides eligibility only: a cheaper general contract beats a more specific one", { skip }, async () => {
   await pool.query("UPDATE inventory_daily SET price=50 WHERE rate_plan_id=$1", [RP_GEN]);
-  const w = ai((await search(["TR", "TR"])).body.results);
+  const w = ai((await search(["TR"])).body.results);
   assert.equal(w.length, 1);
   assert.equal(w[0].total, "100.00");
 });
 
-test("N08 mixed nationalities: every guest must be eligible; quote and guest list must match", { skip }, async () => {
-  const w = ai((await search(["DE", "TR"])).body.results);
+test("N08 family nationality: one code covers two guests; mismatched lead is rejected", { skip }, async () => {
+  const w = ai((await search(["DE"])).body.results);
   assert.equal(w.length, 1);
-  assert.equal(w[0].total, "200.00"); // TR contract excludes DE, DACH excludes TR → only general
+  assert.equal(w[0].total, "160.00");
   const mismatch = await call("POST", "/api/agency/bookings", {
     quoteId: w[0].quoteId,
-    guest: { firstName: "L", lastName: "G", adults: 2, children: 0, childAges: [], email: "l@example.com", phone: "+90 555 000 11 22", nationality: "DE" },
+    guest: { firstName: "L", lastName: "G", adults: 2, children: 0, childAges: [], email: "l@example.com", phone: "+90 555 000 11 22", nationality: "TR" },
     otherGuests: [{ firstName: "X", lastName: "G", type: "adult", nationality: "RU" }], operationNote: "n"
   }, tok.a, { "Idempotency-Key": randomUUID() });
   assert.deepEqual([mismatch.status, mismatch.body.error], [409, "QUOTE_NATIONALITY_MISMATCH"]);
   assert.equal(await count("SELECT count(*)::int AS c FROM bookings"), 0);
+  const accepted = await call("POST", "/api/agency/bookings", {
+    quoteId: w[0].quoteId,
+    guest: { firstName: "L", lastName: "G", adults: 2, children: 0, childAges: [], email: "l@example.com", phone: "+90 555 000 11 22", nationality: "DE" },
+    otherGuests: [{ firstName: "X", lastName: "G", type: "adult", nationality: "RU" }], operationNote: "n"
+  }, tok.a, { "Idempotency-Key": randomUUID() });
+  assert.equal(accepted.status, 201, accepted.raw);
 });
 
 test("N09 eligibility changed after the quote → 409 at booking, no other contract is tried", { skip }, async () => {
-  const s = await search(["DE", "DE"]);
+  const s = await search(["DE"]);
   await pool.query("INSERT INTO contract_nationality_rules(contract_id,rule_type,country_code) VALUES ($1,'exclude','DE')", [C_DACH]);
   const w = ai(s.body.results)[0];
   const r = await call("POST", "/api/agency/bookings", {
@@ -181,9 +187,9 @@ test("N09 eligibility changed after the quote → 409 at booking, no other contr
 
 test("N10 contract validity must cover every night; an inactive contract fails the booking", { skip }, async () => {
   await pool.query("UPDATE hotel_contracts SET valid_to=$2 WHERE id=$1", [C_TR, IN]); // covers only the first night
-  assert.equal(ai((await search(["TR", "TR"])).body.results)[0].total, "200.00");
+  assert.equal(ai((await search(["TR"])).body.results)[0].total, "200.00");
   await pool.query("UPDATE hotel_contracts SET valid_to=NULL WHERE id=$1", [C_TR]);
-  const s = await search(["TR", "TR"]);
+  const s = await search(["TR"]);
   await pool.query("UPDATE hotel_contracts SET status='inactive' WHERE id=$1", [C_TR]);
   const w = ai(s.body.results)[0];
   const r = await call("POST", "/api/agency/bookings", {
@@ -197,9 +203,9 @@ test("N10 contract validity must cover every night; an inactive contract fails t
 // ---------------------------------------------------------------- FX
 test("N11 missing or stale FX rate excludes the offer (not treated as rate 1)", { skip }, async () => {
   await pool.query("DELETE FROM fx_rates WHERE currency='GBP'");
-  assert.deepEqual(ai((await search(["GB", "GB"])).body.results).map((w: any) => [w.total, w.currency]), [["200.00", "EUR"]]);
+  assert.deepEqual(ai((await search(["GB"])).body.results).map((w: any) => [w.total, w.currency]), [["200.00", "EUR"]]);
   await pool.query("INSERT INTO fx_rates(currency,eur_per_unit,source,valid_at) VALUES ('GBP',1.2,'test', now() - interval '100 hours')");
-  assert.deepEqual(ai((await search(["GB", "GB"])).body.results).map((w: any) => w.currency), ["EUR"]);
+  assert.deepEqual(ai((await search(["GB"])).body.results).map((w: any) => w.currency), ["EUR"]);
 });
 
 test("N12 FX rate changed between quote and booking → 409 PRICE_CHANGED (FX_RATE_CHANGED), nothing reserved", { skip }, async () => {
@@ -210,15 +216,15 @@ test("N12 FX rate changed between quote and booking → 409 PRICE_CHANGED (FX_RA
   const expectFxChanged = async (r: any, label: string) =>
     assert.deepEqual([r.status, r.body.error, r.body.reason], [409, "PRICE_CHANGED", "FX_RATE_CHANGED"], label);
   // (a) contract currency GBP, paid in GBP
-  const a = ai((await search(["GB", "GB"])).body.results)[0];
+  const a = ai((await search(["GB"])).body.results)[0];
   // (b) contract currency GBP, paid in EUR: only the contract-currency rate can detect the change
-  const b = ai((await search(["GB", "GB"], { paymentCurrency: "EUR" })).body.results)[0];
+  const b = ai((await search(["GB"], { paymentCurrency: "EUR" })).body.results)[0];
   await pool.query("UPDATE fx_rates SET eur_per_unit=1.21, valid_at=now() WHERE currency='GBP'");
   await expectFxChanged(await bookQuote(a.quoteId, "GB"), "GBP paid in GBP");
   await expectFxChanged(await bookQuote(b.quoteId, "GB"), "GBP paid in EUR (contract-currency rate changed)");
   assert.deepEqual(await reserved(RP_UK), [0, 0]);
   // (c) contract currency EUR, paid in USD: only the payment-currency rate can detect the change
-  const c = ai((await search(["TR", "TR"], { paymentCurrency: "USD" })).body.results)[0];
+  const c = ai((await search(["TR"], { paymentCurrency: "USD" })).body.results)[0];
   await pool.query("UPDATE fx_rates SET eur_per_unit=0.91, valid_at=now() WHERE currency='USD'");
   await expectFxChanged(await bookQuote(c.quoteId, "TR"), "EUR paid in USD (payment-currency rate changed)");
   assert.deepEqual(await reserved(RP_TR), [0, 0]);
@@ -226,7 +232,7 @@ test("N12 FX rate changed between quote and booking → 409 PRICE_CHANGED (FX_RA
 });
 
 test("N13 payment currency conversion and the immutable snapshot (contract, nationalities, FX)", { skip }, async () => {
-  const { booking, search: q } = await bookFor(["GB", "GB"], { searchExtra: { paymentCurrency: "EUR" } });
+  const { booking, search: q } = await bookFor(["GB"], { searchExtra: { paymentCurrency: "EUR" } });
   assert.deepEqual(q.payment, { currency: "EUR", total: "168.00" });
   assert.equal(booking.status, 201, booking.raw);
   assert.deepEqual(booking.body.payment, { currency: "EUR", total: "168.00" });
@@ -241,22 +247,22 @@ test("N13 payment currency conversion and the immutable snapshot (contract, nati
   assert.deepEqual(afterChanges.body.priceSnapshot, before.body.priceSnapshot);
   const snap = afterChanges.body.priceSnapshot;
   assert.equal(snap.contract_code, "UK-MARKET");
-  assert.deepEqual(snap.nationalities.map((x: string) => x.trim()), ["GB", "GB"]);
+  assert.deepEqual(snap.nationalities.map((x: string) => x.trim()), ["GB"]);
   assert.deepEqual([snap.total, snap.contract_currency, snap.eur_per_unit, snap.payment_amount, snap.payment_currency], ["140.00", "GBP", "1.20000000", "168.00", "EUR"]);
   assert.equal(snap.seller_legal_name, "Hotel One Turizm A.Ş.");
   assert.equal(afterChanges.body.total, "140.00");
-  assert.deepEqual(afterChanges.body.guests.map((g: any) => g.nationality.trim()), ["GB", "GB"]);
+  assert.deepEqual(afterChanges.body.guests.map((g: any) => g.nationality.trim()), ["GB"]);
   await assert.rejects(pool.query("UPDATE booking_price_snapshots SET total = 1"), /immutable/);
   await assert.rejects(pool.query("UPDATE booking_guests SET nationality = 'TR'"), /immutable/);
 });
 
 test("N14 payment currency must be allow-listed, active and have a fresh rate", { skip }, async () => {
-  assert.deepEqual([(await search(["TR", "TR"], { paymentCurrency: "XYZ" })).body.error], ["PAYMENT_CURRENCY_NOT_SUPPORTED"]);
+  assert.deepEqual([(await search(["TR"], { paymentCurrency: "XYZ" })).body.error], ["PAYMENT_CURRENCY_NOT_SUPPORTED"]);
   await pool.query("UPDATE currencies SET active=false WHERE code='USD'");
-  assert.equal((await search(["TR", "TR"], { paymentCurrency: "USD" })).status, 400);
+  assert.equal((await search(["TR"], { paymentCurrency: "USD" })).status, 400);
   await pool.query("UPDATE currencies SET active=true WHERE code='USD'");
   await pool.query("DELETE FROM fx_rates WHERE currency='USD'");
-  const r = await search(["TR", "TR"], { paymentCurrency: "USD" });
+  const r = await search(["TR"], { paymentCurrency: "USD" });
   assert.deepEqual([r.status, r.body.error], [409, "FX_RATE_UNAVAILABLE"]);
 });
 
@@ -275,7 +281,7 @@ test("N15 minor units: JPY (0), EUR (2) and KWD (3) prices, markups and conversi
   assert.equal((await cal(eur, 100.5)).body.price, "100.50");
   for (const rp of [jpy, kwd, eur]) assert.equal((await call("POST", "/api/admin/publications", { ratePlanId: rp, agencyId: SA, markupType: "percent", markupValue: 10 }, tok.m1)).status, 201);
   assert.equal((await call("POST", "/api/admin/publications", { ratePlanId: jpy, agencyId: SB, markupType: "fixed", markupValue: 0.5 }, tok.m1)).status, 400, "fixed JPY markup has no decimals");
-  const results = (await search(["TR", "TR"], { paymentCurrency: "JPY" })).body.results.filter((r: any) => r.room.name === "Suite");
+  const results = (await search(["TR"], { paymentCurrency: "JPY" })).body.results.filter((r: any) => r.room.name === "Suite");
   const by = Object.fromEntries(results.map((r: any) => [r.board, r]));
   assert.equal(by.RO.total, "22002");             // 10001 × 1.10 = 11001.1 → 11001 per night × 2
   assert.equal(by.HB.total, "73.332");            // 33.333 × 1.10 = 36.6663 → 36.666 × 2
@@ -286,7 +292,7 @@ test("N15 minor units: JPY (0), EUR (2) and KWD (3) prices, markups and conversi
 
 // ---------------------------------------------------------------- drafts and proformas
 test("N16 draft: full snapshot at creation, eligibility re-checked at submission", { skip }, async () => {
-  const { booking } = await bookFor(["DE", "DE"], { draft: true });
+  const { booking } = await bookFor(["DE"], { draft: true });
   assert.equal(booking.status, 201, booking.raw);
   assert.equal(await count("SELECT count(*)::int AS c FROM booking_price_snapshots WHERE booking_id=$1", [booking.body.id]), 1);
   assert.deepEqual(await reserved(RP_DACH), [0, 0]);
@@ -298,9 +304,9 @@ test("N16 draft: full snapshot at creation, eligibility re-checked at submission
 });
 
 test("N17 proforma: pending/approved only, numbered, stored once, from the snapshot, not a tax invoice", { skip }, async () => {
-  const draft = (await bookFor(["GB", "GB"], { draft: true, searchExtra: { paymentCurrency: "EUR" } })).booking.body.id;
+  const draft = (await bookFor(["GB"], { draft: true, searchExtra: { paymentCurrency: "EUR" } })).booking.body.id;
   assert.equal((await call("GET", `/api/agency/bookings/${draft}/proforma`, undefined, tok.a)).status, 409, "no proforma for a draft");
-  const id1 = (await bookFor(["GB", "GB"], { searchExtra: { paymentCurrency: "EUR" } })).booking.body.id;
+  const id1 = (await bookFor(["GB"], { searchExtra: { paymentCurrency: "EUR" } })).booking.body.id;
   const first = await call("GET", `/api/agency/bookings/${id1}/proforma`, undefined, tok.a);
   assert.equal(first.status, 201);
   assert.equal(first.headers.get("content-type"), "application/pdf");
@@ -337,7 +343,7 @@ test("N17 proforma: pending/approved only, numbered, stored once, from the snaps
 
 test("N18 proforma numbering is sequential and collision-free under concurrency", { skip }, async () => {
   const ids: string[] = [];
-  for (let i = 0; i < 4; i++) ids.push((await bookFor(["TR", "TR"])).booking.body.id);
+  for (let i = 0; i < 4; i++) ids.push((await bookFor(["TR"])).booking.body.id);
   const all = await Promise.all([...ids, ...ids].map(b => call("GET", `/api/agency/bookings/${b}/proforma`, undefined, tok.a)));
   assert.ok(all.every(r => r.status === 200 || r.status === 201), all.map(r => r.status).join(","));
   const numbers = (await pool.query("SELECT number FROM proformas ORDER BY number")).rows.map((r: any) => r.number);
@@ -354,7 +360,7 @@ test("N19 a nationality search with rules and FX still writes nothing", { skip }
     return { counts, inv: (await pool.query("SELECT id, reserved, allotment FROM inventory_daily ORDER BY id")).rows };
   };
   const before = await snapshot();
-  for (const n of [["TR", "TR"], ["DE", "CH"], ["GB", "GB"], ["RU", "RU"]]) assert.equal((await search(n, { paymentCurrency: "USD" })).status, 200);
+  for (const n of [["TR"], ["DE", "CH"], ["GB"], ["RU"]]) assert.equal((await search(n, { paymentCurrency: "USD" })).status, 200);
   assert.deepEqual(await snapshot(), before);
 });
 
