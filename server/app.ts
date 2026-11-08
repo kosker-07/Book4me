@@ -607,7 +607,7 @@ async function bookingDetail(bookingId: string, scopeSql: string, scopeParams: u
             b.check_in::text, b.check_out::text, b.room_count, b.total, b.currency,
             b.guest_first_name, b.guest_last_name, b.guest_email, b.guest_phone, b.guest_nationality,
             b.adults, b.children, b.child_ages, b.room_occupancies, b.operation_note, b.created_at, b.updated_at,
-            h.name AS hotel_name, h.location AS hotel_location, r.name AS room_name, rp.board_name
+            h.name AS hotel_name, h.location AS hotel_location, r.name AS room_name, rp.board_name, rp.cancellation_policy, rp.payment_terms
        FROM bookings b JOIN hotels h ON h.id = b.hotel_id JOIN agencies a ON a.id = b.agency_id
        JOIN rate_plans rp ON rp.id = b.rate_plan_id JOIN rooms r ON r.id = rp.room_id
       WHERE b.id = $1 AND ${scopeSql}`, [bookingId, ...scopeParams])).rows[0];
@@ -731,6 +731,8 @@ async function sendVoucher(req: AuthedRequest, res: Response, scopeSql: string, 
     bookingNo: b.booking_no, status: b.status, hotelName: b.hotel_name, hotelLocation: b.hotel_location,
     checkIn: b.check_in, checkOut: b.check_out, nights: nightsBetween(b.check_in, b.check_out).length,
     roomName: b.room_name, board: b.board_name, rooms: b.room_count, roomOccupancies: b.room_occupancies,
+        cancellationPolicy: b.cancellation_policy, paymentTerms: b.payment_terms,
+    cancellationPolicy: b.cancellation_policy, paymentTerms: b.payment_terms,
     guestName: `${b.guest_first_name} ${b.guest_last_name}`, adults: b.adults, children: b.children, childAges: b.child_ages,
     nationality: b.guest_nationality, operationNote: b.operation_note, agencyName: b.agency_name, issuedAt: new Date()
   });
