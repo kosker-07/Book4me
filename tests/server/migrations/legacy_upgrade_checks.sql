@@ -20,5 +20,12 @@ BEGIN
     INSERT INTO users(email,password_hash,role,agency_id) VALUES ('bo2@x','x','back_office','11111111-1111-1111-1111-111111111111');
     RAISE EXCEPTION 'back_office with agency was accepted';
   EXCEPTION WHEN check_violation THEN NULL; END;
+  -- 005/006: the legacy rate plan joined its hotel's default general-market contract; money text unchanged
+  IF (SELECT c.code FROM contract_rate_plans crp JOIN hotel_contracts c ON c.id = crp.contract_id
+       WHERE crp.rate_plan_id = '55555555-5555-5555-5555-555555555555') IS DISTINCT FROM 'GENERAL-EUR' THEN
+    RAISE EXCEPTION 'legacy rate plan not attached to the default contract'; END IF;
+  IF (SELECT total::text FROM bookings WHERE booking_no = 'B4B-LEGACY') <> '480.00' THEN
+    RAISE EXCEPTION 'legacy booking total text changed'; END IF;
+  IF (SELECT count(*) FROM contract_nationality_rules) <> 0 THEN RAISE EXCEPTION 'unexpected nationality rules'; END IF;
   RAISE NOTICE 'legacy upgrade checks passed';
 END $$;

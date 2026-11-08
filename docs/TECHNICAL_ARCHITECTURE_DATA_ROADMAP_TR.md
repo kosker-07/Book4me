@@ -1,12 +1,28 @@
 # BED4BOOK — Teknik Mimari, Veri Altyapısı ve Kurulum Yol Haritası
 
 - Belge: Teknik Mimari ve Veri Yol Haritası
-- Sürüm: **2.3** (2.2 + bağımsız denetim bulguları B4B-01…05)
+- Sürüm: **2.4** (2.3 + milliyet bazlı kontrat fiyatlandırması, döviz, proforma, migration çalıştırıcı, audit genişletmesi)
 - Tarih: 07.11.2026
 - Depo: `kosker-07/Book4me`
 - Bağlayıcı kapsam: `docs/BED4BOOK_Teknik_Sartname.md`, `docs/BED4BOOK_Proje_Sartnamesi.md`, `docs/IMPLEMENTATION_PLAN_BED4BOOK_V1.md`
 - Denetim raporu: `docs/reviews/CLAUDE_ARCHITECTURE_ROADMAP_REVIEW.md` (madde kodları bu belgede köşeli parantezle anılır, ör. [A1])
 - Durum: Tasarım + kısmi uygulama. Üretim ortamına kurulmamıştır. **"KARAR VERİLDİ"** maddeler proje sahibi tarafından onaylanmıştır; **"ÖNERİLEN — ONAY BEKLİYOR"** maddeler henüz kesin değildir (bkz. §13).
+
+## Sürüm 2.4'te değişenler
+
+Ayrıntılar: `docs/NATIONALITY_PRICING_TR.md`.
+
+- **A6:** Migration çalıştırıcı (`npm run db:migrate`, `schema_migrations`, SHA-256 değişmezlik kontrolü, elle uygulanmış 001–003 için `--baseline`).
+- **A7:** Audit kayıtlarına önceki/sonraki değer, IP, user-agent, istek kimliği eklendi; tablo yalnız eklenebilir (migration 004).
+- **Para birimi:** 32 para birimi (ISO 4217) ve küsurat basamakları; para sütunlarında en fazla 3 ondalık; kur geçmişi; ECB içe aktarma; 96 saatlik kur geçerliliği (migration 005).
+- **Milliyet bazlı kontratlar** (migration 006):
+  - kontrat, pazar grubu ve uyruk kuralları;
+  - hariç tutma her zaman önce gelir, öncelik yalnız uygunluğu belirler, uygunlar arasında en düşük fiyat kazanır;
+  - bütün misafirler uygun olmalı;
+  - başka pazarın fiyatına geçiş yok.
+- **Quote v2:** kontrat, uyruklar, kurallar ve kur kimliklerini taşır. Rezervasyon ve taslak gönderimi bunları yeniden doğrular; misafir başına uyruk ve değiştirilemez fiyat kaydı yazılır.
+- **Proforma:** bekleyen ve onaylı rezervasyonlar için; numaralı, sürümlü, değiştirilemez; "vergi faturası değildir".
+- **Testler:** 89 test, M1–M24 mutation kontrolü.
 
 ## Sürüm 2.3'te değişenler
 
@@ -558,21 +574,33 @@ Durum sütunu yalnız gerçekten çalıştırılmış testleri "Geçti" olarak g
 | İptal yetkileri | Alt acente yalnız kendi oluşturduğu `draft` (taslak) veya `pending` rezervasyonu iptal eder; taslak iptali kontenjan iadesi yapmaz (taslak kontenjan tüketmemiştir). Onaylı rezervasyonu Back Office veya sistem yöneticisi iptal eder. Ana acentenin iptal yetkisi yoktur. Tekrarlanan iptal kontenjanı artırmaz. | `server/app.ts`, testler `07`, `08`, `11`, `11b`, `12`, `B2` |
 | Zorunlu misafir alanları | Ad, soyad, yetişkin sayısı, çocuk sayısı, çocuk yaşları, e-posta, telefon, uyruk, operasyon notu; backend doğrulaması. | `server/validation.ts`, test `17` |
 
-### 13.2 Açık kararlar (ÖNERİLEN — ONAY BEKLİYOR)
+### 13.2 Milliyet bazlı fiyatlandırma kararları (KARAR VERİLDİ — 08.11.2026)
+
+Proje sahibi değerlendirme raporundaki önerilen seçeneklerin tamamını onayladı. Kararların tam listesi ve uygulama yerleri: `docs/NATIONALITY_PRICING_TR.md` §2.
+
+Özet:
+- Öncelik yalnız uygunluğu belirler; uygunlar arasında en düşük fiyat kazanır.
+- Uyruk zorunludur (pasaport) ve bütün misafirler kontrata uygun olmalıdır.
+- Kontenjan fiyat planı başına kalır.
+- Kur rezervasyonda dondurulur (ECB + onaylı alternatif kaynak; 96 saatlik geçerlilik).
+- Sabit markup kontrat para birimindedir.
+- Proforma bekleyen ve onaylı rezervasyonlar için üretilir.
+- Mevcut rezervasyonlar sonraki değişikliklerden etkilenmez.
+- Kontrat konaklamanın bütün gecelerini kapsamalıdır.
+- 32 para birimi desteklenir; yayın birimi fiyat planı olarak kalır.
+
+### 13.3 Açık kararlar (ÖNERİLEN — ONAY BEKLİYOR)
 
 | # | Karar | Mevcut / uygulanan varsayılan | Öneri |
 |---|---|---|---|
 | 1 | Kontenjan ne zaman düşer? | Talep anında (`pending`); ret/iptalde tek iade | Yalnız Back Office onayı anında |
 | 2 | Backend | PR #2 temeli (Express 5) kullanılıyor | Aynı temelle devam |
-| 3 | Eşdeğerlik anahtarı iptal ve ödeme koşulunu içerir mi? | Evet (uygulandı) | Evet |
-| 5 | Karşılaştırma para birimi ve kur kaynağı | EUR; `fx_rates` tablosu; kaynak alanı zorunlu, kaynak seçimi yapılmadı | EUR; kur kaynağı belirlenmeli |
-| 6 | Eşit fiyatta kazanan | En küçük fiyat planı id (uygulandı) | Aynı veya iş kuralı |
 | 9 | PostgreSQL sürümü ve hosting bölgesi | Testler PostgreSQL 16 ile | PostgreSQL 16; TR veya AB, KVKK değerlendirmesi |
 | 10 | Rebooking/RateRelay | v1 dışı | Ayrı onay |
-| 11 | Pazar / milliyet satış kısıtı (B4B-03) | Veri modelinde yok; eşdeğerlik anahtarında yok; `sales_conditions` içeriği aramada uygulanmaz, yalnız teklifleri ayırır | Fiyat planına yapılandırılmış `markets` alanı + aramada uygunluk filtresi + anahtara ekleme; proje sahibi kararı gerekir |
-| 12 | Acente yayın koşulları (`agency_hotel_sales.agency_conditions`) | Kullanılmıyor; anahtarda yok | Kullanım amacı netleşmeli |
+| 12 | `agency_hotel_sales.agency_conditions` | Kullanılmıyor, fiyatlandırmaya katılmıyor | Kaldırılsın veya amacı tanımlansın |
+| 13 | Para birimi listesi | 32 para birimi (`server/reference.ts`) | Proje sahibi listeyi teyit etmeli |
 
-(4, 7 ve 8 numaralı kararlar 13.1'de kesinleşti.)
+(3, 5, 6 ve 11 numaralı eski açık kararlar 13.2 ile kapandı.)
 
 ## 14. Kaynaklar
 

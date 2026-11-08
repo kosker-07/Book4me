@@ -53,13 +53,11 @@ jobs:
       - run: npm ci
       - name: Install pdftotext (voucher content verification)
         run: sudo apt-get update -q && sudo apt-get install -y -q poppler-utils
-      - name: Apply migrations to a clean database
-        run: |
-          for f in server/migrations/*.sql; do
-            echo "Applying $f"
-            psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -q -f "$f"
-          done
-      - name: Re-apply migrations after 001 (must be idempotent)
+      - name: Apply migrations to a clean database (migration runner)
+        run: npm run db:migrate
+      - name: Second runner pass must apply nothing
+        run: npm run db:migrate | tee runner2.log && grep -q "no pending migrations" runner2.log
+      - name: Re-apply migrations after 001 by hand (files must stay re-runnable)
         run: |
           for f in server/migrations/*.sql; do
             [ "$(basename "$f")" = "001_initial.sql" ] && continue
@@ -71,10 +69,7 @@ jobs:
           psql "$BASE/bed4book_test" -c "CREATE DATABASE bed4book_upgrade"
           psql "$BASE/bed4book_upgrade" -v ON_ERROR_STOP=1 -q -f server/migrations/001_initial.sql
           psql "$BASE/bed4book_upgrade" -v ON_ERROR_STOP=1 -q -f tests/server/migrations/legacy_001_data.sql
-          for f in server/migrations/*.sql; do
-            [ "$(basename "$f")" = "001_initial.sql" ] && continue
-            psql "$BASE/bed4book_upgrade" -v ON_ERROR_STOP=1 -q -f "$f"
-          done
+          DATABASE_URL="$BASE/bed4book_upgrade" npm run db:migrate -- --baseline 001_initial.sql
           psql "$BASE/bed4book_upgrade" -v ON_ERROR_STOP=1 -f tests/server/migrations/legacy_upgrade_checks.sql
           psql "$BASE/bed4book_upgrade" -v ON_ERROR_STOP=1 -q -f tests/server/migrations/drill_v1_data.sql
       - name: Backup → restore drill (and self-test that a tampered restore fails)
@@ -101,10 +96,10 @@ jobs:
         run: |
           BASE="postgres://bed4book:bed4book@localhost:5432"
           psql "$BASE/bed4book_test" -c "CREATE DATABASE bed4book_perf"
-          for f in server/migrations/*.sql; do psql "$BASE/bed4book_perf" -v ON_ERROR_STOP=1 -q -f "$f"; done
+          DATABASE_URL="$BASE/bed4book_perf" npm run db:migrate
           DATABASE_URL="$BASE/bed4book_perf" npx tsx infra/scripts/perf-smoke.ts
 
-  # M1–M18: each mutation must turn its expected test red; files are restored and verified with git diff.
+  # M1–M24: each mutation must turn its expected test red; files are restored and verified with git diff.
   mutation:
     runs-on: ubuntu-latest
     needs: server
