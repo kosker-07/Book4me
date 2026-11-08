@@ -111,7 +111,7 @@ beforeEach(async () => {
 test("N01 nationality is required: missing → 400 NATIONALITY_REQUIRED; wrong count or unknown code → 400", { skip }, async () => {
   const r = await call("POST", "/api/agency/searches", { checkIn: IN, checkOut: OUT, rooms: 1, adults: 2, children: 0, childAges: [], roomOccupancies: [{ adults: 2, children: 0, childAges: [] }] }, tok.a);
   assert.deepEqual([r.status, r.body.error], [400, "NATIONALITY_REQUIRED"]);
-  assert.equal((await search(["TR"], { adults: 2 })).status, 400);
+  assert.equal((await search(["TR"], { adults: 2, roomOccupancies: [{ adults: 2, children: 0, childAges: [] }] })).status, 400);
   assert.equal((await search(["TR", "XX"])).status, 400);
   assert.equal((await search(["TR", "Turkey"])).status, 400);
 });
