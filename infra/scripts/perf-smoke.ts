@@ -42,7 +42,7 @@ async function main() {
     method: "POST", headers: { "content-type": "application/json", ...(token ? { authorization: `Bearer ${token}` } : {}), ...headers }, body: JSON.stringify(body) });
   const token = (await (await post("/api/auth/login", { email: "perf@test.local", password: "perf-password-123" })).json()).token;
   const day = (o: number) => new Date(Date.now() + o * 86400000).toISOString().slice(0, 10);
-  const stay = (i: number) => ({ checkIn: day(31 + (i % 20)), checkOut: day(34 + (i % 20)), rooms: 1, adults: 2, children: 0, childAges: [], nationalities: ["TR", "DE"] });
+  const stay = (i: number) => ({ checkIn: day(31 + (i % 20)), checkOut: day(34 + (i % 20)), rooms: 1, adults: 2, children: 0, childAges: [], roomOccupancies: [{ adults: 2, children: 0, childAges: [] }], nationalities: ["TR"] });
 
   const searchMs: number[] = []; let results = 0;
   for (let w = 0; w < SEARCHES / CONCURRENCY; w++)
@@ -59,7 +59,7 @@ async function main() {
   for (let w = 0; w < 5; w++)
     await Promise.all(first.slice(w * 10, w * 10 + 10).map(async (q: any) => {
       const t = performance.now();
-      const r = await post("/api/agency/bookings", { quoteId: q.quoteId, guest, otherGuests: [{ firstName: "R", lastName: "S", type: "adult", nationality: "DE" }], operationNote: "perf" }, token, { "Idempotency-Key": randomUUID() });
+      const r = await post("/api/agency/bookings", { quoteId: q.quoteId, guest, otherGuests: [{ firstName: "R", lastName: "S", type: "adult", nationality: "TR" }], operationNote: "perf" }, token, { "Idempotency-Key": randomUUID() });
       bookMs.push(performance.now() - t);
       if (r.status !== 201) throw new Error(`booking failed ${r.status}`);
     }));
