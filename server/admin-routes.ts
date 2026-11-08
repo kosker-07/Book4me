@@ -342,6 +342,22 @@ adminRouter.get("/api/admin/agencies", ...managers, h(async (req, res) => {
   res.json({ items: result.rows });
 }));
 
+adminRouter.get("/api/admin/agencies/:id", ...managers, h(async (req, res) => {
+  const agency = await hierarchyAgency(req, uuidParam(req));
+  res.json(agency);
+}));
+
+adminRouter.get("/api/admin/users/:id", ...managers, h(async (req, res) => {
+  const id = uuidParam(req);
+  const user = (await pool.query("SELECT id, email, role, agency_id, active FROM users WHERE id = $1", [id])).rows[0];
+  if (!user) throw httpError(404, "NOT_FOUND");
+  if (req.auth!.role === "master_agency") {
+    if (!user.agency_id) throw httpError(404, "NOT_FOUND");
+    await hierarchyAgency(req, user.agency_id, true);
+  }
+  res.json(user);
+}));
+
 adminRouter.get("/api/admin/users", ...managers, h(async (req, res) => {
   const result = await pool.query(
     `SELECT u.id, u.email, u.role, u.agency_id, u.active FROM users u

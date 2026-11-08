@@ -177,7 +177,7 @@ async function loadCandidates(db: { query: PoolClient["query"] }, agencyId: stri
             AND (hc.valid_from IS NULL OR hc.valid_from <= $2::date) AND (hc.valid_to IS NULL OR hc.valid_to >= $3::date - 1)
        JOIN rooms r ON r.id = rp.room_id AND r.active
        JOIN hotels h ON h.id = r.hotel_id AND h.status = 'active'
-       JOIN agencies oa ON oa.id = h.owner_agency_id AND oa.active
+       JOIN agencies oa ON oa.id = h.owner_agency_id AND oa.active AND sa.parent_agency_id = oa.id
        JOIN inventory_daily d ON d.rate_plan_id = rp.id
             AND d.stay_date >= $2::date AND d.stay_date < $3::date AND d.allotment - d.reserved >= $4
       WHERE s.agency_id = $1 AND s.active
