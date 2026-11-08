@@ -108,6 +108,19 @@ beforeEach(async () => {
 });
 
 // ---------------------------------------------------------------- eligibility and lowest price
+test("N00 payment currency and market baselines for one family nationality", { skip }, async () => {
+  for (const nat of ["TR", "DE", "GB", "RU"]) {
+    const s = await search([nat], { paymentCurrency: "USD" });
+    assert.equal(s.status, 200, `${nat}: ${s.raw}`);
+  }
+  assert.equal(ai((await search(["DE"])).body.results)[0].total, "160.00");
+  await pool.query("UPDATE inventory_daily SET price=50 WHERE rate_plan_id=$1", [RP_GEN]);
+  assert.equal(ai((await search(["TR"])).body.results)[0].total, "100.00");
+  await pool.query("UPDATE inventory_daily SET price=100 WHERE rate_plan_id=$1", [RP_GEN]);
+  await pool.query("INSERT INTO contract_nationality_rules(contract_id,rule_type,country_code) VALUES ($1,'exclude','GB')", [C_UK]);
+  assert.deepEqual(ai((await search(["GB"])).body.results).map((w: any) => [w.total, w.currency]), [["200.00", "EUR"]]);
+});
+
 test("N01 nationality is required: missing → 400 NATIONALITY_REQUIRED; wrong count or unknown code → 400", { skip }, async () => {
   const r = await call("POST", "/api/agency/searches", { checkIn: IN, checkOut: OUT, rooms: 1, adults: 2, children: 0, childAges: [], roomOccupancies: [{ adults: 2, children: 0, childAges: [] }] }, tok.a);
   assert.deepEqual([r.status, r.body.error], [400, "NATIONALITY_REQUIRED"]);
