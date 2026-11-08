@@ -416,15 +416,13 @@ app.post("/api/agency/bookings", authenticate, roles("sub_agency"), requireAgenc
   const q = checked.quote;
   if (q.agencyId !== agencyId) return res.status(404).json({ error: "PRODUCT_NOT_PUBLISHED" });
   const sameAges = [...childAges].sort((a, b) => a - b).join(",") === [...q.childAges].sort((a, b) => a - b).join(",");
+  const quoteRooms = q.roomOccupancies;
+  const quoteAdults = quoteRooms.reduce((sum, room) => sum + room.adults, 0);
+  const quoteChildren = quoteRooms.reduce((sum, room) => sum + room.children, 0);
+  const quoteAges = quoteRooms.flatMap(room => room.childAges).sort((a, b) => a - b);
   if (adults !== q.adults || children !== q.children || !sameAges ||
-      !Array.isArray(req.body.roomOccupancies) ||
-      req.body.roomOccupancies.length !== q.roomOccupancies.length ||
-      !q.roomOccupancies.every((room, i) => {
-        const given = req.body.roomOccupancies[i];
-        return given && room.adults === given.adults && room.children === given.children &&
-          Array.isArray(given.childAges) &&
-          [...room.childAges].sort((a, b) => a - b).join(",") === [...given.childAges].sort((a, b) => a - b).join(",");
-      }))
+      quoteRooms.length !== q.rooms || quoteAdults !== adults || quoteChildren !== children ||
+      quoteAges.join(",") !== [...childAges].sort((a, b) => a - b).join(","))
     return res.status(409).json({ error: "QUOTE_OCCUPANCY_MISMATCH" });
   const nationalities = [guest.nationality, ...otherGuests.map(g => g.nationality)].sort();
   if (nationalities.join(",") !== [...q.nationalities].sort().join(","))
@@ -515,7 +513,7 @@ app.post("/api/agency/bookings/:id/submit", authenticate, roles("sub_agency"), r
       const b = (await client.query(
         `UPDATE bookings SET status = 'pending', submitted_at = now(), updated_at = now()
           WHERE id = $1 AND agency_id = $2 AND status = 'draft'
-        RETURNING rate_plan_id, check_in::text AS check_in, check_out::text AS check_out, room_count, quoted_total::text AS quoted_total, currency, adults, children`,
+        RETURNING rate_plan_id, check_in::text AS check_in, check_out::text AS check_out, room_count, quoted_total::text AS quoted_total, currency, adults, children, room_occupancies`,
         [bookingId, agencyId])).rows[0];
       if (!b) {
         const own = await client.query("SELECT status FROM bookings WHERE id=$1 AND agency_id=$2", [bookingId, agencyId]);
@@ -528,7 +526,13 @@ app.post("/api/agency/bookings/:id/submit", authenticate, roles("sub_agency"), r
       if (!snap) throw httpError(409, "DRAFT_REQUIRES_NEW_QUOTE"); // draft created before nationality pricing existed
       const sale = await publishedSale(client, agencyId, b.rate_plan_id);
       if (sale.currency !== String(b.currency).trim()) throw httpError(409, "PRICE_CHANGED");
-      if (b.adults > sale.maxAdults * b.room_count || b.children > sale.maxChildren * b.room_count) throw httpError(409, "OCCUPANCY_EXCEEDS_CAPACITY");
+      if (Array.isArray(b.room_occupancies) && b.room_occupancies.length === b.room_count) {
+        if (!b.room_occupancies.every((room: { adults: number; children: number }) => room.adults <= sale.maxAdults && room.children <= sale.maxChildren))
+          throw httpError(409, "OCCUPANCY_EXCEEDS_CAPACITY");
+      } else if (b.adults > sale.maxAdults * b.room_count || b.children > sale.maxChildren * b.room_count) {
+        // Legacy drafts have no per-room distribution; preserve the historical aggregate check.
+        throw httpError(409, "OCCUPANCY_EXCEEDS_CAPACITY");
+      }
       await revalidateContract(client, sale, snap.contract_id, b.check_in, b.check_out, (snap.nationalities as string[]).map(x => x.trim()));
       await revalidateFx(client, sale.currency, snap.fx_rate_history_id === null ? null : Number(snap.fx_rate_history_id),
                          String(snap.payment_currency).trim(), snap.payment_fx_rate_history_id === null ? null : Number(snap.payment_fx_rate_history_id));
