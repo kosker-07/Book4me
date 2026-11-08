@@ -1,3 +1,4 @@
+import { VALID_TERMS } from "./fixtures/rate-plan-terms";
 // End-to-end v1 flows through the HTTP API only (management → publication → search → booking → Back Office
 // → voucher), drafts, management authorization, vouchers, login hardening and the admin CLI.
 // Required: DATABASE_URL pointing to a THROWAWAY database (every test truncates all tables).
@@ -81,7 +82,7 @@ async function setupViaApi() {
   assert.equal(hotel.status, 201, JSON.stringify(hotel.body));
   const room = await call("POST", `/api/admin/hotels/${hotel.body.id}/rooms`, { name: "Standart Oda", maxAdults: 2, maxChildren: 2 }, t.m1);
   assert.equal(room.status, 201, JSON.stringify(room.body));
-  const rp = await call("POST", `/api/admin/rooms/${room.body.id}/rate-plans`, { boardName: "Her Şey Dahil", currency: "EUR", cancellationPolicy: { freeUntilDays: 7 } }, t.m1);
+  const rp = await call("POST", `/api/admin/rooms/${room.body.id}/rate-plans`, { boardName: "Her Şey Dahil", currency: "EUR", ...VALID_TERMS }, t.m1);
   assert.equal(rp.status, 201, JSON.stringify(rp.body));
   const cal = await call("PUT", `/api/admin/rate-plans/${rp.body.id}/calendar`, { dateFrom: D1, dateTo: D3, price: 100, allotment: 3 }, t.m1);
   assert.equal(cal.status, 200, JSON.stringify(cal.body));
@@ -199,7 +200,7 @@ test("C1 management: master agency manages only its own hotels; sub-agency has n
     ["GET", `/api/admin/hotels/${s.hotelId}`, {}],
     ["POST", `/api/admin/hotels/${s.hotelId}/rooms`, { name: "X", maxAdults: 2, maxChildren: 0 }],
     ["PATCH", `/api/admin/rooms/${s.roomId}`, { active: false }],
-    ["POST", `/api/admin/rooms/${s.roomId}/rate-plans`, { boardName: "BB", currency: "EUR" }],
+    ["POST", `/api/admin/rooms/${s.roomId}/rate-plans`, { boardName: "BB", currency: "EUR", ...VALID_TERMS }],
     ["PATCH", `/api/admin/rate-plans/${s.ratePlanId}`, { active: false }],
     ["PUT", `/api/admin/rate-plans/${s.ratePlanId}/calendar`, { dateFrom: D1, dateTo: D1, price: 1, allotment: 1 }],
     ["PATCH", `/api/admin/publications/${s.publicationId}`, { active: false }]
