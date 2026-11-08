@@ -19,7 +19,7 @@
 |---|---|---|
 | 1 | Öncelik sırası yalnız **uygunluğu** belirler; uygunlar arasında en düşük fiyat kazanır | `server/eligibility.ts`, `server/pricing.ts` |
 | 2 | Uyruk eksikse aramada **400 `NATIONALITY_REQUIRED`** | `POST /api/agency/searches` |
-| 3 | Karma milliyet: **bütün misafirler** (çocuklar dahil) kontrata uygun olmalı | `evaluateContract` |
+| 3 | **Tek aile milliyeti:** tüm yetişkinler ve çocuklar için aramada seçilen tek milliyet kontrata uygun olmalı | `evaluateContract` |
 | 4 | Kontenjan **fiyat planı başına** kalır (sözleşme kontenjanı); fiziksel stok sorumluluğu otelindir | Şema değişmedi |
 | 5 | Kur **rezervasyon anında** dondurulur; quote'taki kur id'si yeniden doğrulanır. En fazla 96 saatlik kur kullanılır (`FX_MAX_AGE_HOURS`) | `server/fx.ts`, `revalidateFx` |
 | 6 | Sabit markup **kontrat para biriminde** | `nightlySellMinor` |
@@ -29,7 +29,7 @@
 | 10 | Kontenjan düşüm anı **talep anında** kalır (bu iş kapsamında değiştirilmedi) | `reserveNights` |
 | 11 | Milliyet fiyatı ve proforma **Faz 1 kapsamına** alındı | — |
 | 12 | Uyruk = **pasaport vatandaşlığı** | API alan açıklamaları |
-| 13 | Çifte vatandaşlık: rezervasyonda **seçilen tek pasaport** | Misafir başına tek uyruk |
+| 13 | Çifte vatandaşlık: rezervasyonda **seçilen tek pasaport** | Aile başına tek uyruk |
 | 15 | Bir kontrat konaklamanın **bütün gecelerini** kapsamalı; geceler kontratlar arasında bölünmez | `valid_from`/`valid_to` kontrolü |
 | 17 | Taslak oluşturulurken **tam fiyat kaydı** yazılır; gönderimde kontrat, uygunluk, kur ve fiyat yeniden doğrulanır | `POST /api/agency/bookings/{id}/submit` |
 | Y1 | 32 para birimi (ISO 4217), 3 ondalıklılar dahil (KWD, BHD, OMR, JOD) | Migration 005 |
@@ -70,7 +70,7 @@ Fiyatın tek kaynağı değişmedi:
 
 Akış sırası:
 1. Kontrat
-2. Misafir uyrukları
+2. Aile milliyeti
 3. Uygunluk
 4. Tarih ve oda müsaitliği
 5. Kontrat net fiyatı
@@ -90,7 +90,7 @@ Akış sırası:
 
 Daha özel bir kontrat, daha ucuz genel kontratı geçersiz kılmaz. Otel bir pazarın yalnız kendi özel fiyatını görmesini istiyorsa, o pazarı genel kontrattan açıkça hariç tutmalıdır.
 
-**Eşdeğerlik anahtarı:** otel, oda, pansiyon, iptal, ödeme, satış koşulları, doluluk, tarihler, oda sayısı ve uyruk kümesi. Kontrat anahtarda yer almaz; uygun kontratlar birbiriyle yarışır.
+**Eşdeğerlik anahtarı:** otel, oda, pansiyon, iptal, ödeme, satış koşulları, doluluk, tarihler, oda sayısı ve tek aile milliyeti. Kontrat anahtarda yer almaz; uygun kontratlar birbiriyle yarışır.
 
 ## 5. API
 
@@ -98,16 +98,16 @@ Daha özel bir kontrat, daha ucuz genel kontratı geçersiz kılmaz. Otel bir pa
 
 ```json
 { "checkIn": "2026-12-01", "checkOut": "2026-12-03", "rooms": 1, "adults": 2, "children": 1, "childAges": [7],
-  "nationalities": ["TR", "DE", "TR"], "paymentCurrency": "EUR" }
+  "roomOccupancies": [{ "adults": 2, "children": 1, "childAges": [7] }], "nationalities": ["TR"], "paymentCurrency": "EUR" }
 ```
 
 **Alanlar:**
-- `nationalities`: misafir başına bir pasaport uyruğu.
+- `nationalities`: ailedeki bütün yetişkin ve çocuklar için **tek** pasaport milliyeti (`["TR"]`).
 - `paymentCurrency`: isteğe bağlı; verilmezse kontrat para birimi kullanılır.
 
 **Hatalar:**
 - `400 NATIONALITY_REQUIRED`
-- `400 VALIDATION_FAILED` (`nationalities`: `ONE_NATIONALITY_PER_GUEST` veya `ISO_3166_ALPHA2_REQUIRED`)
+- `400 VALIDATION_FAILED` (`nationalities`: `ONE_NATIONALITY_PER_FAMILY` veya `ISO_3166_ALPHA2_REQUIRED`)
 - `400 PAYMENT_CURRENCY_NOT_SUPPORTED`
 - `409 FX_RATE_UNAVAILABLE`
 
@@ -118,12 +118,12 @@ Daha özel bir kontrat, daha ucuz genel kontratı geçersiz kılmaz. Otel bir pa
 ```json
 { "quoteId": "q2....", "guest": { "firstName": "...", "lastName": "...", "adults": 2, "children": 1, "childAges": [7],
   "email": "...", "phone": "...", "nationality": "TR" },
-  "otherGuests": [ { "firstName": "...", "lastName": "...", "type": "adult", "nationality": "DE" },
-                   { "firstName": "...", "lastName": "...", "type": "child", "age": 7, "nationality": "TR" } ],
+  "otherGuests": [ { "firstName": "...", "lastName": "...", "type": "adult" },
+                   { "firstName": "...", "lastName": "...", "type": "child", "age": 7 } ],
   "operationNote": "...", "draft": false }
 ```
 
-**Alanlar:** `otherGuests`, ana misafir dışındaki herkesi içerir.
+**Alanlar:** `otherGuests`, ana misafir dışındaki herkesi içerir. Diğer misafirlerin milliyeti isteğe bağlıdır; fiyat ve kontrat kararını etkilemez. Kayıtta tüm misafirlere imzalı teklifle eşleşen aile milliyeti uygulanır.
 
 **Yeniden doğrulama hataları (hepsi 409, başka teklif denenmez):**
 - `QUOTE_NATIONALITY_MISMATCH`
@@ -231,3 +231,4 @@ Mevcut tarayıcı arayüzü henüz bu API'ye bağlı değil. Aşağıdakiler uyg
 | Boş veritabanı, runner ikinci geçiş, elle tekrar uygulama, 001'den yükseltme | Geçti |
 | Yedek → geri yükleme tatbikatı (yeni tablolar dahil) | `RESTORE DRILL PASSED` |
 | Performans | Arama p95 186 ms, rezervasyon p95 54 ms (yerel, 4 vCPU) |
+\n## Aile milliyeti kuralı (ürün sahibi kararı)\n\nAramada seçilen tek ISO 3166-1 alpha-2 milliyet bütün aile için geçerlidir; yetişkin, çocuk ve oda sayısı bunu değiştirmez. Kontrat uygunluğu, hariç tutma/dahil etme ve fiyat seçimi backend tarafından yalnızca bu kodla hesaplanır. Ana misafir milliyeti imzalı teklifteki aile milliyetinden farklıysa `409 QUOTE_NATIONALITY_MISMATCH` döner. Diğer misafirlerde milliyet boş bırakılabilir; kayıtta aile milliyeti kullanılır. Oda bazında kapasite kontrolleri ayrıca zorunludur. Çoklu milliyet dizisi `400 VALIDATION_FAILED` ve `ONE_NATIONALITY_PER_FAMILY` ile reddedilir.\n
