@@ -203,15 +203,26 @@ test("N11 missing or stale FX rate excludes the offer (not treated as rate 1)", 
 });
 
 test("N12 FX rate changed between quote and booking → 409 PRICE_CHANGED (FX_RATE_CHANGED), nothing reserved", { skip }, async () => {
-  const s = await search(["GB", "GB"]);
-  await pool.query("UPDATE fx_rates SET eur_per_unit=1.21, valid_at=now() WHERE currency='GBP'");
-  const w = ai(s.body.results)[0];
-  const r = await call("POST", "/api/agency/bookings", {
-    quoteId: w.quoteId, guest: { firstName: "L", lastName: "G", adults: 2, children: 0, childAges: [], email: "l@example.com", phone: "+90 555 000 11 22", nationality: "GB" },
-    otherGuests: [{ firstName: "X", lastName: "G", type: "adult", nationality: "GB" }], operationNote: "n"
+  const bookQuote = (quoteId: string, nat: string) => call("POST", "/api/agency/bookings", {
+    quoteId, guest: { firstName: "L", lastName: "G", adults: 2, children: 0, childAges: [], email: "l@example.com", phone: "+90 555 000 11 22", nationality: nat },
+    otherGuests: [{ firstName: "X", lastName: "G", type: "adult", nationality: nat }], operationNote: "n"
   }, tok.a, { "Idempotency-Key": randomUUID() });
-  assert.deepEqual([r.status, r.body.error, r.body.reason], [409, "PRICE_CHANGED", "FX_RATE_CHANGED"]);
+  const expectFxChanged = async (r: any, label: string) =>
+    assert.deepEqual([r.status, r.body.error, r.body.reason], [409, "PRICE_CHANGED", "FX_RATE_CHANGED"], label);
+  // (a) contract currency GBP, paid in GBP
+  const a = ai((await search(["GB", "GB"])).body.results)[0];
+  // (b) contract currency GBP, paid in EUR: only the contract-currency rate can detect the change
+  const b = ai((await search(["GB", "GB"], { paymentCurrency: "EUR" })).body.results)[0];
+  await pool.query("UPDATE fx_rates SET eur_per_unit=1.21, valid_at=now() WHERE currency='GBP'");
+  await expectFxChanged(await bookQuote(a.quoteId, "GB"), "GBP paid in GBP");
+  await expectFxChanged(await bookQuote(b.quoteId, "GB"), "GBP paid in EUR (contract-currency rate changed)");
   assert.deepEqual(await reserved(RP_UK), [0, 0]);
+  // (c) contract currency EUR, paid in USD: only the payment-currency rate can detect the change
+  const c = ai((await search(["TR", "TR"], { paymentCurrency: "USD" })).body.results)[0];
+  await pool.query("UPDATE fx_rates SET eur_per_unit=0.91, valid_at=now() WHERE currency='USD'");
+  await expectFxChanged(await bookQuote(c.quoteId, "TR"), "EUR paid in USD (payment-currency rate changed)");
+  assert.deepEqual(await reserved(RP_TR), [0, 0]);
+  assert.equal(await count("SELECT count(*)::int AS c FROM bookings"), 0);
 });
 
 test("N13 payment currency conversion and the immutable snapshot (contract, nationalities, FX)", { skip }, async () => {

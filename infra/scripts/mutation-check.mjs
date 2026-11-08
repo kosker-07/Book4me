@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Mutation check M1–M23: each mutation temporarily injects a known defect, runs `npm run test:server` and
+// Mutation check M1–M24: each mutation temporarily injects a known defect, runs `npm run test:server` and
 // verifies that the expected tests turn red. The source file is restored after every mutation (also on
 // Ctrl-C / crash) and `git diff --quiet` proves it is byte-identical to the committed version.
 //
@@ -68,8 +68,10 @@ const M = [
   { id: "M22", what: "Proforma güncel kurla yeniden çevirsin", expect: ["N17"], edits: [["server/app.ts",
     "            payment_currency, payment_amount::text AS payment_amount, payment_eur_per_unit::text AS payment_eur_per_unit",
     "            payment_currency, round(total * coalesce((SELECT f.eur_per_unit FROM fx_rates f WHERE f.currency = contract_currency), 1) / payment_eur_per_unit, 2)::text AS payment_amount, payment_eur_per_unit::text AS payment_eur_per_unit"]] },
-  { id: "M23", what: "Rezervasyonda kur değişimini kontrol etme", expect: ["N12"], edits: [["server/app.ts",
-    "  if (!contract || contract.historyId !== fxRateId) throw httpError(409, \"PRICE_CHANGED\", { reason: \"FX_RATE_CHANGED\" });", ""]] }
+  { id: "M23", what: "Rezervasyonda kontrat para birimi kur değişimini kontrol etme", expect: ["N12"], edits: [["server/app.ts",
+    "  if (!contract || contract.historyId !== fxRateId) throw httpError(409, \"PRICE_CHANGED\", { reason: \"FX_RATE_CHANGED\" });", ""]] },
+  { id: "M24", what: "Rezervasyonda ödeme para birimi kur değişimini kontrol etme", expect: ["N12"], edits: [["server/app.ts",
+    "  if (!payment || payment.historyId !== paymentFxRateId) throw httpError(409, \"PRICE_CHANGED\", { reason: \"FX_RATE_CHANGED\" });", ""]] }
 ];
 
 const args = process.argv.slice(2);
