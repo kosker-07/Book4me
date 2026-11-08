@@ -43,11 +43,150 @@ function renderOffers(initial=''){const root=$('searchResults');root.replaceChil
 function policy(x){return typeof x==='string'?x: x===null||x===undefined?'Belirtilmemiş':JSON.stringify(x)}
 function offerDetail(o){clear();const box=el('div',{},[node('h2',o.hotel?.name||'Otel'),node('p','Oda: '+String(o.room?.name||'')+' · '+String(o.board||'')),node('p','İptal: '+policy(o.cancellationPolicy)),node('p','Ödeme: '+policy(o.paymentTerms)),node('p','Toplam: '+money(o.total,o.currency))]);for(const n of o.nights||[])box.append(node('p',dateTR(n.date)+' · '+money(n.price,o.currency)));if(o.fx)box.append(node('p','Kur: '+policy(o.fx)));box.append(btn('Rezervasyona geç',()=>bookingForm(o),true,'book-button'),btn('Aramaya dön',()=>go('search')));view().append(card('Teklif ayrıntıları',box))}
 function bookingForm(o){quote=o;bookingKey=crypto.randomUUID();clear();const form=el('form',{}),guestFields=el('div',{cls:'fields'});for(const [label,key,type] of [['Ad','firstName','text'],['Soyad','lastName','text'],['E-posta','email','email'],['Telefon','phone','tel'],['Aile milliyeti (ISO)','nationality','text']])guestFields.append(field(label,key,type,key==='nationality'?searchRequest.nationalities[0]:'','guest-'+key));const extras=el('div',{cls:'grid'});const other=[];for(let i=1;i<searchRequest.adults;i++)other.push({type:'adult',age:null});for(const age of searchRequest.childAges)other.push({type:'child',age});other.forEach((g,i)=>{const section=el('div',{cls:'room'},[node('h3',(g.type==='adult'?'Yetişkin ':'Çocuk ')+(i+1)),field('Ad','firstName','text','','guest-other-'+i+'-firstName'),field('Soyad','lastName','text','','guest-other-'+i+'-lastName'),node('p','Aile milliyeti aramada seçildi.','muted')]);extras.append(section)});const note=field('Operasyon notu','operationNote','textarea','','guest-operationNote');const submit=el('button',{text:'Rezervasyonu oluştur',cls:'primary',type:'submit',testid:'booking-submit'}),draft=btn('Taslak oluştur',()=>{form.dataset.draft='true';form.requestSubmit()},false,'submit-draft-button');form.append(node('p','Toplam: '+money(o.total,o.currency)),guestFields,node('h2','Diğer misafirler'),extras,note,el('div',{cls:'actions'},[submit,draft]));form.onsubmit=async e=>{e.preventDefault();const f=new FormData(form),lead={firstName:f.get('firstName'),lastName:f.get('lastName'),email:f.get('email'),phone:f.get('phone'),nationality:String(f.get('nationality')||'').toUpperCase(),adults:searchRequest.adults,children:searchRequest.children,childAges:searchRequest.childAges},otherGuests=[...extras.children].map((section,i)=>{const inputs=section.querySelectorAll('input');return {...other[i],firstName:inputs[0].value,lastName:inputs[1].value,nationality:lead.nationality}});if(!/^[A-Z]{2}$/.test(lead.nationality)||lead.nationality!==searchRequest.nationalities[0])return message('Aile milliyeti aramada seçilen milliyetle aynı olmalı.');submit.disabled=true;try{const result=await api('/api/agency/bookings',{method:'POST',headers:{'Idempotency-Key':bookingKey},body:{quoteId:o.quoteId,guest:lead,otherGuests,operationNote:f.get('operationNote'),draft:form.dataset.draft==='true'}});message('Rezervasyon isteği alındı.');bookingKey=null;go('bookings')}catch(err){fail(err);if(['PRICE_CHANGED','ALLOTMENT_UNAVAILABLE','QUOTE_EXPIRED'].includes(err.code))message('Fiyat veya kontenjan değişti. Lütfen yeniden arama yapın.')}finally{submit.disabled=false;delete form.dataset.draft}};view().append(card('Rezervasyon bilgileri',form))}
-async function hotels(){const data=await api('/api/backoffice/hotels');const items=Array.isArray(data.items)?data.items:[];const box=el('div');for(const h of items){box.append(el('div',{cls:'room'},[node('h3',h.name),node('p',h.location+' · '+h.status),btn('Otel detayı',()=>hotelDetail(h.id))]))}view().append(card('Oteller · API kayıtları',box));view().append(card('Yeni otel',adminForm('/api/admin/hotels','POST',[['Otel adı','name'],['Lokasyon','location'],['Sahip ana acente UUID','ownerAgencyId']],()=>go('hotels'))))}
-async function hotelDetail(id){const data=await api('/api/admin/hotels/'+encodeURIComponent(id));clear();view().append(card('Otel detayı',el('div',{},[node('h2',data.name||id),node('p',data.location||''),node('p','Durum: '+String(data.status||''))])));const contracts=await api('/api/admin/hotels/'+encodeURIComponent(id)+'/contracts');view().append(card('Kontratlar',el('div',{},(contracts.items||[]).map(c=>el('div',{cls:'room'},[node('p',String(c.name||c.code||c.id)),btn('Detay',()=>contractDetail(c.id))])))));view().append(card('Yeni kontrat',adminForm('/api/admin/hotels/'+id+'/contracts','POST',[['Kontrat kodu','code'],['Kontrat adı','name'],['Para birimi (ISO)','currency'],['Satıcı yasal unvanı','sellerLegalName']],()=>hotelDetail(id))))}
-async function contractDetail(id){const data=await api('/api/admin/contracts/'+encodeURIComponent(id));clear();view().append(card('Kontrat',node('pre',JSON.stringify(data,null,2))))}
-async function markets(){const data=await api('/api/admin/market-groups');view().append(card('Pazar grupları',el('div',{},(data.items||[]).map(x=>el('div',{cls:'room'},[node('h3',x.name),node('p',(x.countries||[]).join(', '))])))))}
-async function currencies(){const [currencies,rates]=await Promise.all([api('/api/admin/currencies'),api('/api/admin/fx-rates')]);view().append(card('Para birimleri',el('div',{},(currencies.items||[]).map(x=>node('p',x.code+' · '+x.name+' · '+(x.active?'Aktif':'Pasif'))))));view().append(card('Kurlar',el('div',{},(rates.items||[]).map(x=>node('p',x.currency+' · EUR/birim '+x.eur_per_unit+' · '+x.source)))))}
+const statusTR={draft:'Taslak',pending:'Bekliyor',approved:'Onaylandı',rejected:'Reddedildi',cancelled:'İptal edildi',active:'Aktif',inactive:'Pasif'};
+const selectField=(label,name,options,value='')=>el('label',{},[node('span',label),el('select',{name},options.map(([v,t])=>el('option',{value:v,text:t,selected:String(v)===String(value)})))]);
+const formValues=form=>Object.fromEntries(new FormData(form));
+function editor(title,url,method,fields,done,transform=x=>x){
+ const form=el('form');
+ for(const spec of fields){
+  const [label,name,type='text',value='']=spec;
+  form.append(type==='select'?selectField(label,name,value.options,value.selected):field(label,name,type,value));
+ }
+ form.append(el('button',{text:'Kaydet',type:'submit',cls:'primary'}));
+ form.onsubmit=async ev=>{ev.preventDefault();const raw=formValues(form);try{await api(url,{method,body:transform(raw)});message('Kaydedildi.');await done()}catch(err){fail(err)}};
+ return card(title,form);
+}
+const numKeys=(...keys)=>raw=>{for(const key of keys)if(raw[key]!==undefined)raw[key]=Number(raw[key]);return raw};
+const choice=(label,name,rows,selected='')=>[label,name,'select',{options:rows,selected}];
+const askInline=(title,action)=>{
+ const root=el('div',{cls:'notice'},[node('p',title)]);
+ const controls=el('div',{cls:'actions'},[btn('Onayla',async()=>{try{await action();root.remove()}catch(e){fail(e)}},true),btn('Vazgeç',()=>root.remove())]);
+ root.append(controls);view().prepend(root);
+};
+async function hotels(){
+ const data=await api('/api/backoffice/hotels'),items=data.items||[];
+ const list=el('div');
+ for(const h of items)list.append(el('div',{cls:'room'},[node('h3',h.name),node('p',h.location+' · '+(statusTR[h.status]||h.status)),btn('Otel yönetimi',()=>hotelDetail(h.id))]));
+ view().append(card('Oteller',list));
+ if(session.user?.role==='system_admin'){
+  const agencies=(await api('/api/admin/agencies')).items.filter(a=>a.type==='master');
+  view().append(editor('Yeni otel','/api/admin/hotels','POST',[
+   ['Otel adı','name'],['Konum','location'],choice('Sahip ana acente','ownerAgencyId',agencies.map(a=>[a.id,a.name]))
+  ],()=>go('hotels')));
+ }
+}
+async function hotelDetail(id){
+ const h=await api('/api/admin/hotels/'+encodeURIComponent(id));
+ clear();
+ view().append(btn('Otellere dön',()=>go('hotels')));
+ view().append(editor('Otel bilgilerini düzenle','/api/admin/hotels/'+id,'PATCH',[
+  ['Otel adı','name','text',h.name],['Konum','location','text',h.location],
+  choice('Durum','status',[['draft','Taslak'],['active','Aktif'],['inactive','Pasif']],h.status)
+ ],()=>hotelDetail(id)));
+ const rooms=h.rooms||[],plans=h.ratePlans||[],publications=h.publications||[];
+ for(const room of rooms){
+  const section=el('div',{cls:'room'},[node('h3',room.name+' · '+room.max_adults+' yetişkin / '+room.max_children+' çocuk')]);
+  section.append(btn('Odayı düzenle',()=>{clear();view().append(editor('Oda düzenle','/api/admin/rooms/'+room.id,'PATCH',[
+   ['Oda adı','name','text',room.name],['Yetişkin kapasitesi','maxAdults','number',room.max_adults],
+   ['Çocuk kapasitesi','maxChildren','number',room.max_children]
+  ],()=>hotelDetail(id),numKeys('maxAdults','maxChildren')))},false));
+  section.append(btn('Fiyat planı ekle',()=>ratePlanCreate(id,room),false));
+  for(const plan of plans.filter(x=>x.room_id===room.id))section.append(el('div',{cls:'room'},[
+   node('p',plan.board_name+' · '+plan.currency),
+   btn('Takvim',()=>rateCalendar(id,plan)),btn('Yayınlar',()=>publicationEditor(id,plan,publications))
+  ]));
+  view().append(card('Oda',section));
+ }
+ view().append(editor('Yeni oda','/api/admin/hotels/'+id+'/rooms','POST',[
+  ['Oda adı','name'],['Açıklama','description'],['Yetişkin kapasitesi','maxAdults','number',2],['Çocuk kapasitesi','maxChildren','number',0]
+ ],()=>hotelDetail(id),numKeys('maxAdults','maxChildren')));
+ const contracts=await api('/api/admin/hotels/'+id+'/contracts');
+ view().append(card('Kontratlar',el('div',{},(contracts.items||[]).map(x=>el('div',{cls:'room'},[
+  node('p',x.name||x.code),btn('Kontrat yönetimi',()=>contractDetail(x.id))
+ ])))));
+ view().append(editor('Yeni kontrat','/api/admin/hotels/'+id+'/contracts','POST',[
+  ['Kod','code'],['Ad','name'],['Para birimi','currency','text','EUR'],['Satıcı tüzel kişi','sellerLegalName']
+ ],()=>hotelDetail(id)));
+}
+async function ratePlanCreate(hotelId,room){
+ clear();
+ view().append(btn('Otele dön',()=>hotelDetail(hotelId)));
+ const contracts=(await api('/api/admin/hotels/'+hotelId+'/contracts')).items||[];
+ view().append(editor('Yeni fiyat planı · '+room.name,'/api/admin/rooms/'+room.id+'/rate-plans','POST',[
+  ['Pansiyon','boardName'],['Para birimi','currency','text','EUR'],
+  choice('Kontrat','contractId',contracts.map(x=>[x.id,x.name||x.code]))
+ ],()=>hotelDetail(hotelId),raw=>({...raw,cancellationPolicy:{},paymentTerms:{},salesConditions:{}})));
+}
+async function rateCalendar(hotelId,plan){
+ clear();view().append(btn('Otele dön',()=>hotelDetail(hotelId)));
+ const dateFrom=plus(today(),1),dateTo=plus(today(),30);
+ const data=await api('/api/admin/rate-plans/'+plan.id+'/calendar?dateFrom='+dateFrom+'&dateTo='+dateTo);
+ view().append(card('Mevcut fiyat ve kontenjan · '+plan.board_name,node('pre',JSON.stringify(data.items||data,null,2))));
+ view().append(editor('Tarih aralığı güncelle','/api/admin/rate-plans/'+plan.id+'/calendar','PUT',[
+  ['Başlangıç','dateFrom','date',dateFrom],['Bitiş (dahil)','dateTo','date',dateTo],
+  ['Gecelik net fiyat','price','number',0],['Kontenjan','allotment','number',0]
+ ],()=>rateCalendar(hotelId,plan),numKeys('price','allotment')));
+}
+async function publicationEditor(hotelId,plan,publications){
+ clear();view().append(btn('Otele dön',()=>hotelDetail(hotelId)));
+ for(const pub of publications.filter(x=>x.rate_plan_id===plan.id)){
+  view().append(card(pub.agency_name,el('div',{},[
+   node('p',(pub.active?'Aktif':'Pasif')+' · '+pub.markup_type+' '+pub.markup_value),
+   btn(pub.active?'Yayını kapat':'Yayını aç',()=>askInline('Yayın durumu değiştirilsin mi?',async()=>{
+    await api('/api/admin/publications/'+pub.id,{method:'PATCH',body:{active:!pub.active}});
+    await hotelDetail(hotelId);
+   }))
+  ])));
+ }
+ const agencies=(await api('/api/admin/agencies')).items.filter(x=>x.type==='sub'&&x.active);
+ view().append(editor('Acenteye yayınla','/api/admin/publications','POST',[
+  choice('Acente','agencyId',agencies.map(x=>[x.id,x.name])),
+  choice('Markup türü','markupType',[['percent','Yüzde'],['fixed','Sabit']]),
+  ['Markup değeri','markupValue','number',0]
+ ],()=>hotelDetail(hotelId),raw=>({...raw,ratePlanId:plan.id,markupValue:Number(raw.markupValue)})));
+}
+async function contractDetail(id){
+ const data=await api('/api/admin/contracts/'+id);clear();
+ view().append(card('Kontrat detayı',node('pre',JSON.stringify(data,null,2))));
+ view().append(editor('Kontrat düzenle','/api/admin/contracts/'+id,'PATCH',[
+  ['Ad','name','text',data.name],['Satıcı tüzel kişi','sellerLegalName','text',data.seller_legal_name],
+  choice('Durum','status',[['active','Aktif'],['inactive','Pasif'],['draft','Taslak']],data.status)
+ ],()=>contractDetail(id)));
+ const groups=(await api('/api/admin/market-groups')).items||[];
+ view().append(editor('Milliyet kuralı ekle','/api/admin/contracts/'+id+'/nationality-rules','POST',[
+  choice('Kural','ruleType',[['include','Dahil et'],['exclude','Hariç tut']]),
+  ['Ülke kodu (ISO 2)','countryCode']
+ ],()=>contractDetail(id),raw=>({...raw,countryCode:raw.countryCode.toUpperCase()})));
+ view().append(editor('Pazar grubu kuralı ekle','/api/admin/contracts/'+id+'/nationality-rules','POST',[
+  choice('Kural','ruleType',[['include','Dahil et'],['exclude','Hariç tut']]),
+  choice('Pazar grubu','marketGroupId',groups.map(x=>[x.id,x.name]))
+ ],()=>contractDetail(id)));
+}
+async function markets(){
+ const data=await api('/api/admin/market-groups');
+ for(const x of data.items||[]){
+  view().append(editor(x.name+' · ülkeleri düzenle','/api/admin/market-groups/'+x.id+'/countries','PUT',[
+   ['Ülke kodları (virgülle)','countries','text',(x.countries||[]).join(',')]
+  ],()=>go('markets'),raw=>({countries:raw.countries.split(',').map(s=>s.trim().toUpperCase()).filter(Boolean)})));
+ }
+ view().append(editor('Yeni pazar grubu','/api/admin/market-groups','POST',[
+  ['Kod','code'],['Ad','name'],['Ülke kodları (virgülle)','countries']
+ ],()=>go('markets'),raw=>({...raw,countries:raw.countries.split(',').map(s=>s.trim().toUpperCase()).filter(Boolean)})));
+}
+async function currencies(){
+ const [cs,fx]=await Promise.all([api('/api/admin/currencies'),api('/api/admin/fx-rates')]);
+ const currencyRows=cs.items||[];
+ for(const x of currencyRows)view().append(card(x.code+' · '+x.name,el('div',{},[
+  node('p',x.active?'Aktif':'Pasif'),btn(x.active?'Pasifleştir':'Etkinleştir',()=>askInline('Para birimi durumu değiştirilsin mi?',async()=>{
+   await api('/api/admin/currencies/'+x.code,{method:'PATCH',body:{active:!x.active}});await go('currencies');
+  }))
+ ])));
+ view().append(card('Güncel kurlar',el('div',{},(fx.items||[]).map(x=>node('p',x.currency+' · EUR/birim '+x.eur_per_unit+' · '+x.source)))));
+ view().append(editor('Kur gir','/api/admin/fx-rates','POST',[
+  choice('Para birimi','currency',currencyRows.filter(x=>x.code!=='EUR').map(x=>[x.code,x.code])),
+  ['EUR / birim','eurPerUnit','number',1],['Kaynak','source']
+ ],()=>go('currencies'),raw=>({source:raw.source,rates:[{currency:raw.currency,eurPerUnit:Number(raw.eurPerUnit)}]})));
+}
 async function agencies(){
   if(session.user?.role!=='system_admin'){
     view().append(card('Yetki gerekli',node('p','Acente ve kullanıcı yönetimi sistem yöneticisine özeldir.')));
