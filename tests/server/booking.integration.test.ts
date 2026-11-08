@@ -85,7 +85,7 @@ beforeEach(async () => {
   if (skip) return;
   await pool.query(`TRUNCATE agencies, users, hotels, rooms, rate_plans, inventory_daily, agency_hotel_sales, bookings,
     booking_status_history, booking_nights, audit_logs, idempotency_keys, fx_rates, login_attempts, vouchers, market_groups, fx_rate_history, proforma_counters CASCADE`);
-  await pool.query(`INSERT INTO agencies(id,name,type) VALUES ($1,'Master One','master'),($2,'Master Two','master'),($3,'Sub A','sub'),($4,'Sub B','sub')`, [M1, M2, SA, SB]);
+  await pool.query(`INSERT INTO agencies(id,name,type,parent_agency_id) VALUES ($1,'Master One','master',NULL),($2,'Master Two','master',NULL),($3,'Sub A','sub',$1),($4,'Sub B','sub',$2)`, [M1, M2, SA, SB]);
   const pw = hashPassword("integration-password-1");
   const users: [string, string, string | null][] = [
     ["admin", "system_admin", null], ["bo", "back_office", null], ["m1", "master_agency", M1], ["m2", "master_agency", M2],
