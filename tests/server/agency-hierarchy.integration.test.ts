@@ -139,7 +139,7 @@ test("two-DMC agency/user isolation, parent enforcement, platform role denial an
   const ownBooking = await request("POST","/api/agency/bookings",ownToken,{
     quoteId:ownQuote.quoteId,
     guest:{firstName:"Test",lastName:"Guest",adults:2,children:0,childAges:[],email:"guest@test.local",phone:"+905551112233",nationality:"TR"},
-    otherGuests:[{firstName:"Second",lastName:"Guest",type:"adult",nationality:"TR"}]
+    otherGuests:[{firstName:"Second",lastName:"Guest",type:"adult",nationality:"TR"}],operationNote:"Arrival after 18:00"
   },{"Idempotency-Key":randomUUID()});
   assert.equal(ownBooking.status,201,JSON.stringify(ownBooking.body));
   const ownSellerDetail = await request("GET","/api/backoffice/bookings/"+ownBooking.body.id,a);
