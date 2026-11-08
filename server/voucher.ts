@@ -20,6 +20,7 @@ export interface VoucherData {
   roomName: string;
   board: string;
   rooms: number;
+  roomOccupancies: { adults: number; children: number; childAges: number[] }[] | null;
   guestName: string;
   adults: number | null;
   children: number | null;
@@ -72,6 +73,7 @@ export function renderVoucher(v: VoucherData): Promise<Buffer> {
       ["Pansiyon / Board", v.board],
       ["Misafir / Guest", v.guestName],
       ["Kişi / Occupancy", occupancy],
+      ["Oda dağılımı / Per-room occupancy", v.roomOccupancies?.map((r, i) => `Oda ${i + 1}: ${r.adults} yetişkin, ${r.children} çocuk${r.children ? ` (${r.childAges.join(", ")})` : ""}`).join("\n") || "Eski rezervasyon / Legacy booking"],
       ["Uyruk / Nationality", v.nationality || "—"],
       ["Acente / Agency", v.agencyName],
       ["Operasyon notu / Operation notes", v.operationNote || "—"]
