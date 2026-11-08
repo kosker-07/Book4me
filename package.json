@@ -14,7 +14,8 @@
     "admin:create": "tsx server/cli/create-admin.ts",
     "perf:smoke": "tsx infra/scripts/perf-smoke.ts",
     "db:migrate": "tsx server/migrate.ts",
-    "db:migrate:compiled": "node dist-server/server/migrate.js"
+    "db:migrate:compiled": "node dist-server/server/migrate.js",
+    "fx:import-ecb": "tsx server/cli/import-ecb-rates.ts"
   },
   "dependencies": {
     "express": "^5.1.0",

@@ -1,13 +1,15 @@
 // Exchange rates. EUR is the internal reference: fx_rates.eur_per_unit = how many EUR one unit is worth.
-// Only fresh rates are used (FX_MAX_AGE_HOURS, default 24); a stale or missing rate means the offer is not
+// Only fresh rates are used (FX_MAX_AGE_HOURS, default 96); a stale or missing rate means the offer is not
 // evaluated. Each rate carries the fx_rate_history id that quotes and booking snapshots reference.
 import type { PoolClient } from "pg";
 
 export interface FxRate { currency: string; eurPerUnit: string; historyId: number | null; source: string; validAt: string }
 
+/** Default 96 h: the ECB publishes no rates on weekends and TARGET holidays (e.g. Good Friday + Easter Monday),
+ *  so a shorter window would exclude every non-EUR offer on those days. Configurable via FX_MAX_AGE_HOURS. */
 export const fxMaxAgeHours = () => {
-  const v = Number(process.env.FX_MAX_AGE_HOURS ?? 24);
-  return Number.isFinite(v) && v > 0 ? v : 24;
+  const v = Number(process.env.FX_MAX_AGE_HOURS ?? 96);
+  return Number.isFinite(v) && v > 0 ? v : 96;
 };
 
 /** EUR has no row: its rate is 1 by definition and it references no history row. */

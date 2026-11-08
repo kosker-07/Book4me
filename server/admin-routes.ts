@@ -11,9 +11,9 @@ import { isCalendarDate, nightsBetween, UUID_RE } from "./validation";
 import { formatMinor, normalizeDecimal, parseMinor } from "./pricing";
 
 export const adminRouter = Router();
-const managers = [authenticate, roles("system_admin", "back_office", "master_agency")] as const;
+export const managers = [authenticate, roles("system_admin", "back_office", "master_agency")] as const;
 type Handler = (req: AuthedRequest, res: Response) => Promise<unknown>;
-const h = (fn: Handler) => async (req: AuthedRequest, res: Response, next: NextFunction) => {
+export const h = (fn: Handler) => async (req: AuthedRequest, res: Response, next: NextFunction) => {
   try { await fn(req, res); } catch (error) { next(error); }
 };
 const text = (v: unknown, max = 500) => typeof v === "string" && v.trim().length > 0 && v.trim().length <= max;
@@ -23,22 +23,22 @@ const isObj = (v: unknown) => v === undefined || (v !== null && typeof v === "ob
 const CURRENCY_RE = /^[A-Z]{3}$/;
 
 /** Owner agency of a hotel / room / rate plan; 404 when it does not exist or the actor may not manage it. */
-async function ownedHotel(db: { query: PoolClient["query"] }, req: AuthedRequest, sql: string, id: string) {
+export async function ownedHotel(db: { query: PoolClient["query"] }, req: AuthedRequest, sql: string, id: string) {
   const row = (await db.query(sql, [id])).rows[0];
   if (!row) throw httpError(404, "NOT_FOUND");
   if (!isPlatformWide(req.auth!.role) && row.owner_agency_id !== req.auth!.agencyId) throw httpError(404, "NOT_FOUND");
   return row as { owner_agency_id: string; hotel_id: string };
 }
-const HOTEL_SQL = "SELECT id AS hotel_id, owner_agency_id FROM hotels WHERE id = $1";
+export const HOTEL_SQL = "SELECT id AS hotel_id, owner_agency_id FROM hotels WHERE id = $1";
 const ROOM_SQL = "SELECT h.id AS hotel_id, h.owner_agency_id FROM rooms r JOIN hotels h ON h.id = r.hotel_id WHERE r.id = $1";
-const RATE_PLAN_SQL = `SELECT h.id AS hotel_id, h.owner_agency_id FROM rate_plans rp JOIN rooms r ON r.id = rp.room_id
+export const RATE_PLAN_SQL = `SELECT h.id AS hotel_id, h.owner_agency_id FROM rate_plans rp JOIN rooms r ON r.id = rp.room_id
                        JOIN hotels h ON h.id = r.hotel_id WHERE rp.id = $1`;
 const PUBLICATION_SQL = `SELECT h.id AS hotel_id, h.owner_agency_id FROM agency_hotel_sales s JOIN rate_plans rp ON rp.id = s.rate_plan_id
                          JOIN rooms r ON r.id = rp.room_id JOIN hotels h ON h.id = r.hotel_id WHERE s.id = $1`;
 
 /** Current state of one row as JSON, for audit before/after values. Never selects password hashes. */
-const AUDITED_TABLES = new Set(["hotels", "rooms", "rate_plans", "agency_hotel_sales", "agencies", "users"]);
-async function rowJson(client: { query: PoolClient["query"] }, table: string, id: string) {
+const AUDITED_TABLES = new Set(["hotels", "rooms", "rate_plans", "agency_hotel_sales", "agencies", "users", "hotel_contracts", "market_groups"]);
+export async function rowJson(client: { query: PoolClient["query"] }, table: string, id: string) {
   if (!AUDITED_TABLES.has(table)) throw new Error(`rowJson: table ${table} not allowed`);
   const r = (await client.query(`SELECT to_jsonb(t) - 'password_hash' AS j FROM ${table} t WHERE id = $1`, [id])).rows[0];
   return r ? r.j : null;
@@ -145,19 +145,31 @@ adminRouter.patch("/api/admin/rooms/:id", ...managers, h(async (req, res) => {
 
 // ---------------------------------------------------------------- rate plans
 adminRouter.post("/api/admin/rooms/:id/rate-plans", ...managers, h(async (req, res) => {
-  const roomId = uuidParam(req), { boardName, currency, cancellationPolicy, paymentTerms, salesConditions } = req.body || {};
+  const roomId = uuidParam(req), { boardName, currency, cancellationPolicy, paymentTerms, salesConditions, contractId } = req.body || {};
   if (!text(boardName, 50) || typeof currency !== "string" || !CURRENCY_RE.test(currency)
       || !isObj(cancellationPolicy) || !isObj(paymentTerms) || !isObj(salesConditions)) throw httpError(400, "INVALID_RATE_PLAN");
   const owner = await ownedHotel(pool, req, ROOM_SQL, roomId);
+  if (!(await pool.query("SELECT 1 FROM currencies WHERE code = $1 AND active", [currency])).rowCount) throw httpError(400, "CURRENCY_NOT_SUPPORTED");
+  if (contractId !== undefined) {
+    const c = typeof contractId === "string" && UUID_RE.test(contractId)
+      ? (await pool.query("SELECT hotel_id, currency FROM hotel_contracts WHERE id = $1", [contractId])).rows[0] : undefined;
+    if (!c || c.hotel_id !== owner.hotel_id) throw httpError(400, "CONTRACT_NOT_FOUND");
+    if (String(c.currency).trim() !== currency) throw httpError(400, "CONTRACT_CURRENCY_MISMATCH");
+  }
   const id = randomUUID();
   await withTransaction(async client => {
     await client.query(
       `INSERT INTO rate_plans(id, room_id, board_name, currency, cancellation_policy, payment_terms, sales_conditions)
        VALUES ($1,$2,$3,$4,$5::jsonb,$6::jsonb,$7::jsonb)`,
       [id, roomId, boardName.trim(), currency, JSON.stringify(cancellationPolicy || {}), JSON.stringify(paymentTerms || {}), JSON.stringify(salesConditions || {})]);
-    await audit(client, req.auth!.sub, owner.owner_agency_id, "rate_plan.created", "rate_plan", id, { after: await rowJson(client, "rate_plans", id) });
+    // the rate plan joined the hotel's default general-market contract (trigger); move it if a contract was given
+    if (contractId !== undefined) await client.query("UPDATE contract_rate_plans SET contract_id = $2 WHERE rate_plan_id = $1", [id, contractId]);
+    const contract = (await client.query("SELECT contract_id FROM contract_rate_plans WHERE rate_plan_id = $1", [id])).rows[0]?.contract_id ?? null;
+    await audit(client, req.auth!.sub, owner.owner_agency_id, "rate_plan.created", "rate_plan", id,
+      { after: { ...(await rowJson(client, "rate_plans", id)), contract_id: contract } });
   });
-  res.status(201).json({ id, roomId, boardName: boardName.trim(), currency, active: true });
+  const contract = (await pool.query("SELECT contract_id FROM contract_rate_plans WHERE rate_plan_id = $1", [id])).rows[0]?.contract_id ?? null;
+  res.status(201).json({ id, roomId, boardName: boardName.trim(), currency, active: true, contractId: contract });
 }));
 
 adminRouter.patch("/api/admin/rate-plans/:id", ...managers, h(async (req, res) => {

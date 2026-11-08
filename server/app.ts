@@ -10,7 +10,9 @@ import { FieldErrors, nightsBetween, validateGuest, validateNationalities, valid
 import { signQuote, verifyQuote } from "./quotes";
 import { audit, authenticate, AuthedRequest, httpError, isPlatformWide, requireAgency, roles, sessionSecret, uuidParam } from "./http";
 import { adminRouter } from "./admin-routes";
+import { contractRouter } from "./contract-routes";
 import { renderVoucher } from "./voucher";
+import { renderProforma } from "./proforma";
 import { LOGIN_WINDOW_MINUTES, loginThrottled, parseTrustProxy } from "./login-guard";
 import { requestContext } from "./context";
 
@@ -82,6 +84,7 @@ app.get("/api/me", authenticate, (req: AuthedRequest, res) => {
 });
 
 app.use(adminRouter);
+app.use(contractRouter);
 
 // A sub-agency sees only hotels explicitly published to that agency.
 app.get("/api/agency/hotels", authenticate, roles("sub_agency"), requireAgency, async (req: AuthedRequest, res, next) => {
@@ -695,6 +698,107 @@ app.get("/api/agency/bookings/:id/voucher", authenticate, roles("sub_agency"), r
 app.get("/api/backoffice/bookings/:id/voucher", ...backoffice, async (req: AuthedRequest, res, next) => {
   try { const scope = backofficeScope(req); await sendVoucher(req, res, withParamIndex(scope.sql, 2), scope.params); }
   catch (error) { next(error); }
+});
+
+// ---------------------------------------------------------------------------------------------
+// Proforma (not a tax invoice): for pending and approved bookings only, generated from the immutable price
+// snapshot. The first request issues version 1 with a per-year sequential number (PF-YYYY-000001); later
+// requests return the stored document unchanged. Back Office / system admin may reissue a new version (new
+// number, linked to the previous one). Same access scope as vouchers.
+// ---------------------------------------------------------------------------------------------
+const PROFORMA_STATUSES = new Set(["pending", "approved"]);
+
+async function issueProforma(bookingId: string, actorId: string, scopeSql: string, scopeParams: unknown[], reason: string | null) {
+  const b = await bookingDetail(bookingId, scopeSql, scopeParams);
+  if (!b) throw httpError(404, "BOOKING_NOT_FOUND");
+  // A cancelled or rejected booking gets no proforma, not even a previously issued one (its history stays
+  // listed for Back Office via /proformas).
+  if (!PROFORMA_STATUSES.has(b.status)) throw httpError(409, "PROFORMA_REQUIRES_PENDING_OR_APPROVED_BOOKING", { status: b.status });
+  const latest = (await pool.query("SELECT id, number, version, pdf, sha256 FROM proformas WHERE booking_id = $1 ORDER BY version DESC LIMIT 1", [bookingId])).rows[0];
+  if (latest && reason === null) return { pdf: latest.pdf as Buffer, sha256: latest.sha256 as string, number: latest.number as string, created: false };
+  const snap = (await pool.query(
+    `SELECT contract_code, seller_legal_name, contract_currency, total::text AS total, eur_per_unit::text AS eur_per_unit, fx_source, fx_valid_at,
+            payment_currency, payment_amount::text AS payment_amount, payment_eur_per_unit::text AS payment_eur_per_unit
+       FROM booking_price_snapshots WHERE booking_id = $1`, [bookingId])).rows[0];
+  if (!snap) throw httpError(409, "PROFORMA_REQUIRES_PRICE_SNAPSHOT");
+  const contractCurrency = String(snap.contract_currency).trim(), paymentCurrency = String(snap.payment_currency).trim();
+  try {
+    return await withTransaction(async client => {
+      const year = new Date().getUTCFullYear();
+      // Atomic per-year counter: one conditional upsert, no explicit lock; concurrent issues get distinct numbers.
+      const seq = (await client.query(
+        `INSERT INTO proforma_counters(year, last_seq) VALUES ($1, 1)
+         ON CONFLICT (year) DO UPDATE SET last_seq = proforma_counters.last_seq + 1 RETURNING last_seq`, [year])).rows[0].last_seq as number;
+      const number = `PF-${year}-${String(seq).padStart(6, "0")}`, version = latest ? latest.version + 1 : 1, issuedAt = new Date();
+      const pdf = await renderProforma({
+        number, version, supersedesNumber: latest?.number ?? null, issuedAt, sellerLegalName: snap.seller_legal_name || "BED4BOOK",
+        bookingNo: b.booking_no, bookingStatus: b.status, agencyName: b.agency_name, hotelName: b.hotel_name, hotelLocation: b.hotel_location,
+        checkIn: b.check_in, checkOut: b.check_out, nights: nightsBetween(b.check_in, b.check_out).length,
+        roomName: b.room_name, board: b.board_name, rooms: b.room_count,
+        guests: b.guests.map((g: any) => ({ name: `${g.first_name} ${g.last_name}`, type: g.type, age: g.age, nationality: String(g.nationality).trim() })),
+        contractCode: snap.contract_code, contractCurrency, contractAmount: snap.total, paymentCurrency, paymentAmount: snap.payment_amount,
+        fx: paymentCurrency === contractCurrency ? null : { contractEurPerUnit: snap.eur_per_unit, paymentEurPerUnit: snap.payment_eur_per_unit,
+                                                            source: snap.fx_source, validAt: snap.fx_valid_at ? new Date(snap.fx_valid_at).toISOString() : null }
+      });
+      const sha256 = createHash("sha256").update(pdf).digest("hex");
+      const id = randomUUID();
+      await client.query(
+        `INSERT INTO proformas(id, booking_id, number, year, seq, version, supersedes, reason, booking_status, payment_currency, payment_amount,
+                               contract_currency, contract_amount, seller_legal_name, issued_by, issued_at, pdf, sha256)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)`,
+        [id, bookingId, number, year, seq, version, latest?.id ?? null, reason ?? "", b.status, paymentCurrency, snap.payment_amount,
+         contractCurrency, snap.total, snap.seller_legal_name, actorId, issuedAt.toISOString(), pdf, sha256]);
+      await audit(client, actorId, b.agency_id, version === 1 ? "proforma.issued" : "proforma.reissued", "booking", bookingId,
+        { targetAgencyId: b.agency_id, after: { number, version, supersedes: latest?.number ?? null, reason, paymentCurrency, paymentAmount: snap.payment_amount, sha256 } });
+      return { pdf, sha256, number, created: true };
+    });
+  } catch (error: any) {
+    // Two first requests for the same booking at once: the loser of the (booking_id, version) race returns the winner's document.
+    if (error?.code === "23505" && reason === null) {
+      const row = (await pool.query("SELECT number, pdf, sha256 FROM proformas WHERE booking_id = $1 ORDER BY version DESC LIMIT 1", [bookingId])).rows[0];
+      if (row) return { pdf: row.pdf as Buffer, sha256: row.sha256 as string, number: row.number as string, created: false };
+    }
+    throw error;
+  }
+}
+
+function sendProforma(res: Response, p: { pdf: Buffer; sha256: string; number: string; created: boolean }) {
+  res.status(p.created ? 201 : 200);
+  res.setHeader("Content-Type", "application/pdf");
+  res.setHeader("Content-Disposition", `attachment; filename="BED4BOOK-${p.number}.pdf"`);
+  res.setHeader("X-Proforma-Number", p.number);
+  res.setHeader("X-Proforma-SHA256", p.sha256);
+  res.send(p.pdf);
+}
+
+app.get("/api/agency/bookings/:id/proforma", authenticate, roles("sub_agency"), requireAgency, async (req: AuthedRequest, res, next) => {
+  try { sendProforma(res, await issueProforma(uuidParam(req, "BOOKING_NOT_FOUND"), req.auth!.sub, "b.agency_id = $2", [req.auth!.agencyId], null)); }
+  catch (error) { next(error); }
+});
+
+app.get("/api/backoffice/bookings/:id/proforma", ...backoffice, async (req: AuthedRequest, res, next) => {
+  try { const scope = backofficeScope(req); sendProforma(res, await issueProforma(uuidParam(req, "BOOKING_NOT_FOUND"), req.auth!.sub, withParamIndex(scope.sql, 2), scope.params, null)); }
+  catch (error) { next(error); }
+});
+
+app.post("/api/backoffice/bookings/:id/proforma/reissue", authenticate, roles("system_admin", "back_office"), async (req: AuthedRequest, res, next) => {
+  try {
+    const reason = typeof req.body?.reason === "string" ? req.body.reason.trim() : "";
+    if (!reason || reason.length > 500) return res.status(400).json({ error: "REASON_REQUIRED" });
+    sendProforma(res, await issueProforma(uuidParam(req, "BOOKING_NOT_FOUND"), req.auth!.sub, "true", [], reason));
+  } catch (error) { next(error); }
+});
+
+app.get("/api/backoffice/bookings/:id/proformas", ...backoffice, async (req: AuthedRequest, res, next) => {
+  try {
+    const scope = backofficeScope(req), bookingId = uuidParam(req, "BOOKING_NOT_FOUND");
+    if (!(await bookingDetail(bookingId, withParamIndex(scope.sql, 2), scope.params))) return res.status(404).json({ error: "BOOKING_NOT_FOUND" });
+    const items = (await pool.query(
+      `SELECT number, version, reason, booking_status, payment_currency, payment_amount::text AS payment_amount, contract_currency,
+              contract_amount::text AS contract_amount, seller_legal_name, issued_by, issued_at, sha256
+         FROM proformas WHERE booking_id = $1 ORDER BY version`, [bookingId])).rows;
+    res.json({ items });
+  } catch (error) { next(error); }
 });
 
 // ---------------------------------------------------------------------------------------------
