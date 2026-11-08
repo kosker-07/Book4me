@@ -26,7 +26,7 @@ let server: Server, base = "", pool: any, hashPassword: (p: string) => string;
 const tok: Record<string, string> = {};
 const day = (offset: number) => new Date(Date.now() + offset * 86400000).toISOString().slice(0, 10);
 const CHECK_IN = day(30), NIGHT2 = day(31), CHECK_OUT = day(32);
-const STAY = { checkIn: CHECK_IN, checkOut: CHECK_OUT, rooms: 1, adults: 2, children: 1, childAges: [5], nationalities: ["TR", "TR", "TR"] };
+const STAY = { checkIn: CHECK_IN, checkOut: CHECK_OUT, rooms: 1, adults: 2, children: 1, childAges: [5], roomOccupancies: [{ adults: 2, children: 1, childAges: [5] }], nationalities: ["TR", "TR", "TR"] };
 const GUEST = { firstName: "Ali", lastName: "Veli", adults: 2, children: 1, childAges: [5], email: "ali@example.com", phone: "+90 555 111 22 33", nationality: "TR" };
 /** Every guest except the lead guest, each with a passport nationality (nationality-based contracts). */
 const OTHER_GUESTS = [{ firstName: "Ayşe", lastName: "Veli", type: "adult", nationality: "TR" }, { firstName: "Can", lastName: "Veli", type: "child", age: 5, nationality: "TR" }];
