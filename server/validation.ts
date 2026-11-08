@@ -40,11 +40,13 @@ export function validateStay(body: any, errors: FieldErrors, today = new Date().
   if (!isInt(rooms, 1, MAX_ROOMS)) errors.rooms = "INTEGER_1_TO_10";
   validateOccupancy({ adults, children, childAges }, errors);
   if (!errors.adults && isInt(rooms, 1, MAX_ROOMS) && adults < rooms) errors.adults = "AT_LEAST_ONE_ADULT_PER_ROOM";
+  let cleanedRooms: Occupancy[] = [];
   if (isInt(rooms, 1, MAX_ROOMS) && (!Array.isArray(roomOccupancies) || roomOccupancies.length !== rooms)) {
     errors.roomOccupancies = "ONE_OCCUPANCY_PER_ROOM";
   } else if (isInt(rooms, 1, MAX_ROOMS)) {
     const validRooms = roomOccupancies.map((room, index) => validateOccupancy(room, errors, `roomOccupancies[${index}].`));
     if (validRooms.every(Boolean)) {
+      cleanedRooms = validRooms as Occupancy[];
       const sumAdults = validRooms.reduce((sum, room) => sum + room!.adults, 0);
       const sumChildren = validRooms.reduce((sum, room) => sum + room!.children, 0);
       const ages = validRooms.flatMap(room => room!.childAges).sort((a, b) => a - b);
@@ -54,7 +56,7 @@ export function validateStay(body: any, errors: FieldErrors, today = new Date().
         errors["roomOccupancies.childAges"] = "MUST_MATCH_TOTAL_CHILD_AGES";
     }
   }
-  return Object.keys(errors).length ? null : { checkIn, checkOut, rooms, adults, children, childAges, roomOccupancies };
+  return Object.keys(errors).length ? null : { checkIn, checkOut, rooms, adults, children, childAges, roomOccupancies: cleanedRooms };
 }
 
 export interface Occupancy { adults: number; children: number; childAges: number[] }
