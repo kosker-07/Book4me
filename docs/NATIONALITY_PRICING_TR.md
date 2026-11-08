@@ -231,4 +231,7 @@ Mevcut tarayıcı arayüzü henüz bu API'ye bağlı değil. Aşağıdakiler uyg
 | Boş veritabanı, runner ikinci geçiş, elle tekrar uygulama, 001'den yükseltme | Geçti |
 | Yedek → geri yükleme tatbikatı (yeni tablolar dahil) | `RESTORE DRILL PASSED` |
 | Performans | Arama p95 186 ms, rezervasyon p95 54 ms (yerel, 4 vCPU) |
-\n## Aile milliyeti kuralı (ürün sahibi kararı)\n\nAramada seçilen tek ISO 3166-1 alpha-2 milliyet bütün aile için geçerlidir; yetişkin, çocuk ve oda sayısı bunu değiştirmez. Kontrat uygunluğu, hariç tutma/dahil etme ve fiyat seçimi backend tarafından yalnızca bu kodla hesaplanır. Ana misafir milliyeti imzalı teklifteki aile milliyetinden farklıysa `409 QUOTE_NATIONALITY_MISMATCH` döner. Diğer misafirlerde milliyet boş bırakılabilir; kayıtta aile milliyeti kullanılır. Oda bazında kapasite kontrolleri ayrıca zorunludur. Çoklu milliyet dizisi `400 VALIDATION_FAILED` ve `ONE_NATIONALITY_PER_FAMILY` ile reddedilir.\n
+
+## Aile milliyeti kuralı (ürün sahibi kararı)
+
+Aramada seçilen tek ISO 3166-1 alpha-2 milliyet bütün aile için geçerlidir; yetişkin, çocuk ve oda sayısı bunu değiştirmez. Kontrat uygunluğu, hariç tutma/dahil etme ve fiyat seçimi backend tarafından yalnızca bu kodla hesaplanır. Ana misafir milliyeti imzalı teklifteki aile milliyetinden farklıysa `409 QUOTE_NATIONALITY_MISMATCH` döner. Diğer misafirlerde milliyet boş bırakılabilir; kayıtta aile milliyeti kullanılır. Oda bazında kapasite kontrolleri ayrıca zorunludur. Çoklu milliyet dizisi `400 VALIDATION_FAILED` ve `ONE_NATIONALITY_PER_FAMILY` ile reddedilir.
