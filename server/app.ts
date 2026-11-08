@@ -38,6 +38,12 @@ app.get("/giris", (_req, res) => {
   res.type("html").sendFile(path.join(__dirname, "assets", "giris.html"));
 });
 
+// Read-only preview of the offline browser demo (dist/index.html, built by tools/build.js). It runs entirely in the
+// browser with its own sample data and demo accounts; it does not call this API or touch the database.
+app.get("/demo", (_req, res) => {
+  res.type("html").sendFile(path.resolve(process.cwd(), "dist", "index.html"));
+});
+
 app.get("/health", (_req, res) => res.json({ ok: true, service: "bed4book-api" }));
 app.get("/ready", async (_req, res) => {
   try { await pool.query("SELECT 1"); res.json({ ok: true, database: "up" }); }
