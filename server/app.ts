@@ -44,6 +44,12 @@ app.get("/demo", (_req, res) => {
   res.type("html").sendFile(path.resolve(process.cwd(), "dist", "index.html"));
 });
 
+// BED4BOOK v2: isolated same-origin static frontend, with no inline script/style permissions.
+app.use("/app", (_req, res, next) => {
+  res.setHeader("Content-Security-Policy", "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'; object-src 'none'");
+  next();
+}, express.static(path.resolve(__dirname, "../../web")));
+
 app.get("/health", (_req, res) => res.json({ ok: true, service: "bed4book-api" }));
 app.get("/ready", async (_req, res) => {
   try { await pool.query("SELECT 1"); res.json({ ok: true, database: "up" }); }
