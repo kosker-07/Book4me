@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="tr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>BED4BOOK | Yönetici Girişi</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#f3f6fa;color:#17243b;font:16px system-ui,-apple-system,sans-serif;min-height:100vh;display:grid;place-items:center;padding:20px}
+main{width:100%;max-width:430px;background:white;padding:28px 24px;border-radius:18px;box-shadow:0 12px 35px #14233c18}h1{font-size:25px;margin:0 0 6px}p{line-height:1.5}label{display:block;font-weight:600;margin:16px 0 6px}input{display:block;width:100%;font:inherit;border:1px solid #aab6c6;border-radius:9px;padding:13px;min-height:48px}button{font:inherit;font-weight:650;min-height:48px;padding:12px 18px;border:0;border-radius:9px;background:#1646a0;color:white;width:100%;margin-top:20px;cursor:pointer}button:disabled{opacity:.65;cursor:wait}.secondary{background:#e9edf4;color:#17243b}#message{min-height:24px;margin:14px 0;color:#a02727}#message.success{color:#116c39}.muted{color:#536178;font-size:14px}[hidden]{display:none!important}
+</style></head><body><main><h1>BED4BOOK</h1><p class="muted">Geçici yönetici girişi</p><p id="message" role="status" aria-live="polite"></p>
+<section id="loginSection"><form id="loginForm"><label for="email">E-posta</label><input id="email" type="email" autocomplete="username" required><label for="password">Şifre</label><input id="password" type="password" autocomplete="current-password" required><button type="submit">Giriş yap</button></form></section>
+<section id="accountSection" hidden><p><strong>E-posta:</strong> <span id="accountEmail"></span></p><p><strong>Rol:</strong> <span id="accountRole"></span></p><h2>Şifre değiştir</h2><form id="changeForm"><label for="currentPassword">Mevcut şifre</label><input id="currentPassword" type="password" autocomplete="current-password" required><label for="newPassword">Yeni şifre (en az 12 karakter)</label><input id="newPassword" type="password" autocomplete="new-password" minlength="12" required><label for="confirmPassword">Yeni şifre tekrar</label><input id="confirmPassword" type="password" autocomplete="new-password" minlength="12" required><button type="submit">Şifre değiştir</button></form><button id="logout" class="secondary" type="button">Çıkış</button></section>
+</main><script>
+(() => {
+"use strict";
+let token = null;
+const $ = id => document.getElementById(id);
+const errors = {INVALID_CREDENTIALS:"E-posta veya şifre hatalı.",TOO_MANY_LOGIN_ATTEMPTS:"Çok fazla giriş denemesi. Lütfen daha sonra tekrar deneyin.",EMAIL_AND_PASSWORD_REQUIRED:"E-posta ve şifre gerekli.",PASSWORD_TOO_SHORT:"Yeni şifre en az 12 karakter olmalı.",INVALID_CURRENT_PASSWORD:"Mevcut şifre yanlış.",CURRENT_AND_NEW_PASSWORD_REQUIRED:"Mevcut ve yeni şifre gerekli.",UNAUTHORIZED:"Oturumunuz sona erdi. Yeniden giriş yapın.",INVALID_TOKEN:"Oturumunuz geçersiz. Yeniden giriş yapın."};
+function message(text, success=false){$("message").textContent=text;$("message").classList.toggle("success",success);}
+function showLogin(){token=null;$("accountSection").hidden=true;$("loginSection").hidden=false;$("loginForm").reset();$("changeForm").reset();$("accountEmail").textContent="";$("accountRole").textContent="";}
+function showAccount(user){$("accountEmail").textContent=user.email||"";$("accountRole").textContent=user.role||"";$("loginSection").hidden=true;$("accountSection").hidden=false;}
+async function api(path,body,auth=false){
+const headers={"Content-Type":"application/json"};
+if(auth&&token)headers.Authorization="Bearer "+token;
+const response=await fetch(path,{method:"POST",headers,body:JSON.stringify(body),cache:"no-store",credentials:"omit"});
+let data={};try{data=await response.json();}catch{}
+if(!response.ok){const err=new Error(errors[data.error]||(response.status===401?"Oturum geçersiz veya bilgiler hatalı.":"İşlem başarısız. Lütfen tekrar deneyin."));err.status=response.status;throw err;}
+return data;
+}
+async function busy(form,action){const button=form.querySelector('button[type="submit"]');button.disabled=true;try{await action();}catch(error){message(error.message||"Bağlantı hatası. Tekrar deneyin.");}finally{button.disabled=false;}}
+$("loginForm").addEventListener("submit",event=>{event.preventDefault();busy(event.currentTarget,async()=>{
+message("");const data=await api("/api/auth/login",{email:$("email").value.trim(),password:$("password").value});
+token=data.token;try{const response=await fetch("/api/me",{headers:{Authorization:"Bearer "+token},cache:"no-store",credentials:"omit"});if(!response.ok)throw new Error("Oturum doğrulanamadı.");const me=await response.json();showAccount({...data.user,role:me.role||data.user.role});$("password").value="";message("Giriş başarılı.",true);}catch(error){showLogin();throw error;}
+});});
+$("changeForm").addEventListener("submit",event=>{event.preventDefault();const newPassword=$("newPassword").value;if(newPassword.length<12){message("Yeni şifre en az 12 karakter olmalı.");return;}if(newPassword!==$("confirmPassword").value){message("Yeni şifreler eşleşmiyor.");return;}busy(event.currentTarget,async()=>{message("");await api("/api/auth/change-password",{currentPassword:$("currentPassword").value,newPassword},true);showLogin();message("Şifreniz değişti, yeniden giriş yapın",true);});});
+$("logout").addEventListener("click",async()=>{const oldToken=token;showLogin();message("Çıkış yapıldı.",true);if(oldToken){try{await fetch("/api/auth/logout",{method:"POST",headers:{Authorization:"Bearer "+oldToken},cache:"no-store",credentials:"omit"});}catch{message("Çıkış isteği tamamlanamadı; bu sayfadaki oturum kapatıldı.");}}});
+})();
+</script></body></html>
