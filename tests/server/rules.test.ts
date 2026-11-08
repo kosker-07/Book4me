@@ -75,13 +75,18 @@ test("validation: guest fields", () => {
 
 test("quotes: signed, tamper-evident, expiring", () => {
   const secret = "unit-test-secret-with-at-least-32-chars";
-  const t = signQuote({ agencyId: "a", ratePlanId: "rp", checkIn: "x", checkOut: "y", rooms: 1, adults: 2, children: 0, childAges: [], totalCents: 100, currency: "EUR" }, secret, 0);
+  const t = signQuote({ agencyId: "a", ratePlanId: "rp", contractId: "c", checkIn: "x", checkOut: "y", rooms: 1, adults: 2, children: 0, childAges: [],
+    nationalities: ["DE", "TR"], ruleIds: [null, "r1"], totalMinor: 100, currency: "EUR", minorUnits: 2, fxRateId: null,
+    paymentCurrency: "EUR", paymentMinorUnits: 2, paymentAmountMinor: 100, paymentFxRateId: null }, secret, 0);
   assert.equal(verifyQuote(t, secret, 1000).ok, true);
   const [p, body, sig] = t.split(".");
-  const forged = `${p}.${Buffer.from(JSON.stringify({ ...JSON.parse(Buffer.from(body!, "base64url").toString()), totalCents: 1 })).toString("base64url")}.${sig}`;
+  const forged = `${p}.${Buffer.from(JSON.stringify({ ...JSON.parse(Buffer.from(body!, "base64url").toString()), totalMinor: 1 })).toString("base64url")}.${sig}`;
   assert.deepEqual(verifyQuote(forged, secret, 1000), { ok: false, error: "INVALID_QUOTE" });
   assert.deepEqual(verifyQuote(t, secret, 31 * 60 * 1000), { ok: false, error: "QUOTE_EXPIRED" });
   assert.deepEqual(verifyQuote(t, "another-secret-with-at-least-32-chars!!", 1000), { ok: false, error: "INVALID_QUOTE" });
+  // a version-1 token (no nationality / FX data) is never accepted
+  const v1Body = Buffer.from(JSON.stringify({ v: 1, agencyId: "a", exp: 9e9 })).toString("base64url");
+  assert.deepEqual(verifyQuote(`q1.${v1Body}.${sig}`, secret, 1000), { ok: false, error: "INVALID_QUOTE" });
 });
 
 test("no explicit row locks or hold states in server code and migrations", async () => {

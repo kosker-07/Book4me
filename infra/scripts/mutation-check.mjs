@@ -31,7 +31,7 @@ const M = [
   { id: "M7", what: "Stok güncellemesi başarısızsa başka fiyat planına geç", expect: ["14"], edits: [
     ["server/app.ts", "    if (updated.rowCount !== 1) throw httpError(409, \"ALLOTMENT_UNAVAILABLE\");",
      "    if (updated.rowCount !== 1) {\n      const alt = await client.query(`UPDATE inventory_daily SET reserved = reserved + $3 WHERE id = (SELECT id FROM inventory_daily WHERE rate_plan_id <> $1 AND stay_date = $2::date AND allotment - reserved >= $3 ORDER BY price LIMIT 1) RETURNING id, price::text AS price`, [ratePlanId, date, rooms]);\n      if (alt.rowCount !== 1) throw httpError(409, \"ALLOTMENT_UNAVAILABLE\");\n      updated.rows[0] = alt.rows[0];\n    }"],
-    ["server/app.ts", "  if (totalCents !== expectedTotalCents) throw httpError(409, \"PRICE_CHANGED\");", ""]] },
+    ["server/app.ts", "  if (totalMinor !== expectedTotalMinor) throw httpError(409, \"PRICE_CHANGED\");", ""]] },
   { id: "M8", what: "Sorguya FOR UPDATE ekle", expect: ["static"], unit: ["no explicit row locks"], edits: [["server/app.ts",
     "      WHERE s.agency_id = $1 AND s.rate_plan_id = $2 AND s.active`,", "      WHERE s.agency_id = $1 AND s.rate_plan_id = $2 AND s.active FOR UPDATE OF s`,"]] },
   { id: "M9", what: "Alt acenteye onaylı rezervasyon iptali aç", expect: ["11b"], edits: [["server/app.ts",

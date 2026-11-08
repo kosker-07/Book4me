@@ -1,9 +1,9 @@
 // Backend validation for search and booking requests (no I/O).
+import { isCountryCode } from "./reference";
 
 export const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PHONE_RE = /^\+?[0-9][0-9 ()-]{6,19}$/;
-const NATIONALITY_RE = /^[A-Z]{2}$/; // ISO 3166-1 alpha-2
 const MAX_ROOMS = 10, MAX_NIGHTS = 60, MAX_PER_ROOM = 10;
 
 export type FieldErrors = Record<string, string>;
@@ -67,11 +67,54 @@ export function validateGuest(body: any, errors: FieldErrors): GuestDetails | nu
   if (!text(g.lastName, 100)) errors["guest.lastName"] = "REQUIRED";
   if (typeof g.email !== "string" || g.email.length > 254 || !EMAIL_RE.test(g.email.trim())) errors["guest.email"] = "REQUIRED_VALID_EMAIL";
   if (typeof g.phone !== "string" || !PHONE_RE.test(g.phone.trim())) errors["guest.phone"] = "REQUIRED_VALID_PHONE";
-  if (typeof g.nationality !== "string" || !NATIONALITY_RE.test(g.nationality.trim().toUpperCase())) errors["guest.nationality"] = "REQUIRED_ISO_3166_ALPHA2";
+  if (typeof g.nationality !== "string" || !isCountryCode(g.nationality.trim().toUpperCase())) errors["guest.nationality"] = "REQUIRED_ISO_3166_ALPHA2";
   if (!text(body?.operationNote, 2000)) errors.operationNote = "REQUIRED";
   if (Object.keys(errors).length) return null;
   return {
     firstName: g.firstName.trim(), lastName: g.lastName.trim(), email: g.email.trim().toLowerCase(),
     phone: g.phone.trim(), nationality: g.nationality.trim().toUpperCase(), operationNote: body.operationNote.trim()
   };
+}
+
+/** Passport nationality of every guest (ISO 3166-1 alpha-2), one entry per guest: adults + children.
+ *  Returns null and sets errors when invalid; `missing` is true when the field is absent or empty. */
+export function validateNationalities(value: unknown, guests: number, errors: FieldErrors): { nationalities: string[] | null; missing: boolean } {
+  if (value === undefined || value === null || (Array.isArray(value) && value.length === 0)) return { nationalities: null, missing: true };
+  if (!Array.isArray(value) || value.length !== guests) { errors.nationalities = "ONE_NATIONALITY_PER_GUEST"; return { nationalities: null, missing: false }; }
+  const codes = value.map(v => (typeof v === "string" ? v.trim().toUpperCase() : ""));
+  if (!codes.every(isCountryCode)) { errors.nationalities = "ISO_3166_ALPHA2_REQUIRED"; return { nationalities: null, missing: false }; }
+  return { nationalities: codes.sort(), missing: false };
+}
+
+export interface OtherGuest { firstName: string; lastName: string; type: "adult" | "child"; age: number | null; nationality: string }
+
+/** All guests except the lead guest: (adults - 1) adults and one child per age in childAges, each with a name
+ *  and a passport nationality. */
+export function validateOtherGuests(value: unknown, occupancy: Occupancy, errors: FieldErrors): OtherGuest[] | null {
+  const expected = occupancy.adults - 1 + occupancy.children;
+  if (!Array.isArray(value)) {
+    if (expected === 0 && value === undefined) return [];
+    errors.otherGuests = "REQUIRED_ARRAY"; return null;
+  }
+  if (value.length !== expected) { errors.otherGuests = `EXPECTED_${expected}_GUESTS`; return null; }
+  const out: OtherGuest[] = [];
+  value.forEach((g: any, i: number) => {
+    const p = `otherGuests[${i}].`;
+    if (!text(g?.firstName, 100)) errors[p + "firstName"] = "REQUIRED";
+    if (!text(g?.lastName, 100)) errors[p + "lastName"] = "REQUIRED";
+    if (g?.type !== "adult" && g?.type !== "child") errors[p + "type"] = "ADULT_OR_CHILD";
+    if (g?.type === "child" && !isInt(g?.age, 0, 17)) errors[p + "age"] = "AGE_0_TO_17";
+    if (g?.type === "adult" && g?.age !== undefined && g?.age !== null) errors[p + "age"] = "ONLY_FOR_CHILDREN";
+    const nat = typeof g?.nationality === "string" ? g.nationality.trim().toUpperCase() : "";
+    if (!isCountryCode(nat)) errors[p + "nationality"] = "REQUIRED_ISO_3166_ALPHA2";
+    out.push({ firstName: String(g?.firstName ?? "").trim(), lastName: String(g?.lastName ?? "").trim(), type: g?.type,
+               age: g?.type === "child" ? g.age : null, nationality: nat });
+  });
+  if (Object.keys(errors).some(k => k.startsWith("otherGuests"))) return null;
+  const adults = out.filter(g => g.type === "adult").length;
+  const ages = out.filter(g => g.type === "child").map(g => g.age as number).sort((a, b) => a - b).join(",");
+  if (adults !== occupancy.adults - 1 || ages !== [...occupancy.childAges].sort((a, b) => a - b).join(",")) {
+    errors.otherGuests = "MUST_MATCH_ADULTS_AND_CHILD_AGES"; return null;
+  }
+  return out;
 }

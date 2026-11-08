@@ -19,7 +19,7 @@ async function main() {
   const { hashPassword } = await import("../../server/security");
   const { default: app } = await import("../../server/app");
   await pool.query(`TRUNCATE agencies, users, hotels, rooms, rate_plans, inventory_daily, agency_hotel_sales, bookings,
-    booking_status_history, booking_nights, audit_logs, idempotency_keys, fx_rates, login_attempts, vouchers CASCADE`);
+    booking_status_history, booking_nights, audit_logs, idempotency_keys, fx_rates, login_attempts, vouchers, market_groups, fx_rate_history, proforma_counters CASCADE`);
   const master = randomUUID(), sub = randomUUID();
   await pool.query("INSERT INTO agencies(id,name,type) VALUES ($1,'Perf Master','master'),($2,'Perf Sub','sub')", [master, sub]);
   await pool.query("INSERT INTO users(email,password_hash,role,agency_id) VALUES ('perf@test.local',$1,'sub_agency',$2)", [hashPassword("perf-password-123"), sub]);
@@ -42,7 +42,7 @@ async function main() {
     method: "POST", headers: { "content-type": "application/json", ...(token ? { authorization: `Bearer ${token}` } : {}), ...headers }, body: JSON.stringify(body) });
   const token = (await (await post("/api/auth/login", { email: "perf@test.local", password: "perf-password-123" })).json()).token;
   const day = (o: number) => new Date(Date.now() + o * 86400000).toISOString().slice(0, 10);
-  const stay = (i: number) => ({ checkIn: day(31 + (i % 20)), checkOut: day(34 + (i % 20)), rooms: 1, adults: 2, children: 0, childAges: [] });
+  const stay = (i: number) => ({ checkIn: day(31 + (i % 20)), checkOut: day(34 + (i % 20)), rooms: 1, adults: 2, children: 0, childAges: [], nationalities: ["TR", "DE"] });
 
   const searchMs: number[] = []; let results = 0;
   for (let w = 0; w < SEARCHES / CONCURRENCY; w++)
@@ -59,7 +59,7 @@ async function main() {
   for (let w = 0; w < 5; w++)
     await Promise.all(first.slice(w * 10, w * 10 + 10).map(async (q: any) => {
       const t = performance.now();
-      const r = await post("/api/agency/bookings", { quoteId: q.quoteId, guest, operationNote: "perf" }, token, { "Idempotency-Key": randomUUID() });
+      const r = await post("/api/agency/bookings", { quoteId: q.quoteId, guest, otherGuests: [{ firstName: "R", lastName: "S", type: "adult", nationality: "DE" }], operationNote: "perf" }, token, { "Idempotency-Key": randomUUID() });
       bookMs.push(performance.now() - t);
       if (r.status !== 201) throw new Error(`booking failed ${r.status}`);
     }));

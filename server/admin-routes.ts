@@ -8,6 +8,7 @@ import { pool, withTransaction } from "./db";
 import { hashPassword } from "./security";
 import { audit, authenticate, AuthedRequest, httpError, isPlatformWide, roles, uuidParam } from "./http";
 import { isCalendarDate, nightsBetween, UUID_RE } from "./validation";
+import { formatMinor, normalizeDecimal, parseMinor } from "./pricing";
 
 export const adminRouter = Router();
 const managers = [authenticate, roles("system_admin", "back_office", "master_agency")] as const;
@@ -42,6 +43,14 @@ async function rowJson(client: { query: PoolClient["query"] }, table: string, id
   const r = (await client.query(`SELECT to_jsonb(t) - 'password_hash' AS j FROM ${table} t WHERE id = $1`, [id])).rows[0];
   return r ? r.j : null;
 }
+
+/** Minor units of the rate plan's currency (EUR 2, JPY 0, KWD 3). */
+async function currencyDigitsOfRatePlan(ratePlanId: string): Promise<number> {
+  const r = (await pool.query("SELECT c.minor_units FROM rate_plans rp JOIN currencies c ON c.code = rp.currency WHERE rp.id = $1", [ratePlanId])).rows[0];
+  if (!r) throw httpError(409, "CURRENCY_NOT_SUPPORTED");
+  return Number(r.minor_units);
+}
+const hasAtMostDecimals = (v: number, digits: number) => Math.abs(v * 10 ** digits - Math.round(v * 10 ** digits)) < 1e-6;
 
 /** Builds "SET a = $2, b = $3" from the provided fields only. */
 function patchSet(fields: Record<string, unknown>, columns: Record<string, string>) {
@@ -172,10 +181,13 @@ adminRouter.put("/api/admin/rate-plans/:id/calendar", ...managers, h(async (req,
   if (!isCalendarDate(dateFrom) || !isCalendarDate(dateTo) || dateTo < dateFrom) throw httpError(400, "INVALID_DATE_RANGE");
   const days = nightsBetween(dateFrom, dateTo).length + 1;
   if (days > 400) throw httpError(400, "DATE_RANGE_TOO_LONG");
-  if (typeof price !== "number" || !Number.isFinite(price) || price < 0 || price > 1e9 || Math.abs(price * 100 - Math.round(price * 100)) > 1e-6)
-    throw httpError(400, "INVALID_PRICE"); // non-negative, at most two decimals
   if (!Number.isInteger(allotment) || allotment < 0 || allotment > 10000) throw httpError(400, "INVALID_ALLOTMENT");
   const owner = await ownedHotel(pool, req, RATE_PLAN_SQL, id);
+  const digits = await currencyDigitsOfRatePlan(id);
+  // non-negative, at most as many decimals as the rate plan currency has (EUR 2, JPY 0, KWD 3)
+  if (typeof price !== "number" || !Number.isFinite(price) || price < 0 || price > 1e9 || !hasAtMostDecimals(price, digits))
+    throw httpError(400, "INVALID_PRICE", { maxDecimals: digits });
+  const storedPrice = formatMinor(parseMinor(price, digits), digits);
   const result = await withTransaction(async client => {
     const below = await client.query(
       "SELECT stay_date::text AS date, reserved FROM inventory_daily WHERE rate_plan_id = $1 AND stay_date BETWEEN $2::date AND $3::date AND reserved > $4 ORDER BY stay_date",
@@ -188,11 +200,11 @@ adminRouter.put("/api/admin/rate-plans/:id/calendar", ...managers, h(async (req,
     const before = await rangeJson();
     const up = await client.query(
       `INSERT INTO inventory_daily(rate_plan_id, stay_date, price, allotment)
-       SELECT $1, d::date, $4, $5 FROM generate_series($2::date, $3::date, interval '1 day') AS d
+       SELECT $1, d::date, $4::numeric, $5 FROM generate_series($2::date, $3::date, interval '1 day') AS d
        ON CONFLICT (rate_plan_id, stay_date) DO UPDATE SET price = EXCLUDED.price, allotment = EXCLUDED.allotment`,
-      [id, dateFrom, dateTo, price, allotment]);
+      [id, dateFrom, dateTo, storedPrice, allotment]);
     await audit(client, req.auth!.sub, owner.owner_agency_id, "calendar.updated", "rate_plan", id, { before, after: await rangeJson() });
-    return { ratePlanId: id, dateFrom, dateTo, days: up.rowCount, price: price.toFixed(2), allotment };
+    return { ratePlanId: id, dateFrom, dateTo, days: up.rowCount, price: storedPrice, allotment };
   });
   res.json(result);
 }));
@@ -215,6 +227,8 @@ adminRouter.post("/api/admin/publications", ...managers, h(async (req, res) => {
   if (typeof ratePlanId !== "string" || typeof agencyId !== "string" || !validMarkup(markupType, markupValue)) throw httpError(400, "INVALID_PUBLICATION");
   if (!UUID_RE.test(ratePlanId)) throw httpError(404, "NOT_FOUND");
   const owner = await ownedHotel(pool, req, RATE_PLAN_SQL, ratePlanId);
+  if (!hasAtMostDecimals(markupValue, markupType === "fixed" ? await currencyDigitsOfRatePlan(ratePlanId) : 3))
+    throw httpError(400, "INVALID_PUBLICATION", { reason: "MARKUP_PRECISION" });
   const target = (await pool.query("SELECT type, active FROM agencies WHERE id::text = $1", [agencyId])).rows[0];
   if (!target || target.type !== "sub" || !target.active) throw httpError(400, "TARGET_MUST_BE_ACTIVE_SUB_AGENCY");
   const row = await withTransaction(async client => {
@@ -223,7 +237,7 @@ adminRouter.post("/api/admin/publications", ...managers, h(async (req, res) => {
        VALUES ($1, $2, $3, $4, $5, true)
        ON CONFLICT (agency_id, rate_plan_id) DO UPDATE SET markup_type = EXCLUDED.markup_type, markup_value = EXCLUDED.markup_value, active = true, hotel_id = EXCLUDED.hotel_id
        RETURNING id, agency_id, rate_plan_id, markup_type, markup_value, active`,
-      [agencyId, owner.hotel_id, ratePlanId, markupType, markupValue])).rows[0];
+      [agencyId, owner.hotel_id, ratePlanId, markupType, normalizeDecimal(markupValue)])).rows[0];
     await audit(client, req.auth!.sub, owner.owner_agency_id, "publication.upserted", "publication", r.id,
       { targetAgencyId: agencyId, after: await rowJson(client, "agency_hotel_sales", r.id) });
     return r;
@@ -236,7 +250,13 @@ adminRouter.patch("/api/admin/publications/:id", ...managers, h(async (req, res)
   if (!optBool(b.active) || ((b.markupType !== undefined || b.markupValue !== undefined) && !validMarkup(b.markupType, b.markupValue)))
     throw httpError(400, "INVALID_PUBLICATION");
   const owner = await ownedHotel(pool, req, PUBLICATION_SQL, id);
-  const { sets, values } = patchSet(b, { active: "active", markupType: "markup_type", markupValue: "markup_value" });
+  if (b.markupValue !== undefined) {
+    const rp = (await pool.query("SELECT rate_plan_id FROM agency_hotel_sales WHERE id = $1", [id])).rows[0].rate_plan_id;
+    if (!hasAtMostDecimals(b.markupValue, b.markupType === "fixed" ? await currencyDigitsOfRatePlan(rp) : 3))
+      throw httpError(400, "INVALID_PUBLICATION", { reason: "MARKUP_PRECISION" });
+  }
+  const { sets, values } = patchSet({ ...b, markupValue: b.markupValue === undefined ? undefined : normalizeDecimal(b.markupValue) },
+                                    { active: "active", markupType: "markup_type", markupValue: "markup_value" });
   const row = await withTransaction(async client => {
     const before = await rowJson(client, "agency_hotel_sales", id);
     const r = (await client.query(`UPDATE agency_hotel_sales SET ${sets} WHERE id = $1 RETURNING id, agency_id, rate_plan_id, markup_type, markup_value, active`, [id, ...values])).rows[0];

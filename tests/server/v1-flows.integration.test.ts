@@ -41,6 +41,7 @@ const count = async (sql: string, params: unknown[] = []) => (await pool.query(s
 const reservedOf = async (ratePlanId: string) =>
   (await pool.query("SELECT reserved FROM inventory_daily WHERE rate_plan_id=$1 ORDER BY stay_date", [ratePlanId])).rows.map((r: any) => r.reserved);
 const GUEST = { firstName: "Ayşe", lastName: "Yılmaz", adults: 2, children: 1, childAges: [7], email: "ayse@example.com", phone: "+90 532 000 11 22", nationality: "TR" };
+const OTHER_GUESTS = [{ firstName: "Mehmet", lastName: "Yılmaz", type: "adult", nationality: "TR" }, { firstName: "Elif", lastName: "Yılmaz", type: "child", age: 7, nationality: "TR" }];
 const NOTE = "Geç giriş, saat 23:30 civarı";
 
 before(async () => {
@@ -56,7 +57,7 @@ after(async () => { if (skip) return; server.close(); await pool.end(); });
 beforeEach(async () => {
   if (skip) return;
   await pool.query(`TRUNCATE agencies, users, hotels, rooms, rate_plans, inventory_daily, agency_hotel_sales, bookings,
-    booking_status_history, booking_nights, audit_logs, idempotency_keys, fx_rates, login_attempts, vouchers CASCADE`);
+    booking_status_history, booking_nights, audit_logs, idempotency_keys, fx_rates, login_attempts, vouchers, market_groups, fx_rate_history, proforma_counters CASCADE`);
   await pool.query("INSERT INTO users(email,password_hash,role,agency_id) VALUES ('admin@test.local',$1,'system_admin',NULL)", [hashPassword(PW)]);
 });
 
@@ -89,10 +90,10 @@ async function setupViaApi() {
   assert.equal(pub.status, 201, JSON.stringify(pub.body));
   return { t, M1, M2, SA, SB, hotelId: hotel.body.id as string, roomId: room.body.id as string, ratePlanId: rp.body.id as string, publicationId: pub.body.id as string };
 }
-const STAY = { checkIn: D1, checkOut: D3, rooms: 1, adults: 2, children: 1, childAges: [7] };
+const STAY = { checkIn: D1, checkOut: D3, rooms: 1, adults: 2, children: 1, childAges: [7], nationalities: ["TR", "TR", "TR"] };
 const search = (tok: string) => call("POST", "/api/agency/searches", STAY, tok);
 const book = (tok: string, quoteId: string, extra: object = {}) =>
-  call("POST", "/api/agency/bookings", { quoteId, guest: GUEST, operationNote: NOTE, ...extra }, tok, { "Idempotency-Key": randomUUID() });
+  call("POST", "/api/agency/bookings", { quoteId, guest: GUEST, otherGuests: OTHER_GUESTS, operationNote: NOTE, ...extra }, tok, { "Idempotency-Key": randomUUID() });
 
 // ---------------------------------------------------------------- acceptance criteria 1 + 2 + 3
 test("A1 acceptance: manual hotel/room/price/allotment → only the selected sub-agency sees it at the right price", { skip }, async () => {

@@ -26,8 +26,10 @@ let server: Server, base = "", pool: any, hashPassword: (p: string) => string;
 const tok: Record<string, string> = {};
 const day = (offset: number) => new Date(Date.now() + offset * 86400000).toISOString().slice(0, 10);
 const CHECK_IN = day(30), NIGHT2 = day(31), CHECK_OUT = day(32);
-const STAY = { checkIn: CHECK_IN, checkOut: CHECK_OUT, rooms: 1, adults: 2, children: 1, childAges: [5] };
+const STAY = { checkIn: CHECK_IN, checkOut: CHECK_OUT, rooms: 1, adults: 2, children: 1, childAges: [5], nationalities: ["TR", "TR", "TR"] };
 const GUEST = { firstName: "Ali", lastName: "Veli", adults: 2, children: 1, childAges: [5], email: "ali@example.com", phone: "+90 555 111 22 33", nationality: "TR" };
+/** Every guest except the lead guest, each with a passport nationality (nationality-based contracts). */
+const OTHER_GUESTS = [{ firstName: "Ayşe", lastName: "Veli", type: "adult", nationality: "TR" }, { firstName: "Can", lastName: "Veli", type: "child", age: 5, nationality: "TR" }];
 const OP_NOTE = "Late arrival around 23:00";
 
 async function call(method: string, path: string, body?: unknown, token?: string, headers: Record<string, string> = {}) {
@@ -43,7 +45,7 @@ async function call(method: string, path: string, body?: unknown, token?: string
 }
 const search = (token: string, overrides: object = {}) => call("POST", "/api/agency/searches", { ...STAY, ...overrides }, token);
 const book = (token: string, quoteId: string, key = randomUUID(), body: object = {}) =>
-  call("POST", "/api/agency/bookings", { quoteId, guest: GUEST, operationNote: OP_NOTE, ...body }, token, { "Idempotency-Key": key });
+  call("POST", "/api/agency/bookings", { quoteId, guest: GUEST, otherGuests: OTHER_GUESTS, operationNote: OP_NOTE, ...body }, token, { "Idempotency-Key": key });
 const findResult = (results: any[], hotelId: string, board: string) => results.filter(r => r.hotel.id === hotelId && r.board === board);
 async function winnerQuote(token: string, hotelId = H1, board = "AI") {
   const s = await search(token);
@@ -81,7 +83,7 @@ after(async () => {
 beforeEach(async () => {
   if (skip) return;
   await pool.query(`TRUNCATE agencies, users, hotels, rooms, rate_plans, inventory_daily, agency_hotel_sales, bookings,
-    booking_status_history, booking_nights, audit_logs, idempotency_keys, fx_rates, login_attempts, vouchers CASCADE`);
+    booking_status_history, booking_nights, audit_logs, idempotency_keys, fx_rates, login_attempts, vouchers, market_groups, fx_rate_history, proforma_counters CASCADE`);
   await pool.query(`INSERT INTO agencies(id,name,type) VALUES ($1,'Master One','master'),($2,'Master Two','master'),($3,'Sub A','sub'),($4,'Sub B','sub')`, [M1, M2, SA, SB]);
   const pw = hashPassword("integration-password-1");
   const users: [string, string, string | null][] = [
@@ -436,7 +438,7 @@ test("17 every mandatory guest field is validated by the backend", { skip }, asy
 
 test("17b booking occupancy must match the quoted occupancy", { skip }, async () => {
   const w = await winnerQuote(tok.a!);
-  const r = await book(tok.a!, w.quoteId, randomUUID(), { guest: { ...GUEST, adults: 1 } });
+  const r = await book(tok.a!, w.quoteId, randomUUID(), { guest: { ...GUEST, adults: 1 }, otherGuests: [OTHER_GUESTS[1]] });
   assert.equal(r.status, 409);
   assert.equal(r.body.error, "QUOTE_OCCUPANCY_MISMATCH");
 });

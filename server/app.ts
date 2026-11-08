@@ -3,8 +3,10 @@ import type { PoolClient } from "pg";
 import { createHash, randomUUID } from "node:crypto";
 import { pool, withTransaction } from "./db";
 import { hashPassword, issueSession, verifyPassword } from "./security";
-import { Candidate, chooseWinners, fromCents, Markup, nightlySellCents, priceCandidate, toCents } from "./pricing";
-import { FieldErrors, nightsBetween, validateGuest, validateOccupancy, validateStay } from "./validation";
+import { Candidate, chooseWinners, convertMinor, formatMinor, Markup, nightlySellMinor, normalizeDecimal, parseMinor, priceCandidate } from "./pricing";
+import { ContractEligibility, evaluateContract, NationalityRule, rulesByContract } from "./eligibility";
+import { comparisonRates, FxRate, loadFreshRates } from "./fx";
+import { FieldErrors, nightsBetween, validateGuest, validateNationalities, validateOccupancy, validateOtherGuests, validateStay } from "./validation";
 import { signQuote, verifyQuote } from "./quotes";
 import { audit, authenticate, AuthedRequest, httpError, isPlatformWide, requireAgency, roles, sessionSecret, uuidParam } from "./http";
 import { adminRouter } from "./admin-routes";
@@ -98,20 +100,26 @@ app.get("/api/agency/hotels", authenticate, roles("sub_agency"), requireAgency, 
 
 // ---------------------------------------------------------------------------------------------
 // Search (read-only). Writes nothing: no booking, no inventory change, no hold record.
-// Returns exactly one winner per equivalence key; losing offers are discarded and never returned.
+// Pricing flow: contract → guest nationalities → eligibility (exclusion first) → availability → contract net
+// price → agency markup → EUR normalisation → one winner per equivalence key → signed quote.
+// Losing and ineligible offers are discarded and never returned; no other market's price is ever shown.
 // ---------------------------------------------------------------------------------------------
 interface CandidateRow {
-  rate_plan_id: string; board_name: string; currency: string; cancellation_policy: unknown; payment_terms: unknown; sales_conditions: unknown;
+  rate_plan_id: string; board_name: string; currency: string; minor_units: number;
+  cancellation_policy: unknown; payment_terms: unknown; sales_conditions: unknown;
+  contract_id: string;
   room_id: string; room_name: string; max_adults: number; max_children: number;
   hotel_id: string; hotel_name: string; location: string; category: string | null;
   markup_type: "percent" | "fixed"; markup_value: string; nights: { date: string; price: string }[];
 }
 
-/** Published, active, bookable rate plans for an agency with allotment for every night. */
+/** Published, active, bookable rate plans with allotment for every night, whose contract is active and valid
+ *  for every night of the stay and whose currency is allow-listed and active. */
 async function loadCandidates(db: { query: PoolClient["query"] }, agencyId: string, checkIn: string, checkOut: string, rooms: number) {
   const nights = nightsBetween(checkIn, checkOut).length;
   const result = await db.query(
-    `SELECT rp.id AS rate_plan_id, rp.board_name, rp.currency, rp.cancellation_policy, rp.payment_terms, rp.sales_conditions,
+    `SELECT rp.id AS rate_plan_id, rp.board_name, rp.currency, cur.minor_units, rp.cancellation_policy, rp.payment_terms, rp.sales_conditions,
+            hc.id AS contract_id,
             r.id AS room_id, r.name AS room_name, r.max_adults, r.max_children,
             h.id AS hotel_id, h.name AS hotel_name, h.location, h.category,
             s.markup_type, s.markup_value::text AS markup_value,
@@ -119,17 +127,38 @@ async function loadCandidates(db: { query: PoolClient["query"] }, agencyId: stri
        FROM agency_hotel_sales s
        JOIN agencies sa ON sa.id = s.agency_id AND sa.active
        JOIN rate_plans rp ON rp.id = s.rate_plan_id AND rp.active
+       JOIN currencies cur ON cur.code = rp.currency AND cur.active
+       JOIN contract_rate_plans crp ON crp.rate_plan_id = rp.id
+       JOIN hotel_contracts hc ON hc.id = crp.contract_id AND hc.status = 'active'
+            AND (hc.valid_from IS NULL OR hc.valid_from <= $2::date) AND (hc.valid_to IS NULL OR hc.valid_to >= $3::date - 1)
        JOIN rooms r ON r.id = rp.room_id AND r.active
        JOIN hotels h ON h.id = r.hotel_id AND h.status = 'active'
        JOIN agencies oa ON oa.id = h.owner_agency_id AND oa.active
        JOIN inventory_daily d ON d.rate_plan_id = rp.id
             AND d.stay_date >= $2::date AND d.stay_date < $3::date AND d.allotment - d.reserved >= $4
       WHERE s.agency_id = $1 AND s.active
-      GROUP BY rp.id, r.id, h.id, s.markup_type, s.markup_value
+      GROUP BY rp.id, cur.minor_units, hc.id, r.id, h.id, s.markup_type, s.markup_value
      HAVING count(*) = $5`,
     [agencyId, checkIn, checkOut, rooms, nights]
   );
   return result.rows as CandidateRow[];
+}
+
+/** Nationality rules of the given contracts, with market-group members resolved. */
+async function loadRules(db: { query: PoolClient["query"] }, contractIds: string[]): Promise<NationalityRule[]> {
+  if (!contractIds.length) return [];
+  const rows = (await db.query(
+    `SELECT r.id, r.contract_id, r.rule_type, r.country_code, r.market_group_id, g.code AS group_code,
+            coalesce(array_agg(m.country_code ORDER BY m.country_code) FILTER (WHERE m.country_code IS NOT NULL), '{}') AS members
+       FROM contract_nationality_rules r
+       LEFT JOIN market_groups g ON g.id = r.market_group_id
+       LEFT JOIN market_group_members m ON m.group_id = r.market_group_id
+      WHERE r.contract_id = ANY($1::uuid[])
+      GROUP BY r.id, g.code`, [contractIds])).rows;
+  return rows.map((r: any) => ({
+    id: r.id, contractId: r.contract_id, type: r.rule_type, countryCode: r.country_code ? String(r.country_code).trim() : null,
+    marketGroupId: r.market_group_id, marketGroupCode: r.group_code, members: (r.members as string[]).map(x => x.trim())
+  }));
 }
 
 const fitsOccupancy = (row: { max_adults: number; max_children: number }, rooms: number, adults: number, children: number) =>
@@ -138,44 +167,69 @@ const fitsOccupancy = (row: { max_adults: number; max_children: number }, rooms:
 const toCandidate = (row: CandidateRow): Candidate => ({
   ratePlanId: row.rate_plan_id, hotelId: row.hotel_id, roomId: row.room_id, board: row.board_name,
   cancellationPolicy: row.cancellation_policy, paymentTerms: row.payment_terms, salesConditions: row.sales_conditions,
-  currency: row.currency.trim(),
+  currency: row.currency.trim(), minorUnits: row.minor_units,
   markup: { type: row.markup_type, value: row.markup_value },
   nights: row.nights.map(n => ({ date: n.date, netPrice: n.price }))
 });
 
-async function loadFxRates(db: { query: PoolClient["query"] }) {
-  const rows = (await db.query("SELECT currency, eur_per_unit::float8 AS rate FROM fx_rates")).rows;
-  return new Map<string, number>(rows.map((r: any) => [String(r.currency).trim(), Number(r.rate)]));
+async function activeCurrency(db: { query: PoolClient["query"] }, code: string) {
+  const row = (await db.query("SELECT code, minor_units FROM currencies WHERE code = $1 AND active", [code])).rows[0];
+  return row ? { code: String(row.code).trim(), minorUnits: Number(row.minor_units) } : null;
 }
 
 app.post("/api/agency/searches", authenticate, roles("sub_agency"), requireAgency, async (req: AuthedRequest, res, next) => {
   try {
     const errors: FieldErrors = {};
     const stay = validateStay(req.body, errors);
-    if (!stay) return res.status(400).json({ error: "VALIDATION_FAILED", fields: errors });
+    const nat = validateNationalities(req.body?.nationalities, stay ? stay.adults + stay.children : 0, errors);
+    if (nat.missing) return res.status(400).json({ error: "NATIONALITY_REQUIRED" });
+    if (!stay || !nat.nationalities) return res.status(400).json({ error: "VALIDATION_FAILED", fields: errors });
+    const nationalities = nat.nationalities;
     const agencyId = req.auth!.agencyId!;
     const occupancy = { adults: stay.adults, children: stay.children, childAges: stay.childAges };
-    const [rows, fx] = await Promise.all([
-      loadCandidates(pool, agencyId, stay.checkIn, stay.checkOut, stay.rooms),
-      loadFxRates(pool)
-    ]);
+    const requestedPayment = req.body?.paymentCurrency;
+    if (requestedPayment !== undefined && (typeof requestedPayment !== "string" || !(await activeCurrency(pool, requestedPayment))))
+      return res.status(400).json({ error: "PAYMENT_CURRENCY_NOT_SUPPORTED" });
+    const [rows, fx] = await Promise.all([loadCandidates(pool, agencyId, stay.checkIn, stay.checkOut, stay.rooms), loadFreshRates(pool)]);
+    const payment = requestedPayment ? await activeCurrency(pool, requestedPayment) : null;
+    if (payment && !fx.get(payment.code)) return res.status(409).json({ error: "FX_RATE_UNAVAILABLE", currency: payment.code });
+    const rulesFor = rulesByContract(await loadRules(pool, [...new Set(rows.map(r => r.contract_id))]));
     const byRatePlan = new Map(rows.map(r => [r.rate_plan_id, r]));
+    const eligibilityOf = new Map<string, ContractEligibility>();
     const offers = rows
       .filter(r => fitsOccupancy(r, stay.rooms, stay.adults, stay.children))
-      .map(r => priceCandidate(toCandidate(r), occupancy, stay.checkIn, stay.checkOut, stay.rooms, fx));
+      .filter(r => {
+        const e = evaluateContract(rulesFor.get(r.contract_id) ?? [], nationalities);
+        eligibilityOf.set(r.rate_plan_id, e);
+        return e.eligible;   // ineligible contracts never compete and are never shown
+      })
+      .map(r => priceCandidate(toCandidate(r), occupancy, stay.checkIn, stay.checkOut, stay.rooms, comparisonRates(fx), nationalities));
     const results = chooseWinners(offers).map(w => {
-      const row = byRatePlan.get(w.ratePlanId)!;
+      const row = byRatePlan.get(w.ratePlanId)!, digits = row.minor_units, contractFx = fx.get(w.currency)!;
+      const pay = payment ?? { code: w.currency, minorUnits: digits };
+      const payFx = fx.get(pay.code)!;
+      const paymentAmountMinor = pay.code === w.currency ? w.totalMinor
+        : convertMinor(w.totalMinor, digits, contractFx.eurPerUnit, pay.minorUnits, payFx.eurPerUnit);
+      const matches = eligibilityOf.get(w.ratePlanId)!.matches;
       return {
-        quoteId: signQuote({ agencyId, ratePlanId: w.ratePlanId, ...stay, totalCents: w.totalCents, currency: w.currency }, sessionSecret()),
+        quoteId: signQuote({
+          agencyId, ratePlanId: w.ratePlanId, contractId: row.contract_id, ...stay, nationalities,
+          ruleIds: matches.map(m => m.ruleId), totalMinor: w.totalMinor, currency: w.currency, minorUnits: digits,
+          fxRateId: contractFx.historyId, paymentCurrency: pay.code, paymentMinorUnits: pay.minorUnits, paymentAmountMinor,
+          paymentFxRateId: payFx.historyId
+        }, sessionSecret()),
         hotel: { id: row.hotel_id, name: row.hotel_name, location: row.location, category: row.category },
         room: { name: row.room_name },
         board: row.board_name,
         cancellationPolicy: row.cancellation_policy,
         paymentTerms: row.payment_terms,
-        checkIn: stay.checkIn, checkOut: stay.checkOut, rooms: stay.rooms,
-        nights: w.nights.map((n, i) => ({ date: n.date, price: fromCents(w.nightSellCents[i]!) })),
-        total: fromCents(w.totalCents),
-        currency: w.currency
+        checkIn: stay.checkIn, checkOut: stay.checkOut, rooms: stay.rooms, nationalities,
+        nights: w.nights.map((n, i) => ({ date: n.date, price: formatMinor(w.nightSellMinor[i]!, digits) })),
+        total: formatMinor(w.totalMinor, digits),
+        currency: w.currency,
+        payment: { currency: pay.code, total: formatMinor(paymentAmountMinor, pay.minorUnits) },
+        ...(pay.code !== w.currency ? { fx: { from: w.currency, to: pay.code, fromEurPerUnit: contractFx.eurPerUnit,
+                                             toEurPerUnit: payFx.eurPerUnit, validAt: [contractFx.validAt, payFx.validAt].filter(Boolean) } } : {})
       };
     });
     res.json({ results });
@@ -185,32 +239,74 @@ app.post("/api/agency/searches", authenticate, roles("sub_agency"), requireAgenc
 // ---------------------------------------------------------------------------------------------
 // Booking creation and submission. No explicit inventory lock or hold: each night is decremented with
 // one atomic conditional UPDATE, in ascending date order; any failure rolls the whole transaction back.
-// Only the quoted (winning) rate plan is re-checked; no other offer is ever tried.
+// Only the quoted (winning) rate plan and contract are re-checked; no other offer or contract is ever tried.
+// Re-validated at creation and at draft submission: publication, contract status and validity, nationality
+// eligibility of every guest, availability, price, and the FX rates the quote was priced with.
 // Current product behaviour: allotment is decremented when a booking becomes "pending" (on creation, or
 // on submission of a draft). A draft ("Taslak") never consumes allotment.
 // ---------------------------------------------------------------------------------------------
-interface Sale { markup: Markup; currency: string; hotelId: string; maxAdults: number; maxChildren: number }
+interface Sale {
+  markup: Markup; currency: string; minorUnits: number; hotelId: string; maxAdults: number; maxChildren: number;
+  contractId: string; contractCode: string; contractName: string; sellerLegalName: string;
+}
 
 /** The agency's active publication of exactly this rate plan, or 404. */
 async function publishedSale(client: PoolClient, agencyId: string, ratePlanId: string): Promise<Sale> {
   const row = (await client.query(
-    `SELECT s.markup_type, s.markup_value::text AS markup_value, rp.currency, h.id AS hotel_id, r.max_adults, r.max_children
+    `SELECT s.markup_type, s.markup_value::text AS markup_value, rp.currency, cur.minor_units, h.id AS hotel_id, r.max_adults, r.max_children,
+            hc.id AS contract_id, hc.code AS contract_code, hc.name AS contract_name, hc.seller_legal_name
        FROM agency_hotel_sales s
        JOIN agencies sa ON sa.id = s.agency_id AND sa.active
        JOIN rate_plans rp ON rp.id = s.rate_plan_id AND rp.active
+       JOIN currencies cur ON cur.code = rp.currency AND cur.active
+       JOIN contract_rate_plans crp ON crp.rate_plan_id = rp.id
+       JOIN hotel_contracts hc ON hc.id = crp.contract_id
        JOIN rooms r ON r.id = rp.room_id AND r.active
        JOIN hotels h ON h.id = r.hotel_id AND h.status = 'active'
        JOIN agencies oa ON oa.id = h.owner_agency_id AND oa.active
       WHERE s.agency_id = $1 AND s.rate_plan_id = $2 AND s.active`,
     [agencyId, ratePlanId])).rows[0];
   if (!row) throw httpError(404, "PRODUCT_NOT_PUBLISHED");
-  return { markup: { type: row.markup_type, value: row.markup_value }, currency: String(row.currency).trim(), hotelId: row.hotel_id, maxAdults: row.max_adults, maxChildren: row.max_children };
+  return {
+    markup: { type: row.markup_type, value: row.markup_value }, currency: String(row.currency).trim(), minorUnits: Number(row.minor_units),
+    hotelId: row.hotel_id, maxAdults: row.max_adults, maxChildren: row.max_children,
+    contractId: row.contract_id, contractCode: row.contract_code, contractName: row.contract_name, sellerLegalName: row.seller_legal_name
+  };
+}
+
+/** Contract still the quoted one, active and valid for every night; every nationality still eligible. */
+async function revalidateContract(client: PoolClient, sale: Sale, quotedContractId: string, checkIn: string, checkOut: string,
+                                  nationalities: string[]) {
+  if (sale.contractId !== quotedContractId) throw httpError(409, "CONTRACT_CHANGED");
+  const ok = (await client.query(
+    `SELECT 1 FROM hotel_contracts WHERE id = $1 AND status = 'active'
+        AND (valid_from IS NULL OR valid_from <= $2::date) AND (valid_to IS NULL OR valid_to >= $3::date - 1)`,
+    [sale.contractId, checkIn, checkOut])).rowCount === 1;
+  if (!ok) throw httpError(409, "CONTRACT_NOT_AVAILABLE");
+  const e = evaluateContract(await loadRules(client, [sale.contractId]), nationalities);
+  if (!e.eligible) throw httpError(409, "NATIONALITY_NOT_ELIGIBLE", { nationalities: e.matches.filter(m => !m.eligible).map(m => m.nationality) });
+  return e;
+}
+
+interface FrozenFx { contract: FxRate; payment: FxRate; paymentMinorUnits: number }
+
+/** The FX rates the quote was priced with must still be the current fresh rates; otherwise PRICE_CHANGED. */
+async function revalidateFx(client: PoolClient, contractCurrency: string, fxRateId: number | null,
+                            paymentCurrency: string, paymentFxRateId: number | null): Promise<FrozenFx> {
+  const fx = await loadFreshRates(client);
+  const contract = fx.get(contractCurrency), payment = fx.get(paymentCurrency);
+  if (!contract || contract.historyId !== fxRateId) throw httpError(409, "PRICE_CHANGED", { reason: "FX_RATE_CHANGED" });
+  if (!payment || payment.historyId !== paymentFxRateId) throw httpError(409, "PRICE_CHANGED", { reason: "FX_RATE_CHANGED" });
+  const cur = await activeCurrency(client, paymentCurrency);
+  if (!cur) throw httpError(409, "PAYMENT_CURRENCY_NOT_SUPPORTED");
+  return { contract, payment, paymentMinorUnits: cur.minorUnits };
 }
 
 /** Atomically decrements every night and writes the nightly price snapshot. Throws 409 on any failure. */
 async function reserveNights(client: PoolClient, bookingId: string, ratePlanId: string, checkIn: string, checkOut: string,
-                             rooms: number, sale: Sale, expectedTotalCents: number) {
-  const nights: { date: string; inventoryId: string; netCents: number; sellCents: number }[] = [];
+                             rooms: number, sale: Sale, expectedTotalMinor: number) {
+  const digits = sale.minorUnits;
+  const nights: { date: string; inventoryId: string; netMinor: number; sellMinor: number }[] = [];
   for (const date of nightsBetween(checkIn, checkOut)) {
     const updated = await client.query(
       `UPDATE inventory_daily SET reserved = reserved + $3
@@ -218,17 +314,40 @@ async function reserveNights(client: PoolClient, bookingId: string, ratePlanId: 
       RETURNING id, price::text AS price`,
       [ratePlanId, date, rooms]);
     if (updated.rowCount !== 1) throw httpError(409, "ALLOTMENT_UNAVAILABLE");
-    const netCents = toCents(updated.rows[0].price);
-    nights.push({ date, inventoryId: updated.rows[0].id, netCents, sellCents: nightlySellCents(netCents, sale.markup) });
+    const netMinor = parseMinor(updated.rows[0].price, digits);
+    nights.push({ date, inventoryId: updated.rows[0].id, netMinor, sellMinor: nightlySellMinor(netMinor, sale.markup, digits) });
   }
-  const totalCents = nights.reduce((s, n) => s + n.sellCents, 0) * rooms;
-  if (totalCents !== expectedTotalCents) throw httpError(409, "PRICE_CHANGED");
+  const totalMinor = nights.reduce((s, n) => s + n.sellMinor, 0) * rooms;
+  if (totalMinor !== expectedTotalMinor) throw httpError(409, "PRICE_CHANGED");
   for (const n of nights)
     await client.query(
       `INSERT INTO booking_nights(booking_id, stay_date, inventory_id, rooms, net_price, markup_type, markup_value, sell_price, currency)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
-      [bookingId, n.date, n.inventoryId, rooms, fromCents(n.netCents), sale.markup.type, sale.markup.value, fromCents(n.sellCents), sale.currency]);
-  return totalCents;
+      [bookingId, n.date, n.inventoryId, rooms, formatMinor(n.netMinor, digits), sale.markup.type, normalizeDecimal(sale.markup.value), formatMinor(n.sellMinor, digits), sale.currency]);
+  return totalMinor;
+}
+
+/** The current price of the quoted nights without touching inventory (used for drafts). */
+async function currentTotalMinor(client: PoolClient, ratePlanId: string, checkIn: string, checkOut: string, rooms: number, sale: Sale) {
+  const rows = (await client.query(
+    "SELECT price::text AS price FROM inventory_daily WHERE rate_plan_id = $1 AND stay_date >= $2::date AND stay_date < $3::date ORDER BY stay_date",
+    [ratePlanId, checkIn, checkOut])).rows;
+  if (rows.length !== nightsBetween(checkIn, checkOut).length) throw httpError(409, "ALLOTMENT_UNAVAILABLE");
+  return rows.reduce((s: number, r: any) => s + nightlySellMinor(parseMinor(r.price, sale.minorUnits), sale.markup, sale.minorUnits), 0) * rooms;
+}
+
+async function writeSnapshot(client: PoolClient, bookingId: string, sale: Sale, ratePlanId: string, nationalities: string[],
+                             eligibility: ContractEligibility, totalMinor: number, fx: FrozenFx, paymentAmountMinor: number) {
+  await client.query(
+    `INSERT INTO booking_price_snapshots(booking_id, contract_id, contract_code, contract_name, seller_legal_name, rate_plan_id, nationalities,
+        eligibility, contract_currency, contract_minor_units, total, eur_per_unit, fx_rate_history_id, fx_source, fx_valid_at,
+        payment_currency, payment_minor_units, payment_eur_per_unit, payment_fx_rate_history_id, payment_amount)
+     VALUES ($1,$2,$3,$4,$5,$6,$7::char(2)[],$8::jsonb,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)`,
+    [bookingId, sale.contractId, sale.contractCode, sale.contractName, sale.sellerLegalName, ratePlanId, nationalities,
+     JSON.stringify(eligibility.matches), sale.currency, sale.minorUnits, formatMinor(totalMinor, sale.minorUnits),
+     fx.contract.eurPerUnit, fx.contract.historyId, fx.contract.source, fx.contract.validAt || null,
+     fx.payment.currency, fx.paymentMinorUnits, fx.payment.eurPerUnit, fx.payment.historyId,
+     formatMinor(paymentAmountMinor, fx.paymentMinorUnits)]);
 }
 
 app.post("/api/agency/bookings", authenticate, roles("sub_agency"), requireAgency, async (req: AuthedRequest, res, next) => {
@@ -236,13 +355,15 @@ app.post("/api/agency/bookings", authenticate, roles("sub_agency"), requireAgenc
   const idempotencyKey = String(req.header("Idempotency-Key") || "");
   if (!idempotencyKey || idempotencyKey.length > 128) return res.status(400).json({ error: "IDEMPOTENCY_KEY_REQUIRED" });
 
-  // All nine guest fields are mandatory. Occupancy lives in the guest object; dates and rooms come from the signed quote.
+  // All nine lead-guest fields are mandatory. Occupancy lives in the guest object; dates and rooms come from the
+  // signed quote. Every other guest is listed in otherGuests with a name and passport nationality.
   const errors: FieldErrors = {};
   const guest = validateGuest(req.body, errors);
   const occupancy = validateOccupancy(req.body?.guest, errors, "guest.");
+  const otherGuests = occupancy ? validateOtherGuests(req.body?.otherGuests, occupancy, errors) : null;
   if (!req.body?.quoteId) errors.quoteId = "REQUIRED";
   if (req.body?.draft !== undefined && typeof req.body.draft !== "boolean") errors.draft = "BOOLEAN";
-  if (!guest || !occupancy || Object.keys(errors).length) return res.status(400).json({ error: "VALIDATION_FAILED", fields: errors });
+  if (!guest || !occupancy || !otherGuests || Object.keys(errors).length) return res.status(400).json({ error: "VALIDATION_FAILED", fields: errors });
   const { adults, children, childAges } = occupancy;
   const asDraft = req.body.draft === true;
 
@@ -253,8 +374,11 @@ app.post("/api/agency/bookings", authenticate, roles("sub_agency"), requireAgenc
   const sameAges = [...childAges].sort((a, b) => a - b).join(",") === [...q.childAges].sort((a, b) => a - b).join(",");
   if (adults !== q.adults || children !== q.children || !sameAges)
     return res.status(409).json({ error: "QUOTE_OCCUPANCY_MISMATCH" });
+  const nationalities = [guest.nationality, ...otherGuests.map(g => g.nationality)].sort();
+  if (nationalities.join(",") !== [...q.nationalities].sort().join(","))
+    return res.status(409).json({ error: "QUOTE_NATIONALITY_MISMATCH" });
 
-  const requestHash = createHash("sha256").update(JSON.stringify({ quoteId: req.body.quoteId, guest: req.body.guest, operationNote: req.body.operationNote, draft: asDraft })).digest("hex");
+  const requestHash = createHash("sha256").update(JSON.stringify({ quoteId: req.body.quoteId, guest: req.body.guest, otherGuests: req.body.otherGuests ?? null, operationNote: req.body.operationNote, draft: asDraft })).digest("hex");
   try {
     const result = await withTransaction(async client => {
       // Claim the idempotency key first. A concurrent request with the same key waits on the unique
@@ -266,14 +390,17 @@ app.post("/api/agency/bookings", authenticate, roles("sub_agency"), requireAgenc
         const row = (await client.query("SELECT response, request_hash FROM idempotency_keys WHERE agency_id=$1 AND key=$2", [agencyId, idempotencyKey])).rows[0];
         if (row.request_hash === null || row.request_hash === undefined) {
           // B4B-04: key stored before migration 002 (no fingerprint). Never create a second booking under it.
-          // Replay only if the stored booking matches this request (same rate plan, dates, rooms, guest);
-          // otherwise the key is being reused for different content. A match binds the fingerprint so later
-          // requests with this key take the normal path.
+          // Replay only if the stored booking matches this request (rate plan, dates, rooms, lead guest name,
+          // contact and nationality); otherwise the key is being reused for different content. A match binds the
+          // fingerprint so later requests with this key take the normal path.
           const legacyId = row.response && typeof row.response === "object" ? row.response.id : undefined;
           const same = typeof legacyId === "string" && (await client.query(
             `SELECT 1 FROM bookings WHERE id::text = $1 AND agency_id = $2 AND rate_plan_id = $3 AND check_in = $4::date
-                AND check_out = $5::date AND room_count = $6 AND lower(guest_first_name) = lower($7) AND lower(guest_last_name) = lower($8)`,
-            [legacyId, agencyId, q.ratePlanId, q.checkIn, q.checkOut, q.rooms, guest.firstName, guest.lastName])).rowCount === 1;
+                AND check_out = $5::date AND room_count = $6 AND lower(guest_first_name) = lower($7) AND lower(guest_last_name) = lower($8)
+                AND (guest_email IS NULL OR lower(guest_email) = lower($9)) AND (guest_phone IS NULL OR guest_phone = $10)
+                AND (guest_nationality IS NULL OR guest_nationality = $11) AND (operation_note IS NULL OR operation_note = $12)`,
+            [legacyId, agencyId, q.ratePlanId, q.checkIn, q.checkOut, q.rooms, guest.firstName, guest.lastName,
+             guest.email, guest.phone, guest.nationality, guest.operationNote])).rowCount === 1;
           if (!same) throw httpError(422, "IDEMPOTENCY_KEY_REUSED");
           await client.query("UPDATE idempotency_keys SET request_hash=$3 WHERE agency_id=$1 AND key=$2 AND request_hash IS NULL",
             [agencyId, idempotencyKey, requestHash]);
@@ -284,25 +411,41 @@ app.post("/api/agency/bookings", authenticate, roles("sub_agency"), requireAgenc
       }
 
       const sale = await publishedSale(client, agencyId, q.ratePlanId); // re-check only the quoted winner
-      if (sale.currency !== q.currency) throw httpError(409, "PRICE_CHANGED");
+      if (sale.currency !== q.currency || sale.minorUnits !== q.minorUnits) throw httpError(409, "PRICE_CHANGED");
       if (adults > sale.maxAdults * q.rooms || children > sale.maxChildren * q.rooms) throw httpError(409, "OCCUPANCY_EXCEEDS_CAPACITY");
+      const eligibility = await revalidateContract(client, sale, q.contractId, q.checkIn, q.checkOut, nationalities);
+      const fx = await revalidateFx(client, q.currency, q.fxRateId, q.paymentCurrency, q.paymentFxRateId);
+      if (fx.paymentMinorUnits !== q.paymentMinorUnits) throw httpError(409, "PRICE_CHANGED");
 
       const bookingId = randomUUID();
       const seq = (await client.query("SELECT nextval('booking_no_seq') AS n")).rows[0].n;
       const bookingNo = `B4B-${String(seq).padStart(8, "0")}`;
       const status = asDraft ? "draft" : "pending";
-      const quotedTotal = fromCents(q.totalCents);
+      const quotedTotal = formatMinor(q.totalMinor, q.minorUnits);
       await client.query(
         `INSERT INTO bookings(id, booking_no, agency_id, hotel_id, rate_plan_id, check_in, check_out, room_count, total, quoted_total, currency, status,
                               submitted_at, guest_first_name, guest_last_name, guest_email, guest_phone, guest_nationality, adults, children, child_ages, operation_note)
          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$9,$10,$11, CASE WHEN $11 = 'pending' THEN now() END, $12,$13,$14,$15,$16,$17,$18,$19,$20)`,
         [bookingId, bookingNo, agencyId, sale.hotelId, q.ratePlanId, q.checkIn, q.checkOut, q.rooms, quotedTotal, q.currency, status,
          guest.firstName, guest.lastName, guest.email, guest.phone, guest.nationality, adults, children, childAges, guest.operationNote]);
-      if (!asDraft) await reserveNights(client, bookingId, q.ratePlanId, q.checkIn, q.checkOut, q.rooms, sale, q.totalCents);
+      if (!asDraft) await reserveNights(client, bookingId, q.ratePlanId, q.checkIn, q.checkOut, q.rooms, sale, q.totalMinor);
+      else if ((await currentTotalMinor(client, q.ratePlanId, q.checkIn, q.checkOut, q.rooms, sale)) !== q.totalMinor) throw httpError(409, "PRICE_CHANGED");
+      const guests = [{ firstName: guest.firstName, lastName: guest.lastName, type: "adult", age: null as number | null, nationality: guest.nationality, isLead: true },
+                      ...otherGuests.map(g => ({ ...g, isLead: false }))];
+      for (const [i, g] of guests.entries())
+        await client.query(
+          `INSERT INTO booking_guests(booking_id, guest_index, first_name, last_name, guest_type, age, nationality, is_lead) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+          [bookingId, i, g.firstName, g.lastName, g.type, g.age, g.nationality, g.isLead]);
+      await writeSnapshot(client, bookingId, sale, q.ratePlanId, nationalities, eligibility, q.totalMinor, fx, q.paymentAmountMinor);
       await client.query("INSERT INTO booking_status_history(booking_id,from_status,to_status,actor_id,note) VALUES ($1,NULL,$2,$3,'Created by sub-agency')",
         [bookingId, status, req.auth!.sub]);
-      await audit(client, req.auth!.sub, agencyId, asDraft ? "booking.draft_created" : "booking.created", "booking", bookingId);
-      const response = { id: bookingId, bookingNo, status, total: quotedTotal, currency: q.currency };
+      await audit(client, req.auth!.sub, agencyId, asDraft ? "booking.draft_created" : "booking.created", "booking", bookingId, {
+        targetAgencyId: agencyId,
+        after: { contract: sale.contractCode, nationalities, eligibility: eligibility.matches, total: quotedTotal, currency: q.currency,
+                 fxRateId: q.fxRateId, paymentCurrency: q.paymentCurrency, paymentAmount: formatMinor(q.paymentAmountMinor, q.paymentMinorUnits),
+                 paymentFxRateId: q.paymentFxRateId } });
+      const response = { id: bookingId, bookingNo, status, total: quotedTotal, currency: q.currency,
+                         payment: { currency: q.paymentCurrency, total: formatMinor(q.paymentAmountMinor, q.paymentMinorUnits) } };
       await client.query("UPDATE idempotency_keys SET response=$3::jsonb WHERE agency_id=$1 AND key=$2", [agencyId, idempotencyKey, JSON.stringify(response)]);
       return { status: 201, body: response };
     }, agencyId);
@@ -310,8 +453,9 @@ app.post("/api/agency/bookings", authenticate, roles("sub_agency"), requireAgenc
   } catch (error) { next(error); }
 });
 
-// Submitting a draft: draft -> pending. Re-checks the quoted price and decrements allotment atomically;
-// on failure the booking stays a draft and nothing changes.
+// Submitting a draft: draft -> pending. Re-checks contract, eligibility of every guest nationality, the FX rates
+// frozen in the draft's snapshot and the quoted price, then decrements allotment atomically; on any failure the
+// booking stays a draft and nothing changes.
 app.post("/api/agency/bookings/:id/submit", authenticate, roles("sub_agency"), requireAgency, async (req: AuthedRequest, res, next) => {
   try {
     const bookingId = uuidParam(req, "BOOKING_NOT_FOUND"), agencyId = req.auth!.agencyId!;
@@ -326,13 +470,21 @@ app.post("/api/agency/bookings/:id/submit", authenticate, roles("sub_agency"), r
         if (!own.rowCount) throw httpError(404, "BOOKING_NOT_FOUND");
         throw httpError(409, "ONLY_DRAFT_CAN_BE_SUBMITTED", { status: own.rows[0].status });
       }
+      const snap = (await client.query(
+        `SELECT contract_id, nationalities, fx_rate_history_id, payment_currency, payment_fx_rate_history_id
+           FROM booking_price_snapshots WHERE booking_id = $1`, [bookingId])).rows[0];
+      if (!snap) throw httpError(409, "DRAFT_REQUIRES_NEW_QUOTE"); // draft created before nationality pricing existed
       const sale = await publishedSale(client, agencyId, b.rate_plan_id);
       if (sale.currency !== String(b.currency).trim()) throw httpError(409, "PRICE_CHANGED");
       if (b.adults > sale.maxAdults * b.room_count || b.children > sale.maxChildren * b.room_count) throw httpError(409, "OCCUPANCY_EXCEEDS_CAPACITY");
-      await reserveNights(client, bookingId, b.rate_plan_id, b.check_in, b.check_out, b.room_count, sale, toCents(b.quoted_total));
+      await revalidateContract(client, sale, snap.contract_id, b.check_in, b.check_out, (snap.nationalities as string[]).map(x => x.trim()));
+      await revalidateFx(client, sale.currency, snap.fx_rate_history_id === null ? null : Number(snap.fx_rate_history_id),
+                         String(snap.payment_currency).trim(), snap.payment_fx_rate_history_id === null ? null : Number(snap.payment_fx_rate_history_id));
+      await reserveNights(client, bookingId, b.rate_plan_id, b.check_in, b.check_out, b.room_count, sale, parseMinor(b.quoted_total, sale.minorUnits));
       await client.query("INSERT INTO booking_status_history(booking_id,from_status,to_status,actor_id,note) VALUES ($1,'draft','pending',$2,'Submitted by sub-agency')",
         [bookingId, req.auth!.sub]);
-      await audit(client, req.auth!.sub, agencyId, "booking.submitted", "booking", bookingId);
+      await audit(client, req.auth!.sub, agencyId, "booking.submitted", "booking", bookingId,
+        { targetAgencyId: agencyId, before: { status: "draft" }, after: { status: "pending" } });
       return { id: bookingId, status: "pending" };
     }, agencyId);
     res.json(result);
@@ -407,7 +559,15 @@ async function bookingDetail(bookingId: string, scopeSql: string, scopeParams: u
     "SELECT stay_date::text AS date, rooms, sell_price, currency FROM booking_nights WHERE booking_id=$1 ORDER BY stay_date", [bookingId])).rows;
   const history = (await pool.query(
     "SELECT from_status, to_status, actor_id, note, created_at FROM booking_status_history WHERE booking_id=$1 ORDER BY id", [bookingId])).rows;
-  return { ...b, nights, history };
+  const guests = (await pool.query(
+    `SELECT guest_index AS index, first_name, last_name, guest_type AS type, age, nationality, is_lead
+       FROM booking_guests WHERE booking_id = $1 ORDER BY guest_index`, [bookingId])).rows;
+  const snapshot = (await pool.query(
+    `SELECT contract_code, contract_name, seller_legal_name, nationalities, eligibility, contract_currency, total::text AS total,
+            eur_per_unit::text AS eur_per_unit, fx_source, fx_valid_at, payment_currency, payment_amount::text AS payment_amount,
+            payment_eur_per_unit::text AS payment_eur_per_unit, rounding, created_at
+       FROM booking_price_snapshots WHERE booking_id = $1`, [bookingId])).rows[0] ?? null;
+  return { ...b, nights, history, guests, priceSnapshot: snapshot };
 }
 
 app.get("/api/agency/bookings/:id", authenticate, roles("sub_agency"), requireAgency, async (req: AuthedRequest, res, next) => {
