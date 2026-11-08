@@ -41,7 +41,7 @@ function renderNats(root){const old=root.querySelector('input')?.value||'TR';roo
 
 function renderOffers(initial=''){const root=$('searchResults');root.replaceChildren();const filters=el('div',{cls:'card filters'}),controls=el('div',{cls:'fields'});const location=field('Otel / lokasyon','location','search',initial,'filter-location');controls.append(location);const sort=el('select',{testid:'sort-select'});for(const [v,t] of [['low','Fiyat artan'],['high','Fiyat azalan'],['name','Otel adı']])sort.append(el('option',{value:v,text:t}));controls.append(el('label',{},[node('span','Sıralama'),sort]));const cats=[...new Set(offers.map(o=>o.hotel?.category).filter(x=>x!==null&&x!==undefined))],boards=[...new Set(offers.map(o=>o.board).filter(Boolean))];const makeSelect=(label,values,testid)=>{const s=el('select',{testid});s.append(el('option',{value:'',text:'Tümü'}));for(const v of values)s.append(el('option',{value:String(v),text:String(v)}));controls.append(el('label',{},[node('span',label),s]));return s};const category=cats.length?makeSelect('Kategori',cats,'filter-category'):null,board=boards.length?makeSelect('Pansiyon',boards,'filter-board'):null;const amounts=offers.map(o=>Number(o.total)).filter(Number.isFinite);let maxPrice=null;const currencies=[...new Set(offers.map(o=>o.currency))];if(amounts.length&&currencies.length===1){const f=field('Azami toplam fiyat (teklif para biriminde)','price','number','','filter-price');maxPrice=f.querySelector('input');maxPrice.min=0;controls.append(f)}filters.append(controls);const list=el('div');root.append(filters,list);function paint(){list.replaceChildren();const q=location.querySelector('input').value.trim().toLocaleLowerCase('tr');const filtered=offers.filter(o=>(String(o.hotel?.name||'')+' '+String(o.hotel?.location||'')).toLocaleLowerCase('tr').includes(q)&&(!category||!category.value||String(o.hotel?.category)===category.value)&&(!board||!board.value||String(o.board)===board.value)&&(!maxPrice||!maxPrice.value||Number(o.total)<=Number(maxPrice.value)));filtered.sort((a,b)=>a.currency!==b.currency?String(a.currency).localeCompare(String(b.currency)):sort.value==='name'?String(a.hotel?.name).localeCompare(String(b.hotel?.name),'tr'):(Number(a.total)-Number(b.total))*(sort.value==='high'?-1:1));if(!filtered.length){list.append(node('div','Bu koşullarda sonuç bulunamadı.','card empty'));return}for(const o of filtered){const details=el('div',{},[node('h2',o.hotel?.name||'Otel'),node('p',String(o.hotel?.location||'Konum belirtilmemiş')),node('p','Kategori: '+String(o.hotel?.category??'Belirtilmemiş')+' · Oda: '+String(o.room?.name||'')+' · Pansiyon: '+String(o.board||'')),node('p',dateTR(o.checkIn)+' – '+dateTR(o.checkOut)+' · '+nights(o.checkIn,o.checkOut)+' gece · '+o.rooms+' oda · '+searchRequest.adults+' yetişkin · '+searchRequest.children+' çocuk'),node('p','İptal koşulu: '+policy(o.cancellationPolicy)),node('p','Ödeme koşulu: '+policy(o.paymentTerms))]);const price=el('div',{},[node('div',money(o.total,o.currency),'price'),node('p',o.payment&&o.payment.currency!==o.currency?'Ödeme: '+money(o.payment.total,o.payment.currency):'','small')]);const detail=btn('Teklif detayı',()=>offerDetail(o),false,'result-detail');price.append(detail,btn('Rezervasyon',()=>bookingForm(o),true,'book-button'));list.append(el('article',{cls:'card offer result',testid:'result-card'},[details,price]))}}for(const inp of controls.querySelectorAll('input,select'))inp.addEventListener('input',paint);paint()}
 function policy(x){return typeof x==='string'?x: x===null||x===undefined?'Belirtilmemiş':JSON.stringify(x)}
-function offerDetail(o){clear();const box=el('div',{},[node('h2',o.hotel?.name||'Otel'),node('p','Oda: '+String(o.room?.name||'')+' · '+String(o.board||'')),node('p','İptal: '+policy(o.cancellationPolicy)),node('p','Ödeme: '+policy(o.paymentTerms)),node('p','Toplam: '+money(o.total,o.currency))]);for(const n of o.nights||[])box.append(node('p',dateTR(n.date)+' · '+money(n.price,o.currency)));if(o.fx)box.append(node('p','Kur: '+policy(o.fx)));box.append(btn('Rezervasyona geç',()=>bookingForm(o),true,'book-button'),btn('Aramaya dön',()=>go('search')));view().append(card('Teklif ayrıntıları',box))}
+function offerDetail(o){clear();const box=el('div',{},[node('h2',o.hotel?.name||'Otel'),node('p','Oda: '+String(o.room?.name||'')+' · '+String(o.board||'')),node('p','İptal ve ödeme koşulları: '+termsText(o.cancellationPolicy,o.paymentTerms)),node('p','Toplam: '+money(o.total,o.currency))]);for(const n of o.nights||[])box.append(node('p',dateTR(n.date)+' · '+money(n.price,o.currency)));if(o.fx)box.append(node('p','Kur: '+policy(o.fx)));box.append(btn('Rezervasyona geç',()=>bookingForm(o),true,'book-button'),btn('Aramaya dön',()=>go('search')));view().append(card('Teklif ayrıntıları',box))}
 function bookingForm(o){quote=o;bookingKey=crypto.randomUUID();clear();const form=el('form',{}),guestFields=el('div',{cls:'fields'});for(const [label,key,type] of [['Ad','firstName','text'],['Soyad','lastName','text'],['E-posta','email','email'],['Telefon','phone','tel'],['Aile milliyeti (ISO)','nationality','text']])guestFields.append(field(label,key,type,key==='nationality'?searchRequest.nationalities[0]:'','guest-'+key));const extras=el('div',{cls:'grid'});const other=[];for(let i=1;i<searchRequest.adults;i++)other.push({type:'adult',age:null});for(const age of searchRequest.childAges)other.push({type:'child',age});other.forEach((g,i)=>{const section=el('div',{cls:'room'},[node('h3',(g.type==='adult'?'Yetişkin ':'Çocuk ')+(i+1)),field('Ad','firstName','text','','guest-other-'+i+'-firstName'),field('Soyad','lastName','text','','guest-other-'+i+'-lastName'),node('p','Aile milliyeti aramada seçildi.','muted')]);extras.append(section)});const note=field('Operasyon notu','operationNote','textarea','','guest-operationNote');const submit=el('button',{text:'Rezervasyonu oluştur',cls:'primary',type:'submit',testid:'booking-submit'}),draft=btn('Taslak oluştur',()=>{form.dataset.draft='true';form.requestSubmit()},false,'submit-draft-button');form.append(node('p','Toplam: '+money(o.total,o.currency)),guestFields,node('h2','Diğer misafirler'),extras,note,el('div',{cls:'actions'},[submit,draft]));form.onsubmit=async e=>{e.preventDefault();const f=new FormData(form),lead={firstName:f.get('firstName'),lastName:f.get('lastName'),email:f.get('email'),phone:f.get('phone'),nationality:String(f.get('nationality')||'').toUpperCase(),adults:searchRequest.adults,children:searchRequest.children,childAges:searchRequest.childAges},otherGuests=[...extras.children].map((section,i)=>{const inputs=section.querySelectorAll('input');return {...other[i],firstName:inputs[0].value,lastName:inputs[1].value,nationality:lead.nationality}});if(!/^[A-Z]{2}$/.test(lead.nationality)||lead.nationality!==searchRequest.nationalities[0])return message('Aile milliyeti aramada seçilen milliyetle aynı olmalı.');submit.disabled=true;try{const result=await api('/api/agency/bookings',{method:'POST',headers:{'Idempotency-Key':bookingKey},body:{quoteId:o.quoteId,guest:lead,otherGuests,operationNote:f.get('operationNote'),draft:form.dataset.draft==='true'}});message('Rezervasyon isteği alındı.');bookingKey=null;go('bookings')}catch(err){fail(err);if(['PRICE_CHANGED','ALLOTMENT_UNAVAILABLE','QUOTE_EXPIRED'].includes(err.code))message('Fiyat veya kontenjan değişti. Lütfen yeniden arama yapın.')}finally{submit.disabled=false;delete form.dataset.draft}};view().append(card('Rezervasyon bilgileri',form))}
 const statusTR={draft:'Taslak',pending:'Bekliyor',approved:'Onaylandı',rejected:'Reddedildi',cancelled:'İptal edildi',active:'Aktif',inactive:'Pasif'};
 const selectField=(label,name,options,value='')=>el('label',{},[node('span',label),el('select',{name},options.map(([v,t])=>el('option',{value:v,text:t,selected:String(v)===String(value)})))]);
@@ -93,6 +93,7 @@ async function hotelDetail(id){
   section.append(btn('Fiyat planı ekle',()=>ratePlanCreate(id,room),false));
   for(const plan of plans.filter(x=>x.room_id===room.id))section.append(el('div',{cls:'room'},[
    node('p',plan.board_name+' · '+plan.currency),
+   ...(!termsValid(plan.cancellation_policy,plan.payment_terms)?[node('p','Koşullar eksik – yayınlanamaz')]:[]),
    btn('Takvim',()=>rateCalendar(id,plan)),btn('Yayınlar',()=>publicationEditor(id,plan,publications)),btn('Fiyat planını düzenle',()=>ratePlanEdit(id,plan))
   ]));
   view().append(card('Oda',section));
@@ -108,20 +109,46 @@ async function hotelDetail(id){
   ['Kod','code'],['Ad','name'],['Para birimi','currency','text','EUR'],['Satıcı tüzel kişi','sellerLegalName']
  ],()=>hotelDetail(id)));
 }
+function termsValid(c,p){
+ return !!c&&Number.isInteger(c.freeUntilDays)&&c.freeUntilDays>=0&&c.freeUntilDays<=365&&
+ ['nights','percent'].includes(c.penaltyType)&&Number.isInteger(c.penaltyValue)&&c.penaltyValue>=1&&c.penaltyValue<=(c.penaltyType==='nights'?30:100)&&
+ ['nights','percent'].includes(c.noShowPenaltyType)&&Number.isInteger(c.noShowPenaltyValue)&&c.noShowPenaltyValue>=1&&c.noShowPenaltyValue<=(c.noShowPenaltyType==='nights'?30:100)&&
+ !!p&&Number.isInteger(p.dueDaysBeforeCheckIn)&&p.dueDaysBeforeCheckIn>=0&&p.dueDaysBeforeCheckIn<=365;
+}
+function termsText(c,p){
+ if(!termsValid(c,p))return 'Koşullar eksik – yayınlanamaz';
+ const penalty=(type,value)=>type==='nights'?value+' gece': '%'+value;
+ return 'Girişe '+c.freeUntilDays+' gün kalana kadar ücretsiz iptal, sonrasında '+penalty(c.penaltyType,c.penaltyValue)+' ceza. No-show: '+penalty(c.noShowPenaltyType,c.noShowPenaltyValue)+'. Ödeme: girişten '+p.dueDaysBeforeCheckIn+' gün önce.';
+}
+function termsFields(c={},p={}){
+ return [
+ ['Ücretsiz iptal günü','freeUntilDays','number',c.freeUntilDays??7],
+ choice('İptal cezası türü','penaltyType',[['nights','Gece'],['percent','Yüzde']],c.penaltyType||'nights'),
+ ['İptal cezası değeri','penaltyValue','number',c.penaltyValue??1],
+ choice('No-show cezası türü','noShowPenaltyType',[['nights','Gece'],['percent','Yüzde']],c.noShowPenaltyType||'percent'),
+ ['No-show cezası değeri','noShowPenaltyValue','number',c.noShowPenaltyValue??100],
+ ['Ödeme vadesi (girişten kaç gün önce)','dueDaysBeforeCheckIn','number',p.dueDaysBeforeCheckIn??14]
+ ];
+}
+function termsBody(raw){
+ const {freeUntilDays,penaltyType,penaltyValue,noShowPenaltyType,noShowPenaltyValue,dueDaysBeforeCheckIn,...rest}=raw;
+ return {...rest,cancellationPolicy:{freeUntilDays:Number(freeUntilDays),penaltyType,penaltyValue:Number(penaltyValue),noShowPenaltyType,noShowPenaltyValue:Number(noShowPenaltyValue)},paymentTerms:{dueDaysBeforeCheckIn:Number(dueDaysBeforeCheckIn)}};
+}
 async function ratePlanCreate(hotelId,room){
- clear();
- view().append(btn('Otele dön',()=>hotelDetail(hotelId)));
+ clear();view().append(btn('Otele dön',()=>hotelDetail(hotelId)));
  const contracts=(await api('/api/admin/hotels/'+hotelId+'/contracts')).items||[];
  view().append(editor('Yeni fiyat planı · '+room.name,'/api/admin/rooms/'+room.id+'/rate-plans','POST',[
   ['Pansiyon','boardName'],['Para birimi','currency','text','EUR'],
-  choice('Kontrat','contractId',contracts.map(x=>[x.id,x.name||x.code]))
- ],()=>hotelDetail(hotelId),raw=>({...raw,cancellationPolicy:{},paymentTerms:{},salesConditions:{}})));
+  choice('Kontrat','contractId',contracts.map(x=>[x.id,x.name||x.code])),
+  ...termsFields()
+ ],()=>hotelDetail(hotelId),raw=>({...termsBody(raw),salesConditions:{}})));
 }
 async function ratePlanEdit(hotelId,plan){
  clear();view().append(btn('Otele dön',()=>hotelDetail(hotelId)));
  view().append(editor('Fiyat planı düzenle','/api/admin/rate-plans/'+plan.id,'PATCH',[
-  choice('Aktif','active',[['true','Evet'],['false','Hayır']],String(plan.active))
- ],()=>hotelDetail(hotelId),raw=>({...raw,active:raw.active==='true'})));
+  choice('Aktif','active',[['true','Evet'],['false','Hayır']],String(plan.active)),
+  ...termsFields(plan.cancellation_policy,plan.payment_terms)
+ ],()=>hotelDetail(hotelId),raw=>({...termsBody(raw),active:raw.active==='true'})));
 }
 async function rateCalendar(hotelId,plan){
  clear();view().append(btn('Otele dön',()=>hotelDetail(hotelId)));
