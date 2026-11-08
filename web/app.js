@@ -120,7 +120,6 @@ async function ratePlanCreate(hotelId,room){
 async function ratePlanEdit(hotelId,plan){
  clear();view().append(btn('Otele dön',()=>hotelDetail(hotelId)));
  view().append(editor('Fiyat planı düzenle','/api/admin/rate-plans/'+plan.id,'PATCH',[
-  ['Pansiyon','boardName','text',plan.board_name],
   choice('Aktif','active',[['true','Evet'],['false','Hayır']],String(plan.active))
  ],()=>hotelDetail(hotelId),raw=>({...raw,active:raw.active==='true'})));
 }
@@ -211,7 +210,7 @@ async function agencies(){
     const tr=el('tr');
     for(const x of [a.name,a.type,a.active?'Aktif':'Pasif'])tr.append(node('td',x));
     tr.append(el('td',{},[btn('Düzenle',()=>{clear();view().append(editor('Acente düzenle','/api/admin/agencies/'+a.id,'PATCH',[
-      ['Acente adı','name','text',a.name],choice('Aktif','active',[['true','Evet'],['false','Hayır']],String(a.active))
+      choice('Aktif','active',[['true','Evet'],['false','Hayır']],String(a.active))
     ],()=>go('agencies'),raw=>({...raw,active:raw.active==='true'}))) }),btn(a.active?'Pasifleştir':'Etkinleştir',async()=>{
       try{await api('/api/admin/agencies/'+encodeURIComponent(a.id),{method:'PATCH',body:{active:!a.active}});await go('agencies')}catch(e){fail(e)}
     })]));
