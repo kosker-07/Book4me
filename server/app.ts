@@ -386,7 +386,7 @@ async function writeSnapshot(client: PoolClient, bookingId: string, sale: Sale, 
     `INSERT INTO booking_price_snapshots(booking_id, contract_id, contract_code, contract_name, seller_legal_name, rate_plan_id, nationalities,
         eligibility, contract_currency, contract_minor_units, total, eur_per_unit, fx_rate_history_id, fx_source, fx_valid_at,
         payment_currency, payment_minor_units, payment_eur_per_unit, payment_fx_rate_history_id, payment_amount)
-     VALUES ($1,$2,$3,$4,$5,$6,$7::char(2)[],$8::jsonb,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21::jsonb)`,
+     VALUES ($1,$2,$3,$4,$5,$6,$7::char(2)[],$8::jsonb,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)`,
     [bookingId, sale.contractId, sale.contractCode, sale.contractName, sale.sellerLegalName, ratePlanId, nationalities,
      JSON.stringify(eligibility.matches), sale.currency, sale.minorUnits, formatMinor(totalMinor, sale.minorUnits),
      fx.contract.eurPerUnit, fx.contract.historyId, fx.contract.source, fx.contract.validAt || null,
@@ -475,7 +475,7 @@ app.post("/api/agency/bookings", authenticate, roles("sub_agency"), requireAgenc
       await client.query(
         `INSERT INTO bookings(id, booking_no, agency_id, hotel_id, rate_plan_id, check_in, check_out, room_count, total, quoted_total, currency, status,
                               submitted_at, guest_first_name, guest_last_name, guest_email, guest_phone, guest_nationality, adults, children, child_ages, operation_note, room_occupancies)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$9,$10,$11, CASE WHEN $11 = 'pending' THEN now() END, $12,$13,$14,$15,$16,$17,$18,$19,$20)`,
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$9,$10,$11, CASE WHEN $11 = 'pending' THEN now() END, $12,$13,$14,$15,$16,$17,$18,$19,$20,$21::jsonb)`,
         [bookingId, bookingNo, agencyId, sale.hotelId, q.ratePlanId, q.checkIn, q.checkOut, q.rooms, quotedTotal, q.currency, status,
          guest.firstName, guest.lastName, guest.email, guest.phone, guest.nationality, adults, children, childAges, guest.operationNote, JSON.stringify(q.roomOccupancies)]);
       if (!asDraft) await reserveNights(client, bookingId, q.ratePlanId, q.checkIn, q.checkOut, q.rooms, sale, q.totalMinor);
