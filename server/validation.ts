@@ -142,3 +142,35 @@ export function validateOtherGuests(value: unknown, occupancy: Occupancy, errors
   }
   return out;
 }
+
+
+export interface RatePlanTerms {
+  cancellationPolicy: {
+    freeUntilDays: number;
+    penaltyType: "nights" | "percent";
+    penaltyValue: number;
+    noShowPenaltyType: "nights" | "percent";
+    noShowPenaltyValue: number;
+  };
+  paymentTerms: { dueDaysBeforeCheckIn: number };
+}
+
+/** Shared validation for rate-plan writes and legacy publication eligibility. */
+export function validateRatePlanTerms(cancellationPolicy: unknown, paymentTerms: unknown, errors: FieldErrors = {}): boolean {
+  const obj = (v: unknown): v is Record<string, unknown> => !!v && typeof v === "object" && !Array.isArray(v);
+  const int = (v: unknown, min: number, max: number) => Number.isInteger(v) && (v as number) >= min && (v as number) <= max;
+  if (!obj(cancellationPolicy)) {
+    errors.cancellationPolicy = "REQUIRED_OBJECT";
+  } else {
+    if (!int(cancellationPolicy.freeUntilDays, 0, 365)) errors["cancellationPolicy.freeUntilDays"] = "INTEGER_0_TO_365";
+    for (const prefix of ["penalty", "noShowPenalty"] as const) {
+      const type = cancellationPolicy[prefix + "Type"];
+      const value = cancellationPolicy[prefix + "Value"];
+      if (type !== "nights" && type !== "percent") errors["cancellationPolicy." + prefix + "Type"] = "NIGHTS_OR_PERCENT";
+      if (!int(value, 1, type === "nights" ? 30 : 100)) errors["cancellationPolicy." + prefix + "Value"] = type === "nights" ? "INTEGER_1_TO_30" : "INTEGER_1_TO_100";
+    }
+  }
+  if (!obj(paymentTerms)) errors.paymentTerms = "REQUIRED_OBJECT";
+  else if (!int(paymentTerms.dueDaysBeforeCheckIn, 0, 365)) errors["paymentTerms.dueDaysBeforeCheckIn"] = "INTEGER_0_TO_365";
+  return Object.keys(errors).length === 0;
+}
