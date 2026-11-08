@@ -18,7 +18,7 @@ test("publication agency selector: manager roles, tenant scope and sub-agency de
   try {
     for (const [id, name, type] of [[masterA, "Selector Master A", "master"], [masterB, "Selector Master B", "master"],
                                      [subA, "Selector Sub A", "sub"], [subB, "Selector Sub B", "sub"]])
-      await pool.query("INSERT INTO agencies(id,name,type) VALUES ($1,$2,$3)", [id, name, type]);
+      await pool.query("INSERT INTO agencies(id,name,type,parent_agency_id) VALUES ($1,$2,$3,$4)", [id, name, type, type === "sub" ? (id === subA ? masterA : masterB) : null]);
     const roles = ["system_admin", "back_office", "master_agency", "sub_agency"] as const;
     const agencyIds = [null, null, masterA, subA];
     for (let i = 0; i < roles.length; i++)
@@ -31,12 +31,16 @@ test("publication agency selector: manager roles, tenant scope and sub-agency de
       [sale, subA, hotel, plan]);
     for (let i = 0; i < roles.length; i++) {
       const token = issueSession({ sub: users[i]!, role: roles[i]!, agencyId: agencyIds[i], ver: 0 }, secret);
-      const response = await fetch(base + "/api/admin/publication-agencies", { headers: { authorization: `Bearer ${token}` } });
+      const response = await fetch(base + "/api/admin/publication-agencies?ratePlanId=" + plan, { headers: { authorization: `Bearer ${token}` } });
       assert.equal(response.status, i === 3 ? 403 : 200, roles[i]);
+      if (i !== 3) {
+        const missing = await fetch(base + "/api/admin/publication-agencies", { headers: { authorization: `Bearer ${token}` } });
+        assert.equal(missing.status, 400, "ratePlanId is required");
+      }
       if (i === 3) continue;
       const data = await response.json() as { items: { id: string; name: string }[] };
       assert.ok(data.items.some(a => a.id === subA), `${roles[i]} should see published sub-agency`);
-      assert.equal(data.items.some(a => a.id === subB), true, `${roles[i]} can select every active sub-agency`);
+      assert.equal(data.items.some(a => a.id === subB), false, `${roles[i]} must not see other DMC sub-agencies`);
       assert.ok(data.items.every(a => Object.keys(a).sort().join(",") === "id,name"), "selector exposes only id/name");
     }
   } finally {
