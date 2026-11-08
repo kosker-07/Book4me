@@ -26,7 +26,7 @@ let server: Server, base = "", pool: any, hashPassword: (p: string) => string;
 const tok: Record<string, string> = {};
 const day = (offset: number) => new Date(Date.now() + offset * 86400000).toISOString().slice(0, 10);
 const CHECK_IN = day(30), NIGHT2 = day(31), CHECK_OUT = day(32);
-const STAY = { checkIn: CHECK_IN, checkOut: CHECK_OUT, rooms: 1, adults: 2, children: 1, childAges: [5], roomOccupancies: [{ adults: 2, children: 1, childAges: [5] }], nationalities: ["TR", "TR", "TR"] };
+const STAY = { checkIn: CHECK_IN, checkOut: CHECK_OUT, rooms: 1, adults: 2, children: 1, childAges: [5], roomOccupancies: [{ adults: 2, children: 1, childAges: [5] }], nationalities: ["TR"] };
 const GUEST = { firstName: "Ali", lastName: "Veli", adults: 2, children: 1, childAges: [5], email: "ali@example.com", phone: "+90 555 111 22 33", nationality: "TR" };
 /** Every guest except the lead guest, each with a passport nationality (nationality-based contracts). */
 const OTHER_GUESTS = [{ firstName: "Ayşe", lastName: "Veli", type: "adult", nationality: "TR" }, { firstName: "Can", lastName: "Veli", type: "child", age: 5, nationality: "TR" }];
@@ -472,7 +472,7 @@ test("19 invalid ids and malformed input return 4xx, never 500", { skip }, async
 });
 
 test("room distribution: 3+1 cannot use a max-2-adult room, 2+2 can", { skip }, async () => {
-  const common = { rooms: 2, adults: 4, children: 0, childAges: [], nationalities: ["TR", "TR", "TR", "TR"] };
+  const common = { rooms: 2, adults: 4, children: 0, childAges: [], nationalities: ["TR"] };
   const rejected = await search(tok.a!, { ...common, roomOccupancies: [
     { adults: 3, children: 0, childAges: [] }, { adults: 1, children: 0, childAges: [] }
   ] });
@@ -488,7 +488,7 @@ test("room distribution: 3+1 cannot use a max-2-adult room, 2+2 can", { skip }, 
 test("room distribution: child capacity is checked per room", { skip }, async () => {
   await pool.query("UPDATE rooms SET max_children=1 WHERE id=$1", [R1]);
   const s = await search(tok.a!, { rooms: 2, adults: 2, children: 2, childAges: [4, 7],
-    nationalities: ["TR", "TR", "TR", "TR"], roomOccupancies: [
+    nationalities: ["TR"], roomOccupancies: [
       { adults: 1, children: 2, childAges: [4, 7] }, { adults: 1, children: 0, childAges: [] }
     ] });
   assert.equal(s.status, 200, s.raw);
@@ -497,7 +497,7 @@ test("room distribution: child capacity is checked per room", { skip }, async ()
 
 const fiveAdults = {
   rooms: 3, adults: 5, children: 0, childAges: [],
-  nationalities: ["TR", "TR", "TR", "TR", "TR"],
+  nationalities: ["TR"],
   roomOccupancies: [
     { adults: 3, children: 0, childAges: [] },
     { adults: 1, children: 0, childAges: [] },
