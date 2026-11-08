@@ -3,6 +3,7 @@ import { NextFunction, Request, Response } from "express";
 import { pool } from "./db";
 import { SessionClaims, verifySession } from "./security";
 import { UUID_RE } from "./validation";
+import { currentContext } from "./context";
 
 export const sessionSecret = () => process.env.SESSION_SECRET || "";
 export type Role = SessionClaims["role"];
@@ -50,10 +51,18 @@ export const uuidParam = (req: Request, notFound = "NOT_FOUND") => {
   return id;
 };
 
+export interface AuditDetail { targetAgencyId?: string | null; before?: unknown; after?: unknown }
+
+/** Appends an audit record. IP, user-agent and request id come from the current request context;
+ *  before/after hold the changed values for management changes (A7). audit_logs is append-only. */
 export const audit = async (client: { query: (...a: any[]) => Promise<any> }, actorId: string, agencyId: string | null,
-                            action: string, entityType: string, entityId: string) => {
+                            action: string, entityType: string, entityId: string, detail: AuditDetail = {}) => {
+  const ctx = currentContext();
   await client.query(
-    "INSERT INTO audit_logs(actor_id, agency_id, action, entity_type, entity_id) VALUES ($1,$2,$3,$4,$5)",
-    [actorId, agencyId, action, entityType, entityId]
+    `INSERT INTO audit_logs(actor_id, agency_id, action, entity_type, entity_id, target_agency_id, before, after, ip, user_agent, request_id)
+     VALUES ($1,$2,$3,$4,$5,$6,$7::jsonb,$8::jsonb,$9,$10,$11)`,
+    [actorId, agencyId, action, entityType, entityId, detail.targetAgencyId ?? null,
+     detail.before === undefined ? null : JSON.stringify(detail.before), detail.after === undefined ? null : JSON.stringify(detail.after),
+     ctx?.ip ?? null, ctx?.userAgent ?? null, ctx?.requestId ?? null]
   );
 };

@@ -35,6 +35,14 @@ const RATE_PLAN_SQL = `SELECT h.id AS hotel_id, h.owner_agency_id FROM rate_plan
 const PUBLICATION_SQL = `SELECT h.id AS hotel_id, h.owner_agency_id FROM agency_hotel_sales s JOIN rate_plans rp ON rp.id = s.rate_plan_id
                          JOIN rooms r ON r.id = rp.room_id JOIN hotels h ON h.id = r.hotel_id WHERE s.id = $1`;
 
+/** Current state of one row as JSON, for audit before/after values. Never selects password hashes. */
+const AUDITED_TABLES = new Set(["hotels", "rooms", "rate_plans", "agency_hotel_sales", "agencies", "users"]);
+async function rowJson(client: { query: PoolClient["query"] }, table: string, id: string) {
+  if (!AUDITED_TABLES.has(table)) throw new Error(`rowJson: table ${table} not allowed`);
+  const r = (await client.query(`SELECT to_jsonb(t) - 'password_hash' AS j FROM ${table} t WHERE id = $1`, [id])).rows[0];
+  return r ? r.j : null;
+}
+
 /** Builds "SET a = $2, b = $3" from the provided fields only. */
 function patchSet(fields: Record<string, unknown>, columns: Record<string, string>) {
   const sets: string[] = [], values: unknown[] = [];
@@ -58,7 +66,7 @@ adminRouter.post("/api/admin/hotels", ...managers, h(async (req, res) => {
       `INSERT INTO hotels(id, owner_agency_id, name, location, category, description, amenities, images, operational_notes)
        VALUES ($1,$2,$3,$4,$5,$6,$7::jsonb,$8::jsonb,$9)`,
       [id, ownerAgencyId, name.trim(), location.trim(), category || null, description || "", JSON.stringify(amenities || []), JSON.stringify(images || []), operationalNotes || ""]);
-    await audit(client, req.auth!.sub, ownerAgencyId, "hotel.created", "hotel", id);
+    await audit(client, req.auth!.sub, ownerAgencyId, "hotel.created", "hotel", id, { after: await rowJson(client, "hotels", id) });
   });
   res.status(201).json({ id, ownerAgencyId, name: name.trim(), status: "draft" });
 }));
@@ -85,8 +93,10 @@ adminRouter.patch("/api/admin/hotels/:id", ...managers, h(async (req, res) => {
   const owner = await ownedHotel(pool, req, HOTEL_SQL, id);
   const { sets, values } = patchSet(b, { status: "status", name: "name", location: "location", category: "category", description: "description", operationalNotes: "operational_notes" });
   const row = await withTransaction(async client => {
+    const before = await rowJson(client, "hotels", id);
     const r = (await client.query(`UPDATE hotels SET ${sets}, updated_at = now() WHERE id = $1 RETURNING id, name, status`, [id, ...values])).rows[0];
-    await audit(client, req.auth!.sub, owner.owner_agency_id, b.status ? `hotel.status.${b.status}` : "hotel.updated", "hotel", id);
+    await audit(client, req.auth!.sub, owner.owner_agency_id, b.status ? `hotel.status.${b.status}` : "hotel.updated", "hotel", id,
+      { before, after: await rowJson(client, "hotels", id) });
     return r;
   });
   res.json(row);
@@ -102,7 +112,7 @@ adminRouter.post("/api/admin/hotels/:id/rooms", ...managers, h(async (req, res) 
   await withTransaction(async client => {
     await client.query("INSERT INTO rooms(id, hotel_id, name, description, max_adults, max_children) VALUES ($1,$2,$3,$4,$5,$6)",
       [id, hotelId, name.trim(), description || "", maxAdults, maxChildren]);
-    await audit(client, req.auth!.sub, owner.owner_agency_id, "room.created", "room", id);
+    await audit(client, req.auth!.sub, owner.owner_agency_id, "room.created", "room", id, { after: await rowJson(client, "rooms", id) });
   });
   res.status(201).json({ id, hotelId, name: name.trim(), maxAdults, maxChildren, active: true });
 }));
@@ -116,8 +126,9 @@ adminRouter.patch("/api/admin/rooms/:id", ...managers, h(async (req, res) => {
   const owner = await ownedHotel(pool, req, ROOM_SQL, id);
   const { sets, values } = patchSet(b, { name: "name", active: "active", maxAdults: "max_adults", maxChildren: "max_children" });
   const row = await withTransaction(async client => {
+    const before = await rowJson(client, "rooms", id);
     const r = (await client.query(`UPDATE rooms SET ${sets} WHERE id = $1 RETURNING id, name, active, max_adults, max_children`, [id, ...values])).rows[0];
-    await audit(client, req.auth!.sub, owner.owner_agency_id, "room.updated", "room", id);
+    await audit(client, req.auth!.sub, owner.owner_agency_id, "room.updated", "room", id, { before, after: await rowJson(client, "rooms", id) });
     return r;
   });
   res.json(row);
@@ -135,7 +146,7 @@ adminRouter.post("/api/admin/rooms/:id/rate-plans", ...managers, h(async (req, r
       `INSERT INTO rate_plans(id, room_id, board_name, currency, cancellation_policy, payment_terms, sales_conditions)
        VALUES ($1,$2,$3,$4,$5::jsonb,$6::jsonb,$7::jsonb)`,
       [id, roomId, boardName.trim(), currency, JSON.stringify(cancellationPolicy || {}), JSON.stringify(paymentTerms || {}), JSON.stringify(salesConditions || {})]);
-    await audit(client, req.auth!.sub, owner.owner_agency_id, "rate_plan.created", "rate_plan", id);
+    await audit(client, req.auth!.sub, owner.owner_agency_id, "rate_plan.created", "rate_plan", id, { after: await rowJson(client, "rate_plans", id) });
   });
   res.status(201).json({ id, roomId, boardName: boardName.trim(), currency, active: true });
 }));
@@ -147,8 +158,9 @@ adminRouter.patch("/api/admin/rate-plans/:id", ...managers, h(async (req, res) =
   const fields = { active: b.active, cancellationPolicy: b.cancellationPolicy && JSON.stringify(b.cancellationPolicy), paymentTerms: b.paymentTerms && JSON.stringify(b.paymentTerms) };
   const { sets, values } = patchSet(fields, { active: "active", cancellationPolicy: "cancellation_policy", paymentTerms: "payment_terms" });
   const row = await withTransaction(async client => {
+    const before = await rowJson(client, "rate_plans", id);
     const r = (await client.query(`UPDATE rate_plans SET ${sets} WHERE id = $1 RETURNING id, board_name, currency, active`, [id, ...values])).rows[0];
-    await audit(client, req.auth!.sub, owner.owner_agency_id, "rate_plan.updated", "rate_plan", id);
+    await audit(client, req.auth!.sub, owner.owner_agency_id, "rate_plan.updated", "rate_plan", id, { before, after: await rowJson(client, "rate_plans", id) });
     return r;
   });
   res.json(row);
@@ -169,12 +181,17 @@ adminRouter.put("/api/admin/rate-plans/:id/calendar", ...managers, h(async (req,
       "SELECT stay_date::text AS date, reserved FROM inventory_daily WHERE rate_plan_id = $1 AND stay_date BETWEEN $2::date AND $3::date AND reserved > $4 ORDER BY stay_date",
       [id, dateFrom, dateTo, allotment]);
     if (below.rowCount) throw httpError(409, "ALLOTMENT_BELOW_RESERVED", { dates: below.rows });
+    const rangeJson = async () => (await client.query(
+      `SELECT coalesce(json_agg(json_build_object('date', stay_date::text, 'price', price::text, 'allotment', allotment, 'reserved', reserved)
+              ORDER BY stay_date), '[]'::json) AS j FROM inventory_daily WHERE rate_plan_id = $1 AND stay_date BETWEEN $2::date AND $3::date`,
+      [id, dateFrom, dateTo])).rows[0].j;
+    const before = await rangeJson();
     const up = await client.query(
       `INSERT INTO inventory_daily(rate_plan_id, stay_date, price, allotment)
        SELECT $1, d::date, $4, $5 FROM generate_series($2::date, $3::date, interval '1 day') AS d
        ON CONFLICT (rate_plan_id, stay_date) DO UPDATE SET price = EXCLUDED.price, allotment = EXCLUDED.allotment`,
       [id, dateFrom, dateTo, price, allotment]);
-    await audit(client, req.auth!.sub, owner.owner_agency_id, "calendar.updated", "rate_plan", id);
+    await audit(client, req.auth!.sub, owner.owner_agency_id, "calendar.updated", "rate_plan", id, { before, after: await rangeJson() });
     return { ratePlanId: id, dateFrom, dateTo, days: up.rowCount, price: price.toFixed(2), allotment };
   });
   res.json(result);
@@ -207,7 +224,8 @@ adminRouter.post("/api/admin/publications", ...managers, h(async (req, res) => {
        ON CONFLICT (agency_id, rate_plan_id) DO UPDATE SET markup_type = EXCLUDED.markup_type, markup_value = EXCLUDED.markup_value, active = true, hotel_id = EXCLUDED.hotel_id
        RETURNING id, agency_id, rate_plan_id, markup_type, markup_value, active`,
       [agencyId, owner.hotel_id, ratePlanId, markupType, markupValue])).rows[0];
-    await audit(client, req.auth!.sub, owner.owner_agency_id, "publication.upserted", "publication", r.id);
+    await audit(client, req.auth!.sub, owner.owner_agency_id, "publication.upserted", "publication", r.id,
+      { targetAgencyId: agencyId, after: await rowJson(client, "agency_hotel_sales", r.id) });
     return r;
   });
   res.status(201).json(row);
@@ -220,8 +238,10 @@ adminRouter.patch("/api/admin/publications/:id", ...managers, h(async (req, res)
   const owner = await ownedHotel(pool, req, PUBLICATION_SQL, id);
   const { sets, values } = patchSet(b, { active: "active", markupType: "markup_type", markupValue: "markup_value" });
   const row = await withTransaction(async client => {
+    const before = await rowJson(client, "agency_hotel_sales", id);
     const r = (await client.query(`UPDATE agency_hotel_sales SET ${sets} WHERE id = $1 RETURNING id, agency_id, rate_plan_id, markup_type, markup_value, active`, [id, ...values])).rows[0];
-    await audit(client, req.auth!.sub, owner.owner_agency_id, "publication.updated", "publication", id);
+    await audit(client, req.auth!.sub, owner.owner_agency_id, "publication.updated", "publication", id,
+      { targetAgencyId: r.agency_id, before, after: await rowJson(client, "agency_hotel_sales", id) });
     return r;
   });
   res.json(row);
@@ -234,7 +254,7 @@ adminRouter.post("/api/admin/agencies", authenticate, roles("system_admin"), h(a
   const id = randomUUID();
   await withTransaction(async client => {
     await client.query("INSERT INTO agencies(id,name,type) VALUES ($1,$2,$3)", [id, name.trim(), type]);
-    await audit(client, req.auth!.sub, id, "agency.created", "agency", id);
+    await audit(client, req.auth!.sub, id, "agency.created", "agency", id, { targetAgencyId: id, after: await rowJson(client, "agencies", id) });
   });
   res.status(201).json({ id, name: name.trim(), type });
 }));
@@ -243,9 +263,11 @@ adminRouter.patch("/api/admin/agencies/:id", authenticate, roles("system_admin")
   const id = uuidParam(req), b = req.body || {};
   if (typeof b.active !== "boolean") throw httpError(400, "ACTIVE_REQUIRED");
   const row = await withTransaction(async client => {
+    const before = await rowJson(client, "agencies", id);
     const r = (await client.query("UPDATE agencies SET active = $2 WHERE id = $1 RETURNING id, name, type, active", [id, b.active])).rows[0];
     if (!r) throw httpError(404, "NOT_FOUND");
-    await audit(client, req.auth!.sub, id, b.active ? "agency.activated" : "agency.deactivated", "agency", id);
+    await audit(client, req.auth!.sub, id, b.active ? "agency.activated" : "agency.deactivated", "agency", id,
+      { targetAgencyId: id, before, after: await rowJson(client, "agencies", id) });
     return r;
   });
   res.json(row);
@@ -270,7 +292,8 @@ adminRouter.post("/api/admin/users", authenticate, roles("system_admin"), h(asyn
     if (dup.rowCount) throw httpError(409, "EMAIL_ALREADY_EXISTS");
     await client.query("INSERT INTO users(id, email, password_hash, role, agency_id) VALUES ($1,$2,$3,$4,$5)",
       [id, email.trim().toLowerCase(), hashPassword(password), role, platform ? null : agencyId]);
-    await audit(client, req.auth!.sub, platform ? null : agencyId, "user.created", "user", id);
+    await audit(client, req.auth!.sub, platform ? null : agencyId, "user.created", "user", id,
+      { targetAgencyId: platform ? null : agencyId, after: await rowJson(client, "users", id) });
   });
   res.status(201).json({ id, email: email.trim().toLowerCase(), role, agencyId: platform ? null : agencyId });
 }));
@@ -279,10 +302,12 @@ adminRouter.patch("/api/admin/users/:id", authenticate, roles("system_admin"), h
   const id = uuidParam(req), b = req.body || {};
   if (typeof b.active !== "boolean") throw httpError(400, "ACTIVE_REQUIRED");
   const row = await withTransaction(async client => {
+    const before = await rowJson(client, "users", id);
     const r = (await client.query(
       "UPDATE users SET active = $2, token_version = token_version + 1 WHERE id = $1 RETURNING id, email, role, agency_id, active", [id, b.active])).rows[0];
     if (!r) throw httpError(404, "NOT_FOUND");
-    await audit(client, req.auth!.sub, r.agency_id, b.active ? "user.activated" : "user.deactivated", "user", id);
+    await audit(client, req.auth!.sub, r.agency_id, b.active ? "user.activated" : "user.deactivated", "user", id,
+      { targetAgencyId: r.agency_id, before, after: await rowJson(client, "users", id) });
     return r;
   });
   res.json(row);

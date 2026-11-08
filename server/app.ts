@@ -10,6 +10,7 @@ import { audit, authenticate, AuthedRequest, httpError, isPlatformWide, requireA
 import { adminRouter } from "./admin-routes";
 import { renderVoucher } from "./voucher";
 import { LOGIN_WINDOW_MINUTES, loginThrottled, parseTrustProxy } from "./login-guard";
+import { requestContext } from "./context";
 
 const app = express();
 app.disable("x-powered-by");
@@ -22,6 +23,7 @@ app.use((_req, res, next) => {
   res.setHeader("Cache-Control", "no-store");
   next();
 });
+app.use(requestContext);
 app.use(express.json({ limit: "1mb" }));
 
 app.get("/health", (_req, res) => res.json({ ok: true, service: "bed4book-api" }));
@@ -371,7 +373,8 @@ async function transition(client: PoolClient, opts: {
       if (RELEASING.has(opts.to) && CONSUMES_INVENTORY.has(from)) await releaseInventory(client, opts.bookingId);
       await client.query("INSERT INTO booking_status_history(booking_id,from_status,to_status,actor_id,note) VALUES ($1,$2,$3,$4,$5)",
         [opts.bookingId, from, opts.to, opts.actorId, opts.note]);
-      await audit(client, opts.actorId, updated.rows[0].agency_id, `booking.${opts.to}`, "booking", opts.bookingId);
+      await audit(client, opts.actorId, updated.rows[0].agency_id, `booking.${opts.to}`, "booking", opts.bookingId,
+        { targetAgencyId: updated.rows[0].agency_id, before: { status: from }, after: { status: opts.to } });
       return from;
     }
   }
