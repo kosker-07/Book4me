@@ -1,3 +1,4 @@
+import { VALID_TERMS } from "./fixtures/rate-plan-terms";
 // Integration tests against a real PostgreSQL database with all server/migrations applied.
 // Required: DATABASE_URL pointing to a THROWAWAY database (every test truncates all tables).
 // In CI (CI=true) a missing DATABASE_URL is a failure, not a skip.
@@ -94,9 +95,9 @@ beforeEach(async () => {
     await pool.query("INSERT INTO users(email,password_hash,role,agency_id) VALUES ($1,$2,$3,$4)", [`${name}@test.local`, pw, role, agency]);
   await pool.query(`INSERT INTO hotels(id,owner_agency_id,name,location,status) VALUES ($1,$2,'Hotel One','Antalya','active'),($3,$4,'Hotel Two','Bodrum','active')`, [H1, M1, H2, M2]);
   await pool.query(`INSERT INTO rooms(id,hotel_id,name,max_adults,max_children) VALUES ($1,$2,'Double',2,2),($3,$4,'Double',2,2),($5,$2,'Suite',3,2)`, [R1, H1, R2, H2, RU]);
-  await pool.query(`INSERT INTO rate_plans(id,room_id,board_name,currency,cancellation_policy) VALUES
-    ($1,$6,'AI','EUR','{"freeUntilDays":7}'),($2,$6,'AI','EUR','{"freeUntilDays":7}'),($3,$6,'BB','EUR','{"freeUntilDays":7}'),
-    ($4,$7,'AI','USD','{"freeUntilDays":7}'),($5,$8,'AI','EUR','{"freeUntilDays":7}')`, [RP1, RP2, RP3, RPUSD, RPH2, R1, RU, R2]);
+  await pool.query(`INSERT INTO rate_plans(id,room_id,board_name,currency,cancellation_policy,payment_terms) VALUES
+    ($1,$6,'AI','EUR',$9::jsonb,$10::jsonb),($2,$6,'AI','EUR',$9::jsonb,$10::jsonb),($3,$6,'BB','EUR',$9::jsonb,$10::jsonb),
+    ($4,$7,'AI','USD',$9::jsonb,$10::jsonb),($5,$8,'AI','EUR',$9::jsonb,$10::jsonb)`, [RP1, RP2, RP3, RPUSD, RPH2, R1, RU, R2, JSON.stringify(VALID_TERMS.cancellationPolicy), JSON.stringify(VALID_TERMS.paymentTerms)]);
   for (const [rp, net] of [[RP1, 100], [RP2, 120], [RP3, 80], [RPUSD, 50], [RPH2, 200]] as const)
     await pool.query("INSERT INTO inventory_daily(rate_plan_id,stay_date,price,allotment) VALUES ($1,$2,$4,5),($1,$3,$4,5)", [rp, CHECK_IN, NIGHT2, net]);
   const publish = (agency: string, hotel: string, rp: string, type: string, value: number) =>
