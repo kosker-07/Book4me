@@ -358,6 +358,7 @@ adminRouter.post("/api/admin/agencies", authenticate, roles("system_admin", "mas
   const parentAgencyId = req.auth!.role === "master_agency" ? req.auth!.agencyId : req.body?.parentAgencyId ?? null;
   if (!text(name, 200) || !["master", "sub"].includes(type)) throw httpError(400, "INVALID_AGENCY");
   if (type === "master" && parentAgencyId !== null) throw httpError(400, "INVALID_PARENT");
+  if (type === "sub" && parentAgencyId === null) throw httpError(400, "PARENT_AGENCY_REQUIRED", { fields: { parentAgencyId: "REQUIRED" } });
   if (parentAgencyId !== null) {
     if (typeof parentAgencyId !== "string" || !UUID_RE.test(parentAgencyId)) throw httpError(400, "INVALID_PARENT");
     const parent = await hierarchyAgency(req, parentAgencyId, true);
