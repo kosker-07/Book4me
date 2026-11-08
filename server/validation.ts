@@ -44,12 +44,13 @@ export function validateStay(body: any, errors: FieldErrors, today = new Date().
   if (isInt(rooms, 1, MAX_ROOMS) && (!Array.isArray(roomOccupancies) || roomOccupancies.length !== rooms)) {
     errors.roomOccupancies = "ONE_OCCUPANCY_PER_ROOM";
   } else if (isInt(rooms, 1, MAX_ROOMS)) {
-    const validRooms = roomOccupancies.map((room, index) => validateOccupancy(room, errors, `roomOccupancies[${index}].`));
+    const list = roomOccupancies as unknown[];
+    const validRooms: (Occupancy | null)[] = list.map((room: unknown, index: number) => validateOccupancy(room, errors, `roomOccupancies[${index}].`));
     if (validRooms.every(Boolean)) {
       cleanedRooms = validRooms as Occupancy[];
-      const sumAdults = validRooms.reduce((sum, room) => sum + room!.adults, 0);
-      const sumChildren = validRooms.reduce((sum, room) => sum + room!.children, 0);
-      const ages = validRooms.flatMap(room => room!.childAges).sort((a, b) => a - b);
+      const sumAdults = cleanedRooms.reduce((sum: number, room: Occupancy) => sum + room.adults, 0);
+      const sumChildren = cleanedRooms.reduce((sum: number, room: Occupancy) => sum + room.children, 0);
+      const ages = cleanedRooms.flatMap((room: Occupancy) => room.childAges).sort((a: number, b: number) => a - b);
       if (sumAdults !== adults) errors["roomOccupancies.adults"] = "MUST_MATCH_TOTAL_ADULTS";
       if (sumChildren !== children) errors["roomOccupancies.children"] = "MUST_MATCH_TOTAL_CHILDREN";
       if (!Array.isArray(childAges) || ages.join(",") !== [...childAges].sort((a, b) => a - b).join(","))
