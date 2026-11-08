@@ -92,20 +92,27 @@ export function validateGuest(body: any, errors: FieldErrors): GuestDetails | nu
   };
 }
 
-/** Passport nationality of every guest (ISO 3166-1 alpha-2), one entry per guest: adults + children.
+/** Passport nationality of every guest (ISO 3166-1 alpha-2), one entry per family, regardless of adults + children.
  *  Returns null and sets errors when invalid; `missing` is true when the field is absent or empty. */
-export function validateNationalities(value: unknown, guests: number, errors: FieldErrors): { nationalities: string[] | null; missing: boolean } {
+export function validateNationalities(value: unknown, _guests: number, errors: FieldErrors): { nationalities: string[] | null; missing: boolean } {
   if (value === undefined || value === null || (Array.isArray(value) && value.length === 0)) return { nationalities: null, missing: true };
-  if (!Array.isArray(value) || value.length !== guests) { errors.nationalities = "ONE_NATIONALITY_PER_GUEST"; return { nationalities: null, missing: false }; }
-  const codes = value.map(v => (typeof v === "string" ? v.trim().toUpperCase() : ""));
-  if (!codes.every(isCountryCode)) { errors.nationalities = "ISO_3166_ALPHA2_REQUIRED"; return { nationalities: null, missing: false }; }
-  return { nationalities: codes.sort(), missing: false };
+  // One nationality represents the entire family, regardless of guest or room count.
+  if (!Array.isArray(value) || value.length !== 1) {
+    errors.nationalities = "ONE_NATIONALITY_PER_FAMILY";
+    return { nationalities: null, missing: false };
+  }
+  const code = typeof value[0] === "string" ? value[0].trim().toUpperCase() : "";
+  if (!isCountryCode(code)) {
+    errors.nationalities = "ISO_3166_ALPHA2_REQUIRED";
+    return { nationalities: null, missing: false };
+  }
+  return { nationalities: [code], missing: false };
 }
 
 export interface OtherGuest { firstName: string; lastName: string; type: "adult" | "child"; age: number | null; nationality: string }
 
 /** All guests except the lead guest: (adults - 1) adults and one child per age in childAges, each with a name
- *  and a passport nationality. */
+ *  and an optional passport nationality (not used for pricing eligibility). */
 export function validateOtherGuests(value: unknown, occupancy: Occupancy, errors: FieldErrors): OtherGuest[] | null {
   const expected = occupancy.adults - 1 + occupancy.children;
   if (!Array.isArray(value)) {
@@ -122,7 +129,7 @@ export function validateOtherGuests(value: unknown, occupancy: Occupancy, errors
     if (g?.type === "child" && !isInt(g?.age, 0, 17)) errors[p + "age"] = "AGE_0_TO_17";
     if (g?.type === "adult" && g?.age !== undefined && g?.age !== null) errors[p + "age"] = "ONLY_FOR_CHILDREN";
     const nat = typeof g?.nationality === "string" ? g.nationality.trim().toUpperCase() : "";
-    if (!isCountryCode(nat)) errors[p + "nationality"] = "REQUIRED_ISO_3166_ALPHA2";
+    if (nat && !isCountryCode(nat)) errors[p + "nationality"] = "ISO_3166_ALPHA2_REQUIRED";
     out.push({ firstName: String(g?.firstName ?? "").trim(), lastName: String(g?.lastName ?? "").trim(), type: g?.type,
                age: g?.type === "child" ? g.age : null, nationality: nat });
   });
