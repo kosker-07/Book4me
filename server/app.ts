@@ -416,7 +416,8 @@ app.post("/api/agency/bookings", authenticate, roles("sub_agency"), requireAgenc
   const q = checked.quote;
   if (q.agencyId !== agencyId) return res.status(404).json({ error: "PRODUCT_NOT_PUBLISHED" });
   const sameAges = [...childAges].sort((a, b) => a - b).join(",") === [...q.childAges].sort((a, b) => a - b).join(",");
-  if (adults !== q.adults || children !== q.children || !sameAges ||\n      JSON.stringify(req.body.roomOccupancies) !== JSON.stringify(q.roomOccupancies))
+  if (adults !== q.adults || children !== q.children || !sameAges ||
+      JSON.stringify(req.body.roomOccupancies) !== JSON.stringify(q.roomOccupancies))
     return res.status(409).json({ error: "QUOTE_OCCUPANCY_MISMATCH" });
   const nationalities = [guest.nationality, ...otherGuests.map(g => g.nationality)].sort();
   if (nationalities.join(",") !== [...q.nationalities].sort().join(","))
