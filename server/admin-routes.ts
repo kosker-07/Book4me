@@ -147,7 +147,7 @@ adminRouter.patch("/api/admin/rooms/:id", ...managers, h(async (req, res) => {
 adminRouter.post("/api/admin/rooms/:id/rate-plans", ...managers, h(async (req, res) => {
   const roomId = uuidParam(req), { boardName, currency, cancellationPolicy, paymentTerms, salesConditions, contractId } = req.body || {};
   if (!text(boardName, 50) || typeof currency !== "string" || !CURRENCY_RE.test(currency)
-      || !isObj(cancellationPolicy) || !isObj(paymentTerms) || !isObj(salesConditions)) throw httpError(400, "INVALID_RATE_PLAN");
+      || !isObj(salesConditions)) throw httpError(400, "INVALID_RATE_PLAN");
   const termErrors: Record<string, string> = {};
   if (!validateRatePlanTerms(cancellationPolicy, paymentTerms, termErrors)) throw httpError(400, "VALIDATION_FAILED", { fields: termErrors });
   const owner = await ownedHotel(pool, req, ROOM_SQL, roomId);
@@ -176,7 +176,7 @@ adminRouter.post("/api/admin/rooms/:id/rate-plans", ...managers, h(async (req, r
 
 adminRouter.patch("/api/admin/rate-plans/:id", ...managers, h(async (req, res) => {
   const id = uuidParam(req), b = req.body || {};
-  if (!optBool(b.active) || !isObj(b.cancellationPolicy) || !isObj(b.paymentTerms)) throw httpError(400, "INVALID_RATE_PLAN");
+  if (!optBool(b.active)) throw httpError(400, "INVALID_RATE_PLAN");
   if (b.cancellationPolicy !== undefined || b.paymentTerms !== undefined) {
     const current = (await pool.query("SELECT cancellation_policy, payment_terms FROM rate_plans WHERE id = $1", [id])).rows[0];
     const termErrors: Record<string, string> = {};
