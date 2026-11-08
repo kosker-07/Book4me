@@ -840,12 +840,11 @@ app.use((error: any, _req: Request, res: Response, _next: NextFunction) => {
 const port = Number(process.env.PORT || 3000);
 if (require.main === module) {
   if (!process.env.DATABASE_URL || sessionSecret().length < 32) throw new Error("DATABASE_URL and SESSION_SECRET (32+ chars) are required.");
-  bootstrapAdmin().then(() => {
+  // A failed admin bootstrap must never keep the API down: log the reason (never the password) and start anyway.
+  bootstrapAdmin().catch((error: any) => {
+    console.error(`Yönetici başlangıç adımı başarısız: ${error?.message || "bilinmeyen hata"}`);
+  }).finally(() => {
     app.listen(port, () => console.log(`BED4BOOK API listening on :${port}`));
-  }).catch(() => {
-    console.error("Yönetici başlangıç adımı başarısız");
-    process.exitCode = 1;
-    void pool.end();
   });
 }
 export default app;
