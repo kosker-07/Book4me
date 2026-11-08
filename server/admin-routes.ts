@@ -279,6 +279,17 @@ adminRouter.patch("/api/admin/publications/:id", ...managers, h(async (req, res)
   res.json(row);
 }));
 
+// Read-only lists for management selectors; never expose password hashes.
+adminRouter.get("/api/admin/agencies", authenticate, roles("system_admin"), h(async (_req, res) => {
+  const result = await pool.query("SELECT id, name, type, active FROM agencies ORDER BY name, id");
+  res.json({ items: result.rows });
+}));
+
+adminRouter.get("/api/admin/users", authenticate, roles("system_admin"), h(async (_req, res) => {
+  const result = await pool.query("SELECT id, email, role, agency_id, active FROM users ORDER BY email, id");
+  res.json({ items: result.rows });
+}));
+
 // ---------------------------------------------------------------- agencies and users (system administrator)
 adminRouter.post("/api/admin/agencies", authenticate, roles("system_admin"), h(async (req, res) => {
   const { name, type } = req.body || {};
