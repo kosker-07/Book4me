@@ -37,7 +37,7 @@ adminRouter.put("/api/admin/platform-settings",authenticate,roles("system_admin"
   if(values.phone&&!/^[+\d\s().\-]{5,40}$/.test(values.phone))throw httpError(400,"INVALID_PLATFORM_SETTINGS");
   if(values.tax_number&&!/^[\p{L}\d\s.\-\/]{2,40}$/u.test(values.tax_number))throw httpError(400,"INVALID_PLATFORM_SETTINGS");
   const result=await withTransaction(async client=>{
-    const before=(await client.query("SELECT legal_name,address,tax_office,tax_number,phone,email,updated_at,updated_by FROM platform_settings WHERE id=1 FOR UPDATE")).rows[0];
+    const before=(await client.query("SELECT legal_name,address,tax_office,tax_number,phone,email,updated_at,updated_by FROM platform_settings WHERE id=1")).rows[0];
     const after=(await client.query("UPDATE platform_settings SET legal_name=$1,address=$2,tax_office=$3,tax_number=$4,phone=$5,email=$6,updated_at=now(),updated_by=$7 WHERE id=1 RETURNING legal_name,address,tax_office,tax_number,phone,email,updated_at,updated_by",[...settingsKeys.map(k=>values[k]),req.auth!.sub])).rows[0];
     await audit(client,req.auth!.sub,null,"platform_settings.updated","platform_settings","00000000-0000-4000-8000-000000000001",{before,after});
     return after;

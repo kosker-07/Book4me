@@ -297,7 +297,8 @@ test("N13 payment currency conversion and the immutable snapshot (contract, nati
   assert.equal(snap.contract_code, "UK-MARKET");
   assert.deepEqual(snap.nationalities.map((x: string) => x.trim()), ["GB"]);
   assert.deepEqual([snap.total, snap.contract_currency, snap.eur_per_unit, snap.payment_amount, snap.payment_currency], ["140.00", "GBP", "1.20000000", "168.00", "EUR"]);
-  assert.equal(snap.seller_legal_name, "Hotel One Turizm A.Ş.");
+  assert.equal(Object.hasOwn(snap,"seller_legal_name"),false,"DMC seller identity is private to platform roles");
+  assert.equal((await pool.query("SELECT seller_legal_name FROM booking_price_snapshots WHERE booking_id=$1",[booking.body.id])).rows[0].seller_legal_name,"Hotel One Turizm A.Ş.","immutable reconciliation snapshot retains legal seller");
   assert.equal(afterChanges.body.total, "140.00");
   assert.deepEqual(afterChanges.body.guests.map((g: any) => g.nationality.trim()), ["GB", "GB"]);
   await assert.rejects(pool.query("UPDATE booking_price_snapshots SET total = 1"), /immutable/);

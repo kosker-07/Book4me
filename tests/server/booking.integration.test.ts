@@ -259,7 +259,7 @@ test("09 Back Office works platform-wide: all hotels and all bookings across mas
 });
 
 test("10 users without platform-wide rights cannot see across tenants", { skip }, async () => {
-  const onH1 = await createBooking(tok.a!, H1), onH2 = await createBooking(tok.b!, H2);
+  const onH1 = await createBooking(tok.a!, H1), onH2 = await createBooking(tok.c!, H2);
   const list = await call("GET", "/api/backoffice/bookings", undefined, tok.m1);
   assert.deepEqual(list.body.items.map((x: any) => x.id), [onH1]);
   assert.equal((await call("GET", `/api/backoffice/bookings/${onH2}`, undefined, tok.m1)).status, 404);

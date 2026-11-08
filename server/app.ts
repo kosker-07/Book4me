@@ -820,11 +820,10 @@ async function issueProforma(bookingId: string, actorId: string, scopeSql: strin
       const id = randomUUID();
       await client.query(
         `INSERT INTO proformas(id, booking_id, number, year, seq, version, supersedes, reason, booking_status, payment_currency, payment_amount,
-                               contract_currency, contract_amount, seller_legal_name, issued_by, issued_at, pdf, sha256)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)`,
+                               contract_currency, contract_amount, seller_legal_name, issued_by, issued_at, pdf, sha256, seller_settings)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19::jsonb)`,
         [id, bookingId, number, year, seq, version, latest?.id ?? null, reason ?? "", b.status, paymentCurrency, snap.payment_amount,
-         contractCurrency, snap.total, platformSeller, actorId, issuedAt.toISOString(), pdf, sha256]);
-      await client.query("UPDATE proformas SET seller_settings=$2::jsonb WHERE id=$1", [id, JSON.stringify({legal_name:platformSeller,address:settings.address??null,tax_office:settings.tax_office??null,tax_number:settings.tax_number??null,phone:settings.phone??null,email:settings.email??null})]);
+         contractCurrency, snap.total, platformSeller, actorId, issuedAt.toISOString(), pdf, sha256, JSON.stringify({legal_name:platformSeller,address:settings.address??null,tax_office:settings.tax_office??null,tax_number:settings.tax_number??null,phone:settings.phone??null,email:settings.email??null})]);
       await audit(client, actorId, b.agency_id, version === 1 ? "proforma.issued" : "proforma.reissued", "booking", bookingId,
         { targetAgencyId: b.agency_id, after: { number, version, supersedes: latest?.number ?? null, reason, paymentCurrency, paymentAmount: snap.payment_amount, sha256 } });
       return { pdf, sha256, number, created: true };
