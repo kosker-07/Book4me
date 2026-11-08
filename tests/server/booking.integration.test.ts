@@ -470,3 +470,45 @@ test("19 invalid ids and malformed input return 4xx, never 500", { skip }, async
   assert.equal(res.status, 400);
   assert.deepEqual(await res.json(), { error: "INVALID_JSON" });
 });
+
+test("room distribution: 3+1 cannot use a max-2-adult room, 2+2 can", { skip }, async () => {
+  const common = { rooms: 2, adults: 4, children: 0, childAges: [], nationalities: ["TR", "TR", "TR", "TR"] };
+  const rejected = await search(tok.a!, { ...common, roomOccupancies: [
+    { adults: 3, children: 0, childAges: [] }, { adults: 1, children: 0, childAges: [] }
+  ] });
+  assert.equal(rejected.status, 200, rejected.raw);
+  assert.equal(rejected.body.results.some((r: any) => r.room.name === "Double"), false);
+  const accepted = await search(tok.a!, { ...common, roomOccupancies: [
+    { adults: 2, children: 0, childAges: [] }, { adults: 2, children: 0, childAges: [] }
+  ] });
+  assert.equal(accepted.status, 200, accepted.raw);
+  assert.equal(accepted.body.results.some((r: any) => r.room.name === "Double"), true);
+});
+
+test("room distribution: child capacity is checked per room", { skip }, async () => {
+  await pool.query("UPDATE rooms SET max_children=1 WHERE id=$1", [R1]);
+  const s = await search(tok.a!, { rooms: 2, adults: 2, children: 2, childAges: [4, 7],
+    nationalities: ["TR", "TR", "TR", "TR"], roomOccupancies: [
+      { adults: 1, children: 2, childAges: [4, 7] }, { adults: 1, children: 0, childAges: [] }
+    ] });
+  assert.equal(s.status, 200, s.raw);
+  assert.equal(s.body.results.some((r: any) => r.room.name === "Double"), false);
+});
+
+test("room distribution: booking rechecks changed capacity", { skip }, async () => {
+  const q = await winnerQuote(tok.a!);
+  await pool.query("UPDATE rooms SET max_adults=1 WHERE id=$1", [R1]);
+  const b = await book(tok.a!, q.quoteId);
+  assert.equal(b.status, 409, b.raw);
+  assert.equal(b.body.error, "OCCUPANCY_EXCEEDS_CAPACITY");
+  assert.equal(await count("bookings"), 0);
+});
+
+test("room distribution: booking detail returns signed per-room occupancy", { skip }, async () => {
+  const q = await winnerQuote(tok.a!);
+  const b = await book(tok.a!, q.quoteId);
+  assert.equal(b.status, 201, b.raw);
+  const detail = await call("GET", `/api/agency/bookings/${b.body.id}`, undefined, tok.a);
+  assert.equal(detail.status, 200, detail.raw);
+  assert.deepEqual(detail.body.room_occupancies, STAY.roomOccupancies);
+});
