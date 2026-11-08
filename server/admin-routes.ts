@@ -279,6 +279,24 @@ adminRouter.patch("/api/admin/publications/:id", ...managers, h(async (req, res)
   res.json(row);
 }));
 
+// Active sub-agencies eligible for publication selectors. Master agencies only see
+// sub-agencies already associated with hotels they own through publications.
+adminRouter.get("/api/admin/publication-agencies", ...managers, h(async (req, res) => {
+  const platformWide = isPlatformWide(req.auth!.role);
+  const result = await pool.query(
+    `SELECT a.id, a.name FROM agencies a
+      WHERE a.type = 'sub' AND a.active
+        AND ($1::boolean OR EXISTS (
+          SELECT 1 FROM agency_hotel_sales s
+          JOIN hotels h ON h.id = s.hotel_id
+          WHERE s.agency_id = a.id AND h.owner_agency_id = $2
+        ))
+      ORDER BY a.name, a.id`,
+    [platformWide, req.auth!.agencyId]
+  );
+  res.json({ items: result.rows });
+}));
+
 // Read-only lists for management selectors; never expose password hashes.
 adminRouter.get("/api/admin/agencies", authenticate, roles("system_admin"), h(async (_req, res) => {
   const result = await pool.query("SELECT id, name, type, active FROM agencies ORDER BY name, id");
