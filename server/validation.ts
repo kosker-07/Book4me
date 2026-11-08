@@ -25,11 +25,11 @@ export function nightsBetween(checkIn: string, checkOut: string): string[] {
 const isInt = (v: unknown, min: number, max: number): v is number => Number.isInteger(v) && (v as number) >= min && (v as number) <= max;
 const text = (v: unknown, max: number) => typeof v === "string" && v.trim().length > 0 && v.trim().length <= max;
 
-export interface StayRequest { checkIn: string; checkOut: string; rooms: number; adults: number; children: number; childAges: number[] }
+export interface StayRequest { checkIn: string; checkOut: string; rooms: number; adults: number; children: number; childAges: number[]; roomOccupancies: Occupancy[] }
 
 /** Validates dates, room count and occupancy. `today` is injectable for tests. */
 export function validateStay(body: any, errors: FieldErrors, today = new Date().toISOString().slice(0, 10)): StayRequest | null {
-  const { checkIn, checkOut, rooms, adults, children, childAges } = body || {};
+  const { checkIn, checkOut, rooms, adults, children, childAges, roomOccupancies } = body || {};
   if (!isCalendarDate(checkIn)) errors.checkIn = "REQUIRED_VALID_DATE";
   else if (checkIn < today) errors.checkIn = "MUST_NOT_BE_IN_PAST";
   if (!isCalendarDate(checkOut)) errors.checkOut = "REQUIRED_VALID_DATE";
@@ -40,7 +40,21 @@ export function validateStay(body: any, errors: FieldErrors, today = new Date().
   if (!isInt(rooms, 1, MAX_ROOMS)) errors.rooms = "INTEGER_1_TO_10";
   validateOccupancy({ adults, children, childAges }, errors);
   if (!errors.adults && isInt(rooms, 1, MAX_ROOMS) && adults < rooms) errors.adults = "AT_LEAST_ONE_ADULT_PER_ROOM";
-  return Object.keys(errors).length ? null : { checkIn, checkOut, rooms, adults, children, childAges };
+  if (!Array.isArray(roomOccupancies) || !isInt(rooms, 1, MAX_ROOMS) || roomOccupancies.length !== rooms) {
+    errors.roomOccupancies = "ONE_OCCUPANCY_PER_ROOM";
+  } else {
+    const validRooms = roomOccupancies.map((room, index) => validateOccupancy(room, errors, `roomOccupancies[${index}].`));
+    if (validRooms.every(Boolean)) {
+      const sumAdults = validRooms.reduce((sum, room) => sum + room!.adults, 0);
+      const sumChildren = validRooms.reduce((sum, room) => sum + room!.children, 0);
+      const ages = validRooms.flatMap(room => room!.childAges).sort((a, b) => a - b);
+      if (sumAdults !== adults) errors["roomOccupancies.adults"] = "MUST_MATCH_TOTAL_ADULTS";
+      if (sumChildren !== children) errors["roomOccupancies.children"] = "MUST_MATCH_TOTAL_CHILDREN";
+      if (!Array.isArray(childAges) || ages.join(",") !== [...childAges].sort((a, b) => a - b).join(","))
+        errors["roomOccupancies.childAges"] = "MUST_MATCH_TOTAL_CHILD_AGES";
+    }
+  }
+  return Object.keys(errors).length ? null : { checkIn, checkOut, rooms, adults, children, childAges, roomOccupancies };
 }
 
 export interface Occupancy { adults: number; children: number; childAges: number[] }
