@@ -17,6 +17,7 @@ export interface QuotePayload {
   adults: number;
   children: number;
   childAges: number[];
+  roomOccupancies: { adults: number; children: number; childAges: number[] }[];
   /** Nationality of every guest, sorted. */
   nationalities: string[];
   /** Matched rule id per nationality (null = general market), same order as `nationalities`. */
@@ -53,7 +54,7 @@ export function verifyQuote(token: unknown, secret: string, now = Date.now()): Q
   if (actual.length !== expected.length || !timingSafeEqual(actual, expected)) return { ok: false, error: "INVALID_QUOTE" };
   let q: QuotePayload;
   try { q = JSON.parse(Buffer.from(body, "base64url").toString("utf8")); } catch { return { ok: false, error: "INVALID_QUOTE" }; }
-  if (q?.v !== 2 || !Number.isFinite(q.exp) || !Array.isArray(q.nationalities)) return { ok: false, error: "INVALID_QUOTE" };
+  if (q?.v !== 2 || !Number.isFinite(q.exp) || !Array.isArray(q.nationalities) || !Array.isArray(q.roomOccupancies) || q.roomOccupancies.length !== q.rooms) return { ok: false, error: "INVALID_QUOTE" };
   if (q.exp <= Math.floor(now / 1000)) return { ok: false, error: "QUOTE_EXPIRED" };
   return { ok: true, quote: q };
 }
