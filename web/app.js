@@ -171,7 +171,7 @@ async function publicationEditor(hotelId,plan,publications){
    }))
   ])));
  }
- const agencies=(await api('/api/admin/publication-agencies')).items;
+ const agencies=(await api('/api/admin/publication-agencies?ratePlanId='+encodeURIComponent(plan.id))).items;
  view().append(editor('Acenteye yayınla','/api/admin/publications','POST',[
   choice('Acente','agencyId',agencies.map(x=>[x.id,x.name])),
   choice('Markup türü','markupType',[['percent','Yüzde'],['fixed','Sabit']]),
@@ -222,8 +222,8 @@ async function currencies(){
  ],()=>go('currencies'),raw=>({source:raw.source,rates:[{currency:raw.currency,eurPerUnit:Number(raw.eurPerUnit)}]})));
 }
 async function agencies(){
-  if(session.user?.role!=='system_admin'){
-    view().append(card('Yetki gerekli',node('p','Acente ve kullanıcı yönetimi sistem yöneticisine özeldir.')));
+  if(!['system_admin','back_office','master_agency'].includes(session.user?.role)){
+    view().append(card('Yetki gerekli',node('p','Bu işlem için yönetici yetkisi gerekir.')));
     return;
   }
   const [agenciesData,usersData]=await Promise.all([api('/api/admin/agencies'),api('/api/admin/users')]);
@@ -231,20 +231,21 @@ async function agencies(){
   const agencyNames=new Map(agencyRows.map(a=>[a.id,a.name]));
   const agencyList=el('div',{cls:'scroll'}),agencyTable=el('table',{cls:'list'});
   const agencyHead=el('tr');
-  for(const x of ['Acente','Tür','Durum','İşlem'])agencyHead.append(node('th',x));
+  for(const x of ['Acente','Tür','Bağlı olduğu DMC','Durum','İşlem'])agencyHead.append(node('th',x));
   agencyTable.append(agencyHead);
   for(const a of agencyRows){
     const tr=el('tr');
-    for(const x of [a.name,a.type,a.active?'Aktif':'Pasif'])tr.append(node('td',x));
+    for(const x of [a.name,a.type,a.type==='sub'?(a.parent_agency_name||'DMC atanmamış'):'—',a.active?'Aktif':'Pasif'])tr.append(node('td',x));
     tr.append(el('td',{},[btn('Düzenle',()=>{clear();view().append(editor('Acente düzenle','/api/admin/agencies/'+a.id,'PATCH',[
-      choice('Aktif','active',[['true','Evet'],['false','Hayır']],String(a.active))
-    ],()=>go('agencies'),raw=>({...raw,active:raw.active==='true'}))) }),btn(a.active?'Pasifleştir':'Etkinleştir',async()=>{
+      choice('Aktif','active',[['true','Evet'],['false','Hayır']],String(a.active)),
+      ...(session.user.role==='system_admin'&&a.type==='sub'?[choice('Bağlı olduğu DMC','parentAgencyId',[['','DMC atanmamış'],...agencyRows.filter(x=>x.type==='master').map(x=>[x.id,x.name])],a.parent_agency_id||'')]:[])
+    ],()=>go('agencies'),raw=>({...raw,active:raw.active==='true',...(raw.parentAgencyId!==undefined?{parentAgencyId:raw.parentAgencyId||null}:{})}))) }),btn(a.active?'Pasifleştir':'Etkinleştir',async()=>{
       try{await api('/api/admin/agencies/'+encodeURIComponent(a.id),{method:'PATCH',body:{active:!a.active}});await go('agencies')}catch(e){fail(e)}
     })]));
     agencyTable.append(tr);
   }
   agencyList.append(agencyTable);
-  view().append(card('Acenteler ('+agencyRows.length+')',agencyRows.length?agencyList:node('p','Henüz acente bulunmuyor.')));
+  view().append(card(session.user.role==='master_agency'?'Alt acentelerim ('+agencyRows.length+')':'Acenteler ('+agencyRows.length+')',agencyRows.length?agencyList:node('p','Henüz acente bulunmuyor.')));
   const userList=el('div',{cls:'scroll'}),userTable=el('table',{cls:'list'}),userHead=el('tr');
   for(const x of ['E-posta','Rol','Acente','Durum','İşlem'])userHead.append(node('th',x));
   userTable.append(userHead);
@@ -261,19 +262,20 @@ async function agencies(){
   const agencyForm=el('form',{},[
     field('Acente adı','name'),
     el('label',{},[node('span','Acente türü'),el('select',{name:'type'},[
-      el('option',{value:'master',text:'Ana acente'}),el('option',{value:'sub',text:'Alt acente'})
+      ...(session.user.role==='system_admin'?[el('option',{value:'master',text:'Ana acente'})]:[]),el('option',{value:'sub',text:'Alt acente'})
     ])]),
+    ...(session.user.role==='system_admin'?[el('label',{},[node('span','Bağlı olduğu DMC'),el('select',{name:'parentAgencyId'},[el('option',{value:'',text:'DMC atanmamış'}),...agencyRows.filter(a=>a.type==='master').map(a=>el('option',{value:a.id,text:a.name}))])])]:[]),
     el('button',{text:'Acente oluştur',cls:'primary',type:'submit'})
   ]);
   agencyForm.onsubmit=async e=>{
     e.preventDefault();
-    try{await api('/api/admin/agencies',{method:'POST',body:Object.fromEntries(new FormData(agencyForm))});await go('agencies')}catch(err){fail(err)}
+    try{await api('/api/admin/agencies',{method:'POST',body:(()=>{const v=Object.fromEntries(new FormData(agencyForm));if(!v.parentAgencyId)delete v.parentAgencyId;return v})()});await go('agencies')}catch(err){fail(err)}
   };
   view().append(card('Yeni acente',agencyForm));
   const userForm=el('form',{},[
     field('E-posta','email','email'),field('Şifre (en az 12 karakter)','password','password'),
     el('label',{},[node('span','Rol'),el('select',{name:'role'},[
-      ...['system_admin','back_office','master_agency','sub_agency'].map(role=>el('option',{value:role,text:roleNames[role]}))
+      ...(session.user.role==='system_admin'?['system_admin','back_office','master_agency','sub_agency']:['master_agency','sub_agency']).map(role=>el('option',{value:role,text:roleNames[role]}))
     ])]),
     el('label',{},[node('span','Acente'),el('select',{name:'agencyId'},[
       el('option',{value:'',text:'Platform / acente yok'}),
