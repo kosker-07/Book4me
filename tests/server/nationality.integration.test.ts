@@ -83,8 +83,8 @@ beforeEach(async () => {
   await pool.query("INSERT INTO rooms(id,hotel_id,name,max_adults,max_children) VALUES ($1,$2,'Double',3,2),($3,$4,'Double',3,2)", [R1, H1, R2, H2]);
   // Same room, board and policies → one equivalence class; each rate plan sits in a different contract.
   await pool.query(`INSERT INTO rate_plans(id,room_id,board_name,currency,cancellation_policy,payment_terms) VALUES
-    ($1,$6,'AI','EUR',$9::jsonb,$10::jsonb),($2,$6,'AI','EUR',$9::jsonb,$10::jsonb),($3,$6,'AI','EUR',$9::jsonb,$10::jsonb),
-    ($4,$6,'AI','GBP',$9::jsonb,$10::jsonb),($5,$7,'AI','EUR',$9::jsonb,$10::jsonb)`, [RP_GEN, RP_TR, RP_DACH, RP_UK, RP_H2, R1, R2, null, JSON.stringify(VALID_TERMS.cancellationPolicy), JSON.stringify(VALID_TERMS.paymentTerms)]);
+    ($1,$6,'AI','EUR',$8::jsonb,$9::jsonb),($2,$6,'AI','EUR',$8::jsonb,$9::jsonb),($3,$6,'AI','EUR',$8::jsonb,$9::jsonb),
+    ($4,$6,'AI','GBP',$8::jsonb,$9::jsonb),($5,$7,'AI','EUR',$8::jsonb,$9::jsonb)`, [RP_GEN, RP_TR, RP_DACH, RP_UK, RP_H2, R1, R2, JSON.stringify(VALID_TERMS.cancellationPolicy), JSON.stringify(VALID_TERMS.paymentTerms)]);
   await pool.query(`INSERT INTO hotel_contracts(id,hotel_id,code,name,currency,seller_legal_name,status) VALUES
     ($1,$4,'TR-MARKET','Turkey market','EUR','Hotel One Turizm A.Ş.','active'),
     ($2,$4,'DACH-MARKET','DACH market','EUR','Hotel One Turizm A.Ş.','active'),
