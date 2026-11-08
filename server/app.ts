@@ -1,4 +1,5 @@
 import express, { NextFunction, Request, Response } from "express";
+import path from "node:path";
 import type { PoolClient } from "pg";
 import { createHash, randomUUID } from "node:crypto";
 import { pool, withTransaction } from "./db";
@@ -30,6 +31,12 @@ app.use((_req, res, next) => {
 });
 app.use(requestContext);
 app.use(express.json({ limit: "1mb" }));
+
+// Temporary same-origin admin sign-in page; assets are copied into dist-server/server/assets.
+app.get("/giris", (_req, res) => {
+  res.setHeader("Content-Security-Policy", "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'; object-src 'none'; img-src 'none'");
+  res.type("html").sendFile(path.join(__dirname, "assets", "giris.html"));
+});
 
 app.get("/health", (_req, res) => res.json({ ok: true, service: "bed4book-api" }));
 app.get("/ready", async (_req, res) => {
