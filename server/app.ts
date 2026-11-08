@@ -424,7 +424,8 @@ app.post("/api/agency/bookings", authenticate, roles("sub_agency"), requireAgenc
       quoteRooms.length !== q.rooms || quoteAdults !== adults || quoteChildren !== children ||
       quoteAges.join(",") !== [...childAges].sort((a, b) => a - b).join(","))
     return res.status(409).json({ error: "QUOTE_OCCUPANCY_MISMATCH" });
-  const nationalities = [guest.nationality, ...otherGuests.map(g => g.nationality)].sort();
+  // Family nationality is the single nationality captured and signed at search time.
+  const nationalities = [guest.nationality];
   if (nationalities.join(",") !== [...q.nationalities].sort().join(","))
     return res.status(409).json({ error: "QUOTE_NATIONALITY_MISMATCH" });
 
@@ -481,7 +482,7 @@ app.post("/api/agency/bookings", authenticate, roles("sub_agency"), requireAgenc
       if (!asDraft) await reserveNights(client, bookingId, q.ratePlanId, q.checkIn, q.checkOut, q.rooms, sale, q.totalMinor);
       else if ((await currentTotalMinor(client, q.ratePlanId, q.checkIn, q.checkOut, q.rooms, sale)) !== q.totalMinor) throw httpError(409, "PRICE_CHANGED");
       const guests = [{ firstName: guest.firstName, lastName: guest.lastName, type: "adult", age: null as number | null, nationality: guest.nationality, isLead: true },
-                      ...otherGuests.map(g => ({ ...g, isLead: false }))];
+                      ...otherGuests.map(g => ({ ...g, nationality: guest.nationality, isLead: false }))];
       for (const [i, g] of guests.entries())
         await client.query(
           `INSERT INTO booking_guests(booking_id, guest_index, first_name, last_name, guest_type, age, nationality, is_lead) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
