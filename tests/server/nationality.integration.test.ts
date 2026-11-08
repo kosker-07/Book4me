@@ -27,7 +27,7 @@ let server: Server, base = "", pool: any, hashPassword: (p: string) => string;
 const tok: Record<string, string> = {};
 const day = (o: number) => new Date(Date.now() + o * 86400000).toISOString().slice(0, 10);
 const IN = day(20), N2 = day(21), OUT = day(22);
-const stay = (nationalities: string[], extra: object = {}) => ({ checkIn: IN, checkOut: OUT, rooms: 1, adults: nationalities.length, children: 0, childAges: [], nationalities, ...extra });
+const stay = (nationalities: string[], extra: object = {}) => ({ checkIn: IN, checkOut: OUT, rooms: 1, adults: nationalities.length, children: 0, childAges: [], roomOccupancies: [{ adults: nationalities.length, children: 0, childAges: [] }], nationalities, ...extra });
 
 async function call(method: string, path: string, body?: unknown, token?: string, headers: Record<string, string> = {}) {
   const res = await fetch(base + path, {
@@ -109,7 +109,7 @@ beforeEach(async () => {
 
 // ---------------------------------------------------------------- eligibility and lowest price
 test("N01 nationality is required: missing → 400 NATIONALITY_REQUIRED; wrong count or unknown code → 400", { skip }, async () => {
-  const r = await call("POST", "/api/agency/searches", { checkIn: IN, checkOut: OUT, rooms: 1, adults: 2, children: 0, childAges: [] }, tok.a);
+  const r = await call("POST", "/api/agency/searches", { checkIn: IN, checkOut: OUT, rooms: 1, adults: 2, children: 0, childAges: [], roomOccupancies: [{ adults: 2, children: 0, childAges: [] }] }, tok.a);
   assert.deepEqual([r.status, r.body.error], [400, "NATIONALITY_REQUIRED"]);
   assert.equal((await search(["TR"], { adults: 2 })).status, 400);
   assert.equal((await search(["TR", "XX"])).status, 400);
