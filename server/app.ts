@@ -386,7 +386,7 @@ async function writeSnapshot(client: PoolClient, bookingId: string, sale: Sale, 
     `INSERT INTO booking_price_snapshots(booking_id, contract_id, contract_code, contract_name, seller_legal_name, rate_plan_id, nationalities,
         eligibility, contract_currency, contract_minor_units, total, eur_per_unit, fx_rate_history_id, fx_source, fx_valid_at,
         payment_currency, payment_minor_units, payment_eur_per_unit, payment_fx_rate_history_id, payment_amount)
-     VALUES ($1,$2,$3,$4,$5,$6,$7::char(2)[],$8::jsonb,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)`,
+     VALUES ($1,$2,$3,$4,$5,$6,$7::char(2)[],$8::jsonb,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21::jsonb)`,
     [bookingId, sale.contractId, sale.contractCode, sale.contractName, sale.sellerLegalName, ratePlanId, nationalities,
      JSON.stringify(eligibility.matches), sale.currency, sale.minorUnits, formatMinor(totalMinor, sale.minorUnits),
      fx.contract.eurPerUnit, fx.contract.historyId, fx.contract.source, fx.contract.validAt || null,
@@ -417,7 +417,14 @@ app.post("/api/agency/bookings", authenticate, roles("sub_agency"), requireAgenc
   if (q.agencyId !== agencyId) return res.status(404).json({ error: "PRODUCT_NOT_PUBLISHED" });
   const sameAges = [...childAges].sort((a, b) => a - b).join(",") === [...q.childAges].sort((a, b) => a - b).join(",");
   if (adults !== q.adults || children !== q.children || !sameAges ||
-      JSON.stringify(req.body.roomOccupancies) !== JSON.stringify(q.roomOccupancies))
+      !Array.isArray(req.body.roomOccupancies) ||
+      req.body.roomOccupancies.length !== q.roomOccupancies.length ||
+      !q.roomOccupancies.every((room, i) => {
+        const given = req.body.roomOccupancies[i];
+        return given && room.adults === given.adults && room.children === given.children &&
+          Array.isArray(given.childAges) &&
+          [...room.childAges].sort((a, b) => a - b).join(",") === [...given.childAges].sort((a, b) => a - b).join(",");
+      }))
     return res.status(409).json({ error: "QUOTE_OCCUPANCY_MISMATCH" });
   const nationalities = [guest.nationality, ...otherGuests.map(g => g.nationality)].sort();
   if (nationalities.join(",") !== [...q.nationalities].sort().join(","))
@@ -469,10 +476,10 @@ app.post("/api/agency/bookings", authenticate, roles("sub_agency"), requireAgenc
       const quotedTotal = formatMinor(q.totalMinor, q.minorUnits);
       await client.query(
         `INSERT INTO bookings(id, booking_no, agency_id, hotel_id, rate_plan_id, check_in, check_out, room_count, total, quoted_total, currency, status,
-                              submitted_at, guest_first_name, guest_last_name, guest_email, guest_phone, guest_nationality, adults, children, child_ages, operation_note)
+                              submitted_at, guest_first_name, guest_last_name, guest_email, guest_phone, guest_nationality, adults, children, child_ages, operation_note, room_occupancies)
          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$9,$10,$11, CASE WHEN $11 = 'pending' THEN now() END, $12,$13,$14,$15,$16,$17,$18,$19,$20)`,
         [bookingId, bookingNo, agencyId, sale.hotelId, q.ratePlanId, q.checkIn, q.checkOut, q.rooms, quotedTotal, q.currency, status,
-         guest.firstName, guest.lastName, guest.email, guest.phone, guest.nationality, adults, children, childAges, guest.operationNote]);
+         guest.firstName, guest.lastName, guest.email, guest.phone, guest.nationality, adults, children, childAges, guest.operationNote, JSON.stringify(q.roomOccupancies)]);
       if (!asDraft) await reserveNights(client, bookingId, q.ratePlanId, q.checkIn, q.checkOut, q.rooms, sale, q.totalMinor);
       else if ((await currentTotalMinor(client, q.ratePlanId, q.checkIn, q.checkOut, q.rooms, sale)) !== q.totalMinor) throw httpError(409, "PRICE_CHANGED");
       const guests = [{ firstName: guest.firstName, lastName: guest.lastName, type: "adult", age: null as number | null, nationality: guest.nationality, isLead: true },
@@ -594,7 +601,7 @@ async function bookingDetail(bookingId: string, scopeSql: string, scopeParams: u
     `SELECT b.id, b.booking_no, b.status, b.agency_id, a.name AS agency_name, b.hotel_id, b.rate_plan_id,
             b.check_in::text, b.check_out::text, b.room_count, b.total, b.currency,
             b.guest_first_name, b.guest_last_name, b.guest_email, b.guest_phone, b.guest_nationality,
-            b.adults, b.children, b.child_ages, b.operation_note, b.created_at, b.updated_at,
+            b.adults, b.children, b.child_ages, b.room_occupancies, b.operation_note, b.created_at, b.updated_at,
             h.name AS hotel_name, h.location AS hotel_location, r.name AS room_name, rp.board_name
        FROM bookings b JOIN hotels h ON h.id = b.hotel_id JOIN agencies a ON a.id = b.agency_id
        JOIN rate_plans rp ON rp.id = b.rate_plan_id JOIN rooms r ON r.id = rp.room_id
