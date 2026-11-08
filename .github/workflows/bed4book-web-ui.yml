@@ -1,0 +1,90 @@
+name: BED4BOOK web UI checks
+
+# The server tests never load web/*.js in a browser. On 2026-11-08 a missing
+# parenthesis and a runtime error in web/app.js locked the staging login while
+# every server check was green. This workflow parses the UI files and signs in
+# through a real browser against the compiled server.
+
+on:
+  push:
+    branches:
+      - main
+      - "claude/**"
+      - "feature/**"
+    paths:
+      - "web/**"
+      - "server/**"
+      - "tests/e2e/**"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/bed4book-web-ui.yml"
+  pull_request:
+    paths:
+      - "web/**"
+      - "server/**"
+      - "tests/e2e/**"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/bed4book-web-ui.yml"
+
+jobs:
+  web:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: bed4book
+          POSTGRES_PASSWORD: bed4book
+          POSTGRES_DB: bed4book_e2e
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U bed4book -d bed4book_e2e"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgres://bed4book:bed4book@localhost:5432/bed4book_e2e
+      SESSION_SECRET: ci-only-session-secret-at-least-32-characters
+      ADMIN_EMAIL: e2e-admin@test.local
+      ADMIN_PASSWORD: e2e-admin-password-2026
+      PORT: "3999"
+      BASE_URL: http://127.0.0.1:3999
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Parse every browser module (web/*.js)
+        run: |
+          mkdir -p /tmp/webcheck
+          for f in web/*.js; do
+            cp "$f" "/tmp/webcheck/$(basename "$f" .js).mjs"
+            node --check "/tmp/webcheck/$(basename "$f" .js).mjs" || { echo "Syntax error in $f"; exit 1; }
+          done
+      - run: npm ci
+      - name: Install Playwright with Chromium (not saved to package.json)
+        run: |
+          npm install --no-save --no-audit --no-fund playwright@1.49.1
+          npx playwright install --with-deps chromium
+      - run: npm run db:migrate
+      - run: npm run build:server
+      - name: Start the compiled server (bootstraps the e2e admin)
+        run: |
+          node dist-server/server/app.js > server.log 2>&1 & echo $! > server.pid
+          for i in $(seq 1 40); do curl -fsS "$BASE_URL/ready" && break; sleep 0.5; done
+          curl -fsS "$BASE_URL/ready" | grep -q '"database":"up"'
+      - name: Browser checks (login, admin pages, mobile menu)
+        run: node tests/e2e/admin-login.e2e.mjs
+      - name: Server log
+        if: always()
+        run: cat server.log || true
+      - name: Upload failure screenshots
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-screenshots
+          path: e2e-*.png
+          if-no-files-found: ignore
