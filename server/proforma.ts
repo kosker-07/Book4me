@@ -1,3 +1,4 @@
+import { ratePlanTermsText } from "./rate-plan-terms";
 // Proforma PDF. Informational pre-payment document — NOT a tax invoice or e-invoice.
 // Amounts come only from the booking's immutable price snapshot; nothing is re-priced or re-converted.
 import PDFDocument from "pdfkit";
@@ -12,6 +13,11 @@ export interface ProformaData {
   supersedesNumber: string | null;
   issuedAt: Date;
   sellerLegalName: string;
+  sellerAddress?: string;
+  sellerTaxOffice?: string;
+  sellerTaxNumber?: string;
+  sellerPhone?: string;
+  sellerEmail?: string;
   bookingNo: string;
   bookingStatus: string;
   agencyName: string;
@@ -23,6 +29,9 @@ export interface ProformaData {
   roomName: string;
   board: string;
   rooms: number;
+  roomOccupancies: { adults: number; children: number; childAges: number[] }[] | null;
+  cancellationPolicy?: unknown;
+  paymentTerms?: unknown;
   guests: { name: string; type: string; age: number | null; nationality: string }[];
   contractCode: string;
   contractCurrency: string;
@@ -61,6 +70,11 @@ export function renderProforma(p: ProformaData): Promise<Buffer> {
       ["Proforma No", `${p.number}${p.version > 1 ? `  (sürüm / version ${p.version}${p.supersedesNumber ? `, ${p.supersedesNumber} yerine / replaces ${p.supersedesNumber}` : ""})` : ""}`],
       ["Düzenlenme / Issued", `${trDate(p.issuedAt.toISOString())} ${p.issuedAt.toISOString().slice(11, 16)} UTC`],
       ["Satıcı / Seller", p.sellerLegalName],
+      ...(p.sellerAddress ? [["Adres / Address", p.sellerAddress] as [string,string]] : []),
+      ...(p.sellerTaxOffice ? [["Vergi Dairesi / Tax Office", p.sellerTaxOffice] as [string,string]] : []),
+      ...(p.sellerTaxNumber ? [["Vergi No / Tax Number", p.sellerTaxNumber] as [string,string]] : []),
+      ...(p.sellerPhone ? [["Telefon / Phone", p.sellerPhone] as [string,string]] : []),
+      ...(p.sellerEmail ? [["E-posta / Email", p.sellerEmail] as [string,string]] : []),
       ["Acente / Agency", p.agencyName],
       ["Rezervasyon No / Booking No", p.bookingNo],
       ["Durum / Status", STATUS_TR[p.bookingStatus] ?? p.bookingStatus],
@@ -68,6 +82,8 @@ export function renderProforma(p: ProformaData): Promise<Buffer> {
       ["Konaklama / Stay", `${trDate(p.checkIn)} – ${trDate(p.checkOut)} (${p.nights} gece / nights)`],
       ["Oda / Room", `${p.roomName} × ${p.rooms} · ${p.board}`],
       ["Kontrat / Contract", p.contractCode],
+      ["İptal ve ödeme / Cancellation and payment", ratePlanTermsText(p.cancellationPolicy, p.paymentTerms)],
+      ["Oda dağılımı / Per-room occupancy", p.roomOccupancies?.map((r, i) => `Oda ${i + 1}: ${r.adults} yetişkin, ${r.children} çocuk${r.children ? ` (${r.childAges.join(", ")})` : ""}`).join("\n") || "Eski rezervasyon / Legacy booking"],
       ["Misafirler / Guests", p.guests.map(g => `${g.name} (${g.type === "child" ? `çocuk/child ${g.age}` : "yetişkin/adult"}, ${g.nationality})`).join("\n")],
       ["Kontrat tutarı / Contract amount", `${p.contractAmount} ${p.contractCurrency}`],
       ["Ödenecek tutar / Amount payable", `${p.paymentAmount} ${p.paymentCurrency}`]

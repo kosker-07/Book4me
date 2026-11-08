@@ -205,8 +205,8 @@ async function loadRules(db: { query: PoolClient["query"] }, contractIds: string
   }));
 }
 
-const fitsOccupancy = (row: { max_adults: number; max_children: number }, rooms: number, adults: number, children: number) =>
-  adults <= row.max_adults * rooms && children <= row.max_children * rooms;
+const fitsOccupancy = (row: { max_adults: number; max_children: number }, occupancies: { adults: number; children: number }[]) =>
+  occupancies.every(room => room.adults <= row.max_adults && room.children <= row.max_children);
 
 const toCandidate = (row: CandidateRow): Candidate => ({
   ratePlanId: row.rate_plan_id, hotelId: row.hotel_id, roomId: row.room_id, board: row.board_name,
@@ -241,7 +241,7 @@ app.post("/api/agency/searches", authenticate, roles("sub_agency"), requireAgenc
     const byRatePlan = new Map(rows.map(r => [r.rate_plan_id, r]));
     const eligibilityOf = new Map<string, ContractEligibility>();
     const offers = rows
-      .filter(r => fitsOccupancy(r, stay.rooms, stay.adults, stay.children))
+      .filter(r => fitsOccupancy(r, stay.roomOccupancies))
       .filter(r => {
         const e = evaluateContract(rulesFor.get(r.contract_id) ?? [], nationalities);
         eligibilityOf.set(r.rate_plan_id, e);
@@ -416,9 +416,16 @@ app.post("/api/agency/bookings", authenticate, roles("sub_agency"), requireAgenc
   const q = checked.quote;
   if (q.agencyId !== agencyId) return res.status(404).json({ error: "PRODUCT_NOT_PUBLISHED" });
   const sameAges = [...childAges].sort((a, b) => a - b).join(",") === [...q.childAges].sort((a, b) => a - b).join(",");
-  if (adults !== q.adults || children !== q.children || !sameAges)
+  const quoteRooms = q.roomOccupancies;
+  const quoteAdults = quoteRooms.reduce((sum, room) => sum + room.adults, 0);
+  const quoteChildren = quoteRooms.reduce((sum, room) => sum + room.children, 0);
+  const quoteAges = quoteRooms.flatMap(room => room.childAges).sort((a, b) => a - b);
+  if (adults !== q.adults || children !== q.children || !sameAges ||
+      quoteRooms.length !== q.rooms || quoteAdults !== adults || quoteChildren !== children ||
+      quoteAges.join(",") !== [...childAges].sort((a, b) => a - b).join(","))
     return res.status(409).json({ error: "QUOTE_OCCUPANCY_MISMATCH" });
-  const nationalities = [guest.nationality, ...otherGuests.map(g => g.nationality)].sort();
+  // Family nationality is the single nationality captured and signed at search time.
+  const nationalities = [guest.nationality];
   if (nationalities.join(",") !== [...q.nationalities].sort().join(","))
     return res.status(409).json({ error: "QUOTE_NATIONALITY_MISMATCH" });
 
@@ -456,7 +463,7 @@ app.post("/api/agency/bookings", authenticate, roles("sub_agency"), requireAgenc
 
       const sale = await publishedSale(client, agencyId, q.ratePlanId); // re-check only the quoted winner
       if (sale.currency !== q.currency || sale.minorUnits !== q.minorUnits) throw httpError(409, "PRICE_CHANGED");
-      if (adults > sale.maxAdults * q.rooms || children > sale.maxChildren * q.rooms) throw httpError(409, "OCCUPANCY_EXCEEDS_CAPACITY");
+      if (!q.roomOccupancies.every(room => room.adults <= sale.maxAdults && room.children <= sale.maxChildren)) throw httpError(409, "OCCUPANCY_EXCEEDS_CAPACITY");
       const eligibility = await revalidateContract(client, sale, q.contractId, q.checkIn, q.checkOut, nationalities);
       const fx = await revalidateFx(client, q.currency, q.fxRateId, q.paymentCurrency, q.paymentFxRateId);
       if (fx.paymentMinorUnits !== q.paymentMinorUnits) throw httpError(409, "PRICE_CHANGED");
@@ -468,14 +475,14 @@ app.post("/api/agency/bookings", authenticate, roles("sub_agency"), requireAgenc
       const quotedTotal = formatMinor(q.totalMinor, q.minorUnits);
       await client.query(
         `INSERT INTO bookings(id, booking_no, agency_id, hotel_id, rate_plan_id, check_in, check_out, room_count, total, quoted_total, currency, status,
-                              submitted_at, guest_first_name, guest_last_name, guest_email, guest_phone, guest_nationality, adults, children, child_ages, operation_note)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$9,$10,$11, CASE WHEN $11 = 'pending' THEN now() END, $12,$13,$14,$15,$16,$17,$18,$19,$20)`,
+                              submitted_at, guest_first_name, guest_last_name, guest_email, guest_phone, guest_nationality, adults, children, child_ages, operation_note, room_occupancies)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$9,$10,$11, CASE WHEN $11 = 'pending' THEN now() END, $12,$13,$14,$15,$16,$17,$18,$19,$20,$21::jsonb)`,
         [bookingId, bookingNo, agencyId, sale.hotelId, q.ratePlanId, q.checkIn, q.checkOut, q.rooms, quotedTotal, q.currency, status,
-         guest.firstName, guest.lastName, guest.email, guest.phone, guest.nationality, adults, children, childAges, guest.operationNote]);
+         guest.firstName, guest.lastName, guest.email, guest.phone, guest.nationality, adults, children, childAges, guest.operationNote, JSON.stringify(q.roomOccupancies)]);
       if (!asDraft) await reserveNights(client, bookingId, q.ratePlanId, q.checkIn, q.checkOut, q.rooms, sale, q.totalMinor);
       else if ((await currentTotalMinor(client, q.ratePlanId, q.checkIn, q.checkOut, q.rooms, sale)) !== q.totalMinor) throw httpError(409, "PRICE_CHANGED");
       const guests = [{ firstName: guest.firstName, lastName: guest.lastName, type: "adult", age: null as number | null, nationality: guest.nationality, isLead: true },
-                      ...otherGuests.map(g => ({ ...g, isLead: false }))];
+                      ...otherGuests.map(g => ({ ...g, nationality: guest.nationality, isLead: false }))];
       for (const [i, g] of guests.entries())
         await client.query(
           `INSERT INTO booking_guests(booking_id, guest_index, first_name, last_name, guest_type, age, nationality, is_lead) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
@@ -507,7 +514,7 @@ app.post("/api/agency/bookings/:id/submit", authenticate, roles("sub_agency"), r
       const b = (await client.query(
         `UPDATE bookings SET status = 'pending', submitted_at = now(), updated_at = now()
           WHERE id = $1 AND agency_id = $2 AND status = 'draft'
-        RETURNING rate_plan_id, check_in::text AS check_in, check_out::text AS check_out, room_count, quoted_total::text AS quoted_total, currency, adults, children`,
+        RETURNING rate_plan_id, check_in::text AS check_in, check_out::text AS check_out, room_count, quoted_total::text AS quoted_total, currency, adults, children, room_occupancies`,
         [bookingId, agencyId])).rows[0];
       if (!b) {
         const own = await client.query("SELECT status FROM bookings WHERE id=$1 AND agency_id=$2", [bookingId, agencyId]);
@@ -520,7 +527,13 @@ app.post("/api/agency/bookings/:id/submit", authenticate, roles("sub_agency"), r
       if (!snap) throw httpError(409, "DRAFT_REQUIRES_NEW_QUOTE"); // draft created before nationality pricing existed
       const sale = await publishedSale(client, agencyId, b.rate_plan_id);
       if (sale.currency !== String(b.currency).trim()) throw httpError(409, "PRICE_CHANGED");
-      if (b.adults > sale.maxAdults * b.room_count || b.children > sale.maxChildren * b.room_count) throw httpError(409, "OCCUPANCY_EXCEEDS_CAPACITY");
+      if (Array.isArray(b.room_occupancies) && b.room_occupancies.length === b.room_count) {
+        if (!b.room_occupancies.every((room: { adults: number; children: number }) => room.adults <= sale.maxAdults && room.children <= sale.maxChildren))
+          throw httpError(409, "OCCUPANCY_EXCEEDS_CAPACITY");
+      } else if (b.adults > sale.maxAdults * b.room_count || b.children > sale.maxChildren * b.room_count) {
+        // Legacy drafts have no per-room distribution; preserve the historical aggregate check.
+        throw httpError(409, "OCCUPANCY_EXCEEDS_CAPACITY");
+      }
       await revalidateContract(client, sale, snap.contract_id, b.check_in, b.check_out, (snap.nationalities as string[]).map(x => x.trim()));
       await revalidateFx(client, sale.currency, snap.fx_rate_history_id === null ? null : Number(snap.fx_rate_history_id),
                          String(snap.payment_currency).trim(), snap.payment_fx_rate_history_id === null ? null : Number(snap.payment_fx_rate_history_id));
@@ -593,8 +606,8 @@ async function bookingDetail(bookingId: string, scopeSql: string, scopeParams: u
     `SELECT b.id, b.booking_no, b.status, b.agency_id, a.name AS agency_name, b.hotel_id, b.rate_plan_id,
             b.check_in::text, b.check_out::text, b.room_count, b.total, b.currency,
             b.guest_first_name, b.guest_last_name, b.guest_email, b.guest_phone, b.guest_nationality,
-            b.adults, b.children, b.child_ages, b.operation_note, b.created_at, b.updated_at,
-            h.name AS hotel_name, h.location AS hotel_location, r.name AS room_name, rp.board_name
+            b.adults, b.children, b.child_ages, b.room_occupancies, b.operation_note, b.created_at, b.updated_at,
+            h.name AS hotel_name, h.location AS hotel_location, r.name AS room_name, rp.board_name, rp.cancellation_policy, rp.payment_terms
        FROM bookings b JOIN hotels h ON h.id = b.hotel_id JOIN agencies a ON a.id = b.agency_id
        JOIN rate_plans rp ON rp.id = b.rate_plan_id JOIN rooms r ON r.id = rp.room_id
       WHERE b.id = $1 AND ${scopeSql}`, [bookingId, ...scopeParams])).rows[0];
@@ -614,11 +627,27 @@ async function bookingDetail(bookingId: string, scopeSql: string, scopeParams: u
   return { ...b, nights, history, guests, priceSnapshot: snapshot };
 }
 
+async function visibleBooking(detail: any, req: AuthedRequest) {
+  if (req.auth!.role === "master_agency") {
+    const parent = (await pool.query("SELECT parent_agency_id FROM agencies WHERE id=$1", [detail.agency_id])).rows[0]?.parent_agency_id;
+    const { agency_id, priceSnapshot, ...safe } = detail;
+    const { seller_legal_name, ...snapshot } = priceSnapshot || {};
+    return { ...safe, priceSnapshot: priceSnapshot ? snapshot : null, agency_name: parent === req.auth!.agencyId ? detail.agency_name : "BED4BOOK" };
+  }
+  if (req.auth!.role === "sub_agency") {
+    const { agency_id, priceSnapshot, ...safe } = detail;
+    if (!priceSnapshot) return { ...safe, priceSnapshot: null };
+    const { seller_legal_name, ...snapshot } = priceSnapshot;
+    return { ...safe, priceSnapshot: snapshot };
+  }
+  return detail;
+}
+
 app.get("/api/agency/bookings/:id", authenticate, roles("sub_agency"), requireAgency, async (req: AuthedRequest, res, next) => {
   try {
     const detail = await bookingDetail(uuidParam(req, "BOOKING_NOT_FOUND"), "b.agency_id = $2", [req.auth!.agencyId]);
     if (!detail) return res.status(404).json({ error: "BOOKING_NOT_FOUND" });
-    res.json(detail);
+    res.json(await visibleBooking(detail, req));
   } catch (error) { next(error); }
 });
 
@@ -652,10 +681,10 @@ app.get("/api/backoffice/bookings", ...backoffice, async (req: AuthedRequest, re
     const scope = backofficeScope(req);
     const result = await pool.query(
       `SELECT b.id, b.booking_no, b.status, b.check_in::text, b.check_out::text, b.total, b.currency, b.created_at,
-              h.name AS hotel_name, a.name AS agency_name
+              h.name AS hotel_name, CASE WHEN $1::boolean OR a.parent_agency_id = $2 THEN a.name ELSE 'BED4BOOK' END AS agency_name
          FROM bookings b JOIN hotels h ON h.id = b.hotel_id JOIN agencies a ON a.id = b.agency_id
-        WHERE ${withParamIndex(scope.sql, 1)}
-        ORDER BY b.created_at DESC LIMIT 500`, scope.params);
+        WHERE ${withParamIndex(scope.sql, 3)}
+        ORDER BY b.created_at DESC LIMIT 500`, [isPlatformWide(req.auth!.role), req.auth!.agencyId, ...scope.params]);
     res.json({ items: result.rows });
   } catch (error) { next(error); }
 });
@@ -665,7 +694,7 @@ app.get("/api/backoffice/bookings/:id", ...backoffice, async (req: AuthedRequest
     const scope = backofficeScope(req);
     const detail = await bookingDetail(uuidParam(req, "BOOKING_NOT_FOUND"), withParamIndex(scope.sql, 2), scope.params);
     if (!detail) return res.status(404).json({ error: "BOOKING_NOT_FOUND" });
-    res.json(detail);
+    res.json(await visibleBooking(detail, req));
   } catch (error) { next(error); }
 });
 
@@ -717,9 +746,10 @@ async function sendVoucher(req: AuthedRequest, res: Response, scopeSql: string, 
   const pdf = await renderVoucher({
     bookingNo: b.booking_no, status: b.status, hotelName: b.hotel_name, hotelLocation: b.hotel_location,
     checkIn: b.check_in, checkOut: b.check_out, nights: nightsBetween(b.check_in, b.check_out).length,
-    roomName: b.room_name, board: b.board_name, rooms: b.room_count,
+    roomName: b.room_name, board: b.board_name, rooms: b.room_count, roomOccupancies: b.room_occupancies,
+    cancellationPolicy: b.cancellation_policy, paymentTerms: b.payment_terms,
     guestName: `${b.guest_first_name} ${b.guest_last_name}`, adults: b.adults, children: b.children, childAges: b.child_ages,
-    nationality: b.guest_nationality, operationNote: b.operation_note, agencyName: b.agency_name, issuedAt: new Date()
+    nationality: b.guest_nationality, operationNote: b.operation_note, agencyName: (await visibleBooking(b, req)).agency_name, issuedAt: new Date()
   });
   const sha256 = createHash("sha256").update(pdf).digest("hex");
   await withTransaction(async client => {
@@ -749,7 +779,7 @@ app.get("/api/backoffice/bookings/:id/voucher", ...backoffice, async (req: Authe
 // ---------------------------------------------------------------------------------------------
 const PROFORMA_STATUSES = new Set(["pending", "approved"]);
 
-async function issueProforma(bookingId: string, actorId: string, scopeSql: string, scopeParams: unknown[], reason: string | null) {
+async function issueProforma(bookingId: string, actorId: string, scopeSql: string, scopeParams: unknown[], reason: string | null, role?: string, agencyId?: string | null) {
   const b = await bookingDetail(bookingId, scopeSql, scopeParams);
   if (!b) throw httpError(404, "BOOKING_NOT_FOUND");
   // A cancelled or rejected booking gets no proforma, not even a previously issued one (its history stays
@@ -765,6 +795,8 @@ async function issueProforma(bookingId: string, actorId: string, scopeSql: strin
   const contractCurrency = String(snap.contract_currency).trim(), paymentCurrency = String(snap.payment_currency).trim();
   try {
     return await withTransaction(async client => {
+      const settings = (await client.query("SELECT legal_name,address,tax_office,tax_number,phone,email FROM platform_settings WHERE id=1")).rows[0] || {};
+      const platformSeller = settings.legal_name || "BED4BOOK";
       const year = new Date().getUTCFullYear();
       // Atomic per-year counter: one conditional upsert, no explicit lock; concurrent issues get distinct numbers.
       const seq = (await client.query(
@@ -772,10 +804,13 @@ async function issueProforma(bookingId: string, actorId: string, scopeSql: strin
          ON CONFLICT (year) DO UPDATE SET last_seq = proforma_counters.last_seq + 1 RETURNING last_seq`, [year])).rows[0].last_seq as number;
       const number = `PF-${year}-${String(seq).padStart(6, "0")}`, version = latest ? latest.version + 1 : 1, issuedAt = new Date();
       const pdf = await renderProforma({
-        number, version, supersedesNumber: latest?.number ?? null, issuedAt, sellerLegalName: snap.seller_legal_name || "BED4BOOK",
-        bookingNo: b.booking_no, bookingStatus: b.status, agencyName: b.agency_name, hotelName: b.hotel_name, hotelLocation: b.hotel_location,
+        number, version, supersedesNumber: latest?.number ?? null, issuedAt, sellerLegalName: platformSeller,
+        sellerAddress: settings.address, sellerTaxOffice: settings.tax_office, sellerTaxNumber: settings.tax_number,
+        sellerPhone: settings.phone, sellerEmail: settings.email,
+        bookingNo: b.booking_no, bookingStatus: b.status, agencyName: role === "master_agency" && (await pool.query("SELECT parent_agency_id FROM agencies WHERE id=$1", [b.agency_id])).rows[0]?.parent_agency_id !== agencyId ? "BED4BOOK" : b.agency_name, hotelName: b.hotel_name, hotelLocation: b.hotel_location,
         checkIn: b.check_in, checkOut: b.check_out, nights: nightsBetween(b.check_in, b.check_out).length,
-        roomName: b.room_name, board: b.board_name, rooms: b.room_count,
+        roomName: b.room_name, board: b.board_name, rooms: b.room_count, roomOccupancies: b.room_occupancies,
+        cancellationPolicy: b.cancellation_policy, paymentTerms: b.payment_terms,
         guests: b.guests.map((g: any) => ({ name: `${g.first_name} ${g.last_name}`, type: g.type, age: g.age, nationality: String(g.nationality).trim() })),
         contractCode: snap.contract_code, contractCurrency, contractAmount: snap.total, paymentCurrency, paymentAmount: snap.payment_amount,
         fx: paymentCurrency === contractCurrency ? null : { contractEurPerUnit: snap.eur_per_unit, paymentEurPerUnit: snap.payment_eur_per_unit,
@@ -785,10 +820,10 @@ async function issueProforma(bookingId: string, actorId: string, scopeSql: strin
       const id = randomUUID();
       await client.query(
         `INSERT INTO proformas(id, booking_id, number, year, seq, version, supersedes, reason, booking_status, payment_currency, payment_amount,
-                               contract_currency, contract_amount, seller_legal_name, issued_by, issued_at, pdf, sha256)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)`,
+                               contract_currency, contract_amount, seller_legal_name, issued_by, issued_at, pdf, sha256, seller_settings)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19::jsonb)`,
         [id, bookingId, number, year, seq, version, latest?.id ?? null, reason ?? "", b.status, paymentCurrency, snap.payment_amount,
-         contractCurrency, snap.total, snap.seller_legal_name, actorId, issuedAt.toISOString(), pdf, sha256]);
+         contractCurrency, snap.total, platformSeller, actorId, issuedAt.toISOString(), pdf, sha256, JSON.stringify({legal_name:platformSeller,address:settings.address??null,tax_office:settings.tax_office??null,tax_number:settings.tax_number??null,phone:settings.phone??null,email:settings.email??null})]);
       await audit(client, actorId, b.agency_id, version === 1 ? "proforma.issued" : "proforma.reissued", "booking", bookingId,
         { targetAgencyId: b.agency_id, after: { number, version, supersedes: latest?.number ?? null, reason, paymentCurrency, paymentAmount: snap.payment_amount, sha256 } });
       return { pdf, sha256, number, created: true };
@@ -818,7 +853,7 @@ app.get("/api/agency/bookings/:id/proforma", authenticate, roles("sub_agency"), 
 });
 
 app.get("/api/backoffice/bookings/:id/proforma", ...backoffice, async (req: AuthedRequest, res, next) => {
-  try { const scope = backofficeScope(req); sendProforma(res, await issueProforma(uuidParam(req, "BOOKING_NOT_FOUND"), req.auth!.sub, withParamIndex(scope.sql, 2), scope.params, null)); }
+  try { const scope = backofficeScope(req); sendProforma(res, await issueProforma(uuidParam(req, "BOOKING_NOT_FOUND"), req.auth!.sub, withParamIndex(scope.sql, 2), scope.params, null, req.auth!.role, req.auth!.agencyId)); }
   catch (error) { next(error); }
 });
 
@@ -838,7 +873,7 @@ app.get("/api/backoffice/bookings/:id/proformas", ...backoffice, async (req: Aut
       `SELECT number, version, reason, booking_status, payment_currency, payment_amount::text AS payment_amount, contract_currency,
               contract_amount::text AS contract_amount, seller_legal_name, issued_by, issued_at, sha256
          FROM proformas WHERE booking_id = $1 ORDER BY version`, [bookingId])).rows;
-    res.json({ items });
+    res.json({ items: req.auth!.role === "master_agency" ? items.map(({ seller_legal_name, ...safe }: any) => safe) : items });
   } catch (error) { next(error); }
 });
 
@@ -853,6 +888,7 @@ app.use((error: any, _req: Request, res: Response, _next: NextFunction) => {
 });
 
 const port = Number(process.env.PORT || 3000);
+
 if (require.main === module) {
   if (!process.env.DATABASE_URL || sessionSecret().length < 32) throw new Error("DATABASE_URL and SESSION_SECRET (32+ chars) are required.");
   // A failed admin bootstrap must never keep the API down: log the reason (never the password) and start anyway.

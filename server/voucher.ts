@@ -1,3 +1,4 @@
+import { ratePlanTermsText } from "./rate-plan-terms";
 // BED4BOOK PDF voucher (Technical Specification §4.4).
 // Contains: booking number, hotel, stay dates, room/board, guest and operation notes.
 // Brand: "BED4BOOK" wordmark in black. The official logo file and its exact colour codes have not been
@@ -20,6 +21,9 @@ export interface VoucherData {
   roomName: string;
   board: string;
   rooms: number;
+  roomOccupancies: { adults: number; children: number; childAges: number[] }[] | null;
+  cancellationPolicy?: unknown;
+  paymentTerms?: unknown;
   guestName: string;
   adults: number | null;
   children: number | null;
@@ -70,8 +74,10 @@ export function renderVoucher(v: VoucherData): Promise<Buffer> {
       ["Gece / Nights", String(v.nights)],
       ["Oda / Room", `${v.roomName} × ${v.rooms}`],
       ["Pansiyon / Board", v.board],
+      ["İptal ve ödeme / Cancellation and payment", ratePlanTermsText(v.cancellationPolicy, v.paymentTerms)],
       ["Misafir / Guest", v.guestName],
       ["Kişi / Occupancy", occupancy],
+      ["Oda dağılımı / Per-room occupancy", v.roomOccupancies?.map((r, i) => `Oda ${i + 1}: ${r.adults} yetişkin, ${r.children} çocuk${r.children ? ` (${r.childAges.join(", ")})` : ""}`).join("\n") || "Eski rezervasyon / Legacy booking"],
       ["Uyruk / Nationality", v.nationality || "—"],
       ["Acente / Agency", v.agencyName],
       ["Operasyon notu / Operation notes", v.operationNote || "—"]

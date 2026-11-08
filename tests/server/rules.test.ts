@@ -76,6 +76,7 @@ test("validation: guest fields", () => {
 test("quotes: signed, tamper-evident, expiring", () => {
   const secret = "unit-test-secret-with-at-least-32-chars";
   const t = signQuote({ agencyId: "a", ratePlanId: "rp", contractId: "c", checkIn: "x", checkOut: "y", rooms: 1, adults: 2, children: 0, childAges: [],
+    roomOccupancies: [{ adults: 2, children: 0, childAges: [] }],
     nationalities: ["DE", "TR"], ruleIds: [null, "r1"], totalMinor: 100, currency: "EUR", minorUnits: 2, fxRateId: null,
     paymentCurrency: "EUR", paymentMinorUnits: 2, paymentAmountMinor: 100, paymentFxRateId: null }, secret, 0);
   assert.equal(verifyQuote(t, secret, 1000).ok, true);

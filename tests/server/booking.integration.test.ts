@@ -1,3 +1,4 @@
+import { VALID_TERMS } from "./fixtures/rate-plan-terms";
 // Integration tests against a real PostgreSQL database with all server/migrations applied.
 // Required: DATABASE_URL pointing to a THROWAWAY database (every test truncates all tables).
 // In CI (CI=true) a missing DATABASE_URL is a failure, not a skip.
@@ -14,7 +15,7 @@ const skip = DB_URL ? false : "DATABASE_URL not set; integration tests skipped l
 
 // Fixed ids: rate plan ids are ordered so the deterministic tie-break (lowest id) is predictable.
 const id = (prefix: string, n: number) => `${prefix}0000000-0000-4000-8000-${String(n).padStart(12, "0")}`;
-const M1 = id("a", 1), M2 = id("a", 2), SA = id("a", 3), SB = id("a", 4);
+const M1 = id("a", 1), M2 = id("a", 2), SA = id("a", 3), SB = id("a", 4), SC = id("a", 5);
 const H1 = id("c", 1), H2 = id("c", 2), R1 = id("d", 1), R2 = id("d", 2), RU = id("d", 3);
 const RP1 = id("b", 1);   // H1/R1 AI EUR net 100 — winner for agency A
 const RP2 = id("b", 2);   // H1/R1 AI EUR net 120 — equivalent, more expensive
@@ -26,7 +27,7 @@ let server: Server, base = "", pool: any, hashPassword: (p: string) => string;
 const tok: Record<string, string> = {};
 const day = (offset: number) => new Date(Date.now() + offset * 86400000).toISOString().slice(0, 10);
 const CHECK_IN = day(30), NIGHT2 = day(31), CHECK_OUT = day(32);
-const STAY = { checkIn: CHECK_IN, checkOut: CHECK_OUT, rooms: 1, adults: 2, children: 1, childAges: [5], nationalities: ["TR", "TR", "TR"] };
+const STAY = { checkIn: CHECK_IN, checkOut: CHECK_OUT, rooms: 1, adults: 2, children: 1, childAges: [5], roomOccupancies: [{ adults: 2, children: 1, childAges: [5] }], nationalities: ["TR"] };
 const GUEST = { firstName: "Ali", lastName: "Veli", adults: 2, children: 1, childAges: [5], email: "ali@example.com", phone: "+90 555 111 22 33", nationality: "TR" };
 /** Every guest except the lead guest, each with a passport nationality (nationality-based contracts). */
 const OTHER_GUESTS = [{ firstName: "Ayşe", lastName: "Veli", type: "adult", nationality: "TR" }, { firstName: "Can", lastName: "Veli", type: "child", age: 5, nationality: "TR" }];
@@ -84,19 +85,19 @@ beforeEach(async () => {
   if (skip) return;
   await pool.query(`TRUNCATE agencies, users, hotels, rooms, rate_plans, inventory_daily, agency_hotel_sales, bookings,
     booking_status_history, booking_nights, audit_logs, idempotency_keys, fx_rates, login_attempts, vouchers, market_groups, fx_rate_history, proforma_counters CASCADE`);
-  await pool.query(`INSERT INTO agencies(id,name,type) VALUES ($1,'Master One','master'),($2,'Master Two','master'),($3,'Sub A','sub'),($4,'Sub B','sub')`, [M1, M2, SA, SB]);
+  await pool.query(`INSERT INTO agencies(id,name,type,parent_agency_id) VALUES ($1,'Master One','master',NULL),($2,'Master Two','master',NULL),($3,'Sub A','sub',$1),($4,'Sub B','sub',$1),($5,'Sub C','sub',$2)`, [M1, M2, SA, SB, SC]);
   const pw = hashPassword("integration-password-1");
   const users: [string, string, string | null][] = [
     ["admin", "system_admin", null], ["bo", "back_office", null], ["m1", "master_agency", M1], ["m2", "master_agency", M2],
-    ["a", "sub_agency", SA], ["b", "sub_agency", SB]
+    ["a", "sub_agency", SA], ["b", "sub_agency", SB], ["c", "sub_agency", SC]
   ];
   for (const [name, role, agency] of users)
     await pool.query("INSERT INTO users(email,password_hash,role,agency_id) VALUES ($1,$2,$3,$4)", [`${name}@test.local`, pw, role, agency]);
   await pool.query(`INSERT INTO hotels(id,owner_agency_id,name,location,status) VALUES ($1,$2,'Hotel One','Antalya','active'),($3,$4,'Hotel Two','Bodrum','active')`, [H1, M1, H2, M2]);
   await pool.query(`INSERT INTO rooms(id,hotel_id,name,max_adults,max_children) VALUES ($1,$2,'Double',2,2),($3,$4,'Double',2,2),($5,$2,'Suite',3,2)`, [R1, H1, R2, H2, RU]);
-  await pool.query(`INSERT INTO rate_plans(id,room_id,board_name,currency,cancellation_policy) VALUES
-    ($1,$6,'AI','EUR','{"freeUntilDays":7}'),($2,$6,'AI','EUR','{"freeUntilDays":7}'),($3,$6,'BB','EUR','{"freeUntilDays":7}'),
-    ($4,$7,'AI','USD','{"freeUntilDays":7}'),($5,$8,'AI','EUR','{"freeUntilDays":7}')`, [RP1, RP2, RP3, RPUSD, RPH2, R1, RU, R2]);
+  await pool.query(`INSERT INTO rate_plans(id,room_id,board_name,currency,cancellation_policy,payment_terms) VALUES
+    ($1,$6,'AI','EUR',$9::jsonb,$10::jsonb),($2,$6,'AI','EUR',$9::jsonb,$10::jsonb),($3,$6,'BB','EUR',$9::jsonb,$10::jsonb),
+    ($4,$7,'AI','USD',$9::jsonb,$10::jsonb),($5,$8,'AI','EUR',$9::jsonb,$10::jsonb)`, [RP1, RP2, RP3, RPUSD, RPH2, R1, RU, R2, JSON.stringify(VALID_TERMS.cancellationPolicy), JSON.stringify(VALID_TERMS.paymentTerms)]);
   for (const [rp, net] of [[RP1, 100], [RP2, 120], [RP3, 80], [RPUSD, 50], [RPH2, 200]] as const)
     await pool.query("INSERT INTO inventory_daily(rate_plan_id,stay_date,price,allotment) VALUES ($1,$2,$4,5),($1,$3,$4,5)", [rp, CHECK_IN, NIGHT2, net]);
   const publish = (agency: string, hotel: string, rp: string, type: string, value: number) =>
@@ -104,7 +105,7 @@ beforeEach(async () => {
   for (const rp of [RP1, RP2, RP3]) await publish(SA, H1, rp, "percent", 10);
   await publish(SA, H1, RPUSD, "percent", 10);
   await publish(SB, H1, RP1, "fixed", 5);
-  await publish(SB, H2, RPH2, "percent", 0);
+  await publish(SC, H2, RPH2, "percent", 0);
   for (const [name] of users) {
     const r = await call("POST", "/api/auth/login", { email: `${name}@test.local`, password: "integration-password-1" });
     assert.equal(r.status, 200, `login ${name}`);
@@ -245,7 +246,7 @@ test("08 a master agency has no cancel right, even for its own hotel", { skip },
 });
 
 test("09 Back Office works platform-wide: all hotels and all bookings across master agencies", { skip }, async () => {
-  const onH1 = await createBooking(tok.a!, H1), onH2 = await createBooking(tok.b!, H2);
+  const onH1 = await createBooking(tok.a!, H1), onH2 = await createBooking(tok.c!, H2);
   const list = await call("GET", "/api/backoffice/bookings", undefined, tok.bo);
   assert.equal(list.status, 200);
   assert.deepEqual(new Set(list.body.items.map((x: any) => x.id)), new Set([onH1, onH2]));
@@ -258,7 +259,7 @@ test("09 Back Office works platform-wide: all hotels and all bookings across mas
 });
 
 test("10 users without platform-wide rights cannot see across tenants", { skip }, async () => {
-  const onH1 = await createBooking(tok.a!, H1), onH2 = await createBooking(tok.b!, H2);
+  const onH1 = await createBooking(tok.a!, H1), onH2 = await createBooking(tok.c!, H2);
   const list = await call("GET", "/api/backoffice/bookings", undefined, tok.m1);
   assert.deepEqual(list.body.items.map((x: any) => x.id), [onH1]);
   assert.equal((await call("GET", `/api/backoffice/bookings/${onH2}`, undefined, tok.m1)).status, 404);
@@ -469,4 +470,85 @@ test("19 invalid ids and malformed input return 4xx, never 500", { skip }, async
   const res = await fetch(base + "/api/auth/login", { method: "POST", headers: { "content-type": "application/json" }, body: "{bad" });
   assert.equal(res.status, 400);
   assert.deepEqual(await res.json(), { error: "INVALID_JSON" });
+});
+
+test("room distribution: 3+1 cannot use a max-2-adult room, 2+2 can", { skip }, async () => {
+  const common = { rooms: 2, adults: 4, children: 0, childAges: [], nationalities: ["TR"] };
+  const rejected = await search(tok.a!, { ...common, roomOccupancies: [
+    { adults: 3, children: 0, childAges: [] }, { adults: 1, children: 0, childAges: [] }
+  ] });
+  assert.equal(rejected.status, 200, rejected.raw);
+  assert.equal(rejected.body.results.some((r: any) => r.room.name === "Double"), false);
+  const accepted = await search(tok.a!, { ...common, roomOccupancies: [
+    { adults: 2, children: 0, childAges: [] }, { adults: 2, children: 0, childAges: [] }
+  ] });
+  assert.equal(accepted.status, 200, accepted.raw);
+  assert.equal(accepted.body.results.some((r: any) => r.room.name === "Double"), true);
+});
+
+test("room distribution: child capacity is checked per room", { skip }, async () => {
+  await pool.query("UPDATE rooms SET max_children=1 WHERE id=$1", [R1]);
+  const s = await search(tok.a!, { rooms: 2, adults: 2, children: 2, childAges: [4, 7],
+    nationalities: ["TR"], roomOccupancies: [
+      { adults: 1, children: 2, childAges: [4, 7] }, { adults: 1, children: 0, childAges: [] }
+    ] });
+  assert.equal(s.status, 200, s.raw);
+  assert.equal(s.body.results.some((r: any) => r.room.name === "Double"), false);
+});
+
+const fiveAdults = {
+  rooms: 3, adults: 5, children: 0, childAges: [],
+  nationalities: ["TR"],
+  roomOccupancies: [
+    { adults: 3, children: 0, childAges: [] },
+    { adults: 1, children: 0, childAges: [] },
+    { adults: 1, children: 0, childAges: [] }
+  ]
+};
+const fiveAdultGuests = {
+  guest: { ...GUEST, adults: 5, children: 0, childAges: [] },
+  otherGuests: Array.from({ length: 4 }, (_, i) => ({
+    firstName: `Guest${i}`, lastName: "Test", type: "adult", nationality: "TR"
+  }))
+};
+
+test("room distribution: booking rechecks per-room capacity even when aggregate fits", { skip }, async () => {
+  await pool.query("UPDATE rooms SET max_adults=3 WHERE id=$1", [R1]);
+  const s = await search(tok.a!, fiveAdults);
+  assert.equal(s.status, 200, s.raw);
+  const q = s.body.results.find((r: any) => r.hotel.id === H1 && r.board === "AI" && r.room.name === "Double");
+  assert.ok(q, "3+1+1 quote must be available at max_adults=3");
+  await pool.query("UPDATE rooms SET max_adults=2 WHERE id=$1", [R1]);
+  assert.ok(fiveAdults.adults <= 2 * fiveAdults.rooms, "aggregate capacity would pass");
+  const b = await book(tok.a!, q.quoteId, randomUUID(), fiveAdultGuests);
+  assert.equal(b.status, 409, b.raw);
+  assert.equal(b.body.error, "OCCUPANCY_EXCEEDS_CAPACITY");
+  assert.equal(await count("bookings"), 0);
+});
+
+test("room distribution: draft submit rechecks per-room capacity even when aggregate fits", { skip }, async () => {
+  await pool.query("UPDATE rooms SET max_adults=3 WHERE id=$1", [R1]);
+  const s = await search(tok.a!, fiveAdults);
+  assert.equal(s.status, 200, s.raw);
+  const q = s.body.results.find((r: any) => r.hotel.id === H1 && r.board === "AI" && r.room.name === "Double");
+  assert.ok(q);
+  const draft = await book(tok.a!, q.quoteId, randomUUID(), { ...fiveAdultGuests, draft: true });
+  assert.equal(draft.status, 201, draft.raw);
+  assert.equal(draft.body.status, "draft");
+  await pool.query("UPDATE rooms SET max_adults=2 WHERE id=$1", [R1]);
+  assert.ok(fiveAdults.adults <= 2 * fiveAdults.rooms);
+  const submitted = await call("POST", `/api/agency/bookings/${draft.body.id}/submit`, {}, tok.a);
+  assert.equal(submitted.status, 409, submitted.raw);
+  assert.equal(submitted.body.error, "OCCUPANCY_EXCEEDS_CAPACITY");
+  const detail = await call("GET", `/api/agency/bookings/${draft.body.id}`, undefined, tok.a);
+  assert.equal(detail.body.status, "draft");
+});
+
+test("room distribution: booking detail returns signed per-room occupancy", { skip }, async () => {
+  const q = await winnerQuote(tok.a!);
+  const b = await book(tok.a!, q.quoteId);
+  assert.equal(b.status, 201, b.raw);
+  const detail = await call("GET", `/api/agency/bookings/${b.body.id}`, undefined, tok.a);
+  assert.equal(detail.status, 200, detail.raw);
+  assert.deepEqual(detail.body.room_occupancies, STAY.roomOccupancies);
 });

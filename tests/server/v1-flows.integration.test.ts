@@ -1,3 +1,4 @@
+import { VALID_TERMS } from "./fixtures/rate-plan-terms";
 // End-to-end v1 flows through the HTTP API only (management → publication → search → booking → Back Office
 // → voucher), drafts, management authorization, vouchers, login hardening and the admin CLI.
 // Required: DATABASE_URL pointing to a THROWAWAY database (every test truncates all tables).
@@ -64,10 +65,10 @@ beforeEach(async () => {
 /** Builds the whole catalogue through the API, as the specification's user journeys describe. */
 async function setupViaApi() {
   const admin = await token("admin@test.local");
-  const agency = async (name: string, type: string) => {
-    const r = await call("POST", "/api/admin/agencies", { name, type }, admin); assert.equal(r.status, 201); return r.body.id as string; };
+  const agency = async (name: string, type: string, parentAgencyId?: string) => {
+    const r = await call("POST", "/api/admin/agencies", { name, type, ...(parentAgencyId ? { parentAgencyId } : {}) }, admin); assert.equal(r.status, 201); return r.body.id as string; };
   const M1 = await agency("Ana Acente Bir", "master"), M2 = await agency("Ana Acente İki", "master");
-  const SA = await agency("Alt Acente A", "sub"), SB = await agency("Alt Acente B", "sub");
+  const SA = await agency("Alt Acente A", "sub", M1), SB = await agency("Alt Acente B", "sub", M2);
   const user = async (email: string, role: string, agencyId: string | null) => {
     const r = await call("POST", "/api/admin/users", { email, password: PW, role, agencyId }, admin); assert.equal(r.status, 201, JSON.stringify(r.body)); return r.body.id as string; };
   await user("bo@test.local", "back_office", null);
@@ -81,7 +82,7 @@ async function setupViaApi() {
   assert.equal(hotel.status, 201, JSON.stringify(hotel.body));
   const room = await call("POST", `/api/admin/hotels/${hotel.body.id}/rooms`, { name: "Standart Oda", maxAdults: 2, maxChildren: 2 }, t.m1);
   assert.equal(room.status, 201, JSON.stringify(room.body));
-  const rp = await call("POST", `/api/admin/rooms/${room.body.id}/rate-plans`, { boardName: "Her Şey Dahil", currency: "EUR", cancellationPolicy: { freeUntilDays: 7 } }, t.m1);
+  const rp = await call("POST", `/api/admin/rooms/${room.body.id}/rate-plans`, { boardName: "Her Şey Dahil", currency: "EUR", ...VALID_TERMS }, t.m1);
   assert.equal(rp.status, 201, JSON.stringify(rp.body));
   const cal = await call("PUT", `/api/admin/rate-plans/${rp.body.id}/calendar`, { dateFrom: D1, dateTo: D3, price: 100, allotment: 3 }, t.m1);
   assert.equal(cal.status, 200, JSON.stringify(cal.body));
@@ -90,7 +91,7 @@ async function setupViaApi() {
   assert.equal(pub.status, 201, JSON.stringify(pub.body));
   return { t, M1, M2, SA, SB, hotelId: hotel.body.id as string, roomId: room.body.id as string, ratePlanId: rp.body.id as string, publicationId: pub.body.id as string };
 }
-const STAY = { checkIn: D1, checkOut: D3, rooms: 1, adults: 2, children: 1, childAges: [7], nationalities: ["TR", "TR", "TR"] };
+const STAY = { checkIn: D1, checkOut: D3, rooms: 1, adults: 2, children: 1, childAges: [7], roomOccupancies: [{ adults: 2, children: 1, childAges: [7] }], nationalities: ["TR"] };
 const search = (tok: string) => call("POST", "/api/agency/searches", STAY, tok);
 const book = (tok: string, quoteId: string, extra: object = {}) =>
   call("POST", "/api/agency/bookings", { quoteId, guest: GUEST, otherGuests: OTHER_GUESTS, operationNote: NOTE, ...extra }, tok, { "Idempotency-Key": randomUUID() });
@@ -199,7 +200,7 @@ test("C1 management: master agency manages only its own hotels; sub-agency has n
     ["GET", `/api/admin/hotels/${s.hotelId}`, {}],
     ["POST", `/api/admin/hotels/${s.hotelId}/rooms`, { name: "X", maxAdults: 2, maxChildren: 0 }],
     ["PATCH", `/api/admin/rooms/${s.roomId}`, { active: false }],
-    ["POST", `/api/admin/rooms/${s.roomId}/rate-plans`, { boardName: "BB", currency: "EUR" }],
+    ["POST", `/api/admin/rooms/${s.roomId}/rate-plans`, { boardName: "BB", currency: "EUR", ...VALID_TERMS }],
     ["PATCH", `/api/admin/rate-plans/${s.ratePlanId}`, { active: false }],
     ["PUT", `/api/admin/rate-plans/${s.ratePlanId}/calendar`, { dateFrom: D1, dateTo: D1, price: 1, allotment: 1 }],
     ["PATCH", `/api/admin/publications/${s.publicationId}`, { active: false }]
@@ -211,8 +212,17 @@ test("C1 management: master agency manages only its own hotels; sub-agency has n
   assert.equal((await call("POST", "/api/admin/publications", { ratePlanId: s.ratePlanId, agencyId: s.SB, markupType: "fixed", markupValue: 5 }, s.t.m2)).status, 404);
   assert.equal(await count("SELECT count(*)::int AS c FROM rooms"), 1, "no room was created by unauthorized callers");
   assert.equal((await call("PATCH", `/api/admin/hotels/${s.hotelId}`, { status: "active" }, s.t.bo)).status, 200, "Back Office manages platform-wide");
-  assert.equal((await call("POST", "/api/admin/publications", { ratePlanId: s.ratePlanId, agencyId: s.SB, markupType: "fixed", markupValue: 5 }, s.t.bo)).status, 201);
-  assert.equal((await search(s.t.b)).body.results[0].total, "210.00"); // (100 + 5) × 2
+  const cross = await call("POST", "/api/admin/publications", { ratePlanId: s.ratePlanId, agencyId: s.SB, markupType: "fixed", markupValue: 5 }, s.t.bo);
+  assert.equal(cross.status, 201);
+  const sibling = await call("POST", "/api/admin/agencies", { name: "M1 ikinci alt acente", type: "sub", parentAgencyId: s.M1 }, s.t.admin);
+  assert.equal(sibling.status, 201);
+  const siblingUser = await call("POST", "/api/admin/users", { email: "m1-sibling@test.local", password: PW, role: "sub_agency", agencyId: sibling.body.id }, s.t.admin);
+  assert.equal(siblingUser.status, 201);
+  const siblingToken = await token("m1-sibling@test.local");
+  const published = await call("POST", "/api/admin/publications", { ratePlanId: s.ratePlanId, agencyId: sibling.body.id, markupType: "fixed", markupValue: 5 }, s.t.bo);
+  assert.equal(published.status, 201);
+  assert.equal((await search(siblingToken)).body.results[0].total, "210.00"); // (100 + 5) × 2
+  assert.equal((await search(s.t.b)).body.results[0].total, "210.00", "platform publication reaches other DMC");
   assert.equal((await call("POST", "/api/admin/users", { email: "x@test.local", password: PW, role: "sub_agency", agencyId: s.SA }, s.t.bo)).status, 403, "user management is system_admin only");
 });
 

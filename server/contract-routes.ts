@@ -13,7 +13,7 @@ import { randomUUID } from "node:crypto";
 import { pool, withTransaction } from "./db";
 import { audit, authenticate, httpError, roles, uuidParam } from "./http";
 import { h, HOTEL_SQL, managers, ownedHotel, RATE_PLAN_SQL, rowJson } from "./admin-routes";
-import { isCalendarDate, UUID_RE } from "./validation";
+import { isCalendarDate, UUID_RE, validateRatePlanTerms } from "./validation";
 import { isCountryCode } from "./reference";
 import { evaluateContract, NationalityRule } from "./eligibility";
 import { parseMinor } from "./pricing";
@@ -111,6 +111,11 @@ contractRouter.post("/api/admin/contracts/:id/rate-plans", ...managers, h(async 
   const owner = await ownedHotel(pool, req, CONTRACT_SQL, id);
   const rp = await ownedHotel(pool, req, RATE_PLAN_SQL, ratePlanId);
   if (rp.hotel_id !== owner.hotel_id) throw httpError(400, "RATE_PLAN_OF_ANOTHER_HOTEL");
+  const currentTerms = (await pool.query("SELECT cancellation_policy, payment_terms FROM rate_plans WHERE id = $1", [ratePlanId])).rows[0];
+  const termErrors: Record<string, string> = {};
+  if (!validateRatePlanTerms(req.body?.cancellationPolicy ?? currentTerms?.cancellation_policy,
+                             req.body?.paymentTerms ?? currentTerms?.payment_terms, termErrors))
+    throw httpError(400, "VALIDATION_FAILED", { fields: termErrors });
   const result = await withTransaction(async client => {
     const before = (await client.query("SELECT contract_id FROM contract_rate_plans WHERE rate_plan_id = $1", [ratePlanId])).rows[0]?.contract_id ?? null;
     const c = (await client.query("SELECT currency FROM hotel_contracts WHERE id = $1", [id])).rows[0];

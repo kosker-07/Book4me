@@ -7,15 +7,45 @@ import { randomUUID } from "node:crypto";
 import { pool, withTransaction } from "./db";
 import { hashPassword } from "./security";
 import { audit, authenticate, AuthedRequest, httpError, isPlatformWide, roles, uuidParam } from "./http";
-import { isCalendarDate, nightsBetween, UUID_RE } from "./validation";
+import { isCalendarDate, nightsBetween, UUID_RE, validateRatePlanTerms } from "./validation";
 import { formatMinor, normalizeDecimal, parseMinor } from "./pricing";
 
 export const adminRouter = Router();
+
 export const managers = [authenticate, roles("system_admin", "back_office", "master_agency")] as const;
 type Handler = (req: AuthedRequest, res: Response) => Promise<unknown>;
 export const h = (fn: Handler) => async (req: AuthedRequest, res: Response, next: NextFunction) => {
   try { await fn(req, res); } catch (error) { next(error); }
 };
+const settingsKeys = ["legal_name","address","tax_office","tax_number","phone","email"] as const;
+const settingsLimits: Record<string,number> = {legal_name:200,address:1000,tax_office:200,tax_number:40,phone:40,email:254};
+adminRouter.get("/api/admin/platform-settings",authenticate,roles("system_admin","back_office"),h(async (_req,res)=>{
+  const row=(await pool.query("SELECT legal_name,address,tax_office,tax_number,phone,email,updated_at,updated_by FROM platform_settings WHERE id=1")).rows[0];
+  res.json(row || {legal_name:null,address:null,tax_office:null,tax_number:null,phone:null,email:null,updated_at:null,updated_by:null});
+}));
+adminRouter.put("/api/admin/platform-settings",authenticate,roles("system_admin"),h(async (req,res)=>{
+  const body=req.body;
+  if(!body||typeof body!=="object"||Array.isArray(body)||Object.keys(body).some(k=>!settingsKeys.includes(k as any)))throw httpError(400,"INVALID_PLATFORM_SETTINGS");
+  const values: Record<string,string|null>={};
+  for(const k of settingsKeys){
+    const v=body[k];
+    if(v!==undefined&&v!==null&&typeof v!=="string")throw httpError(400,"INVALID_PLATFORM_SETTINGS");
+    if(typeof v==="string"&&v.length>(settingsLimits[k] ?? 0))throw httpError(400,"INVALID_PLATFORM_SETTINGS");
+    values[k]=typeof v==="string"?v.trim()||null:null;
+  }
+  if(values.email&&!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(values.email))throw httpError(400,"INVALID_PLATFORM_SETTINGS");
+  if(values.phone&&!/^[+\d\s().\-]{5,40}$/.test(values.phone))throw httpError(400,"INVALID_PLATFORM_SETTINGS");
+  if(values.tax_number&&!/^[\p{L}\d\s.\-\/]{2,40}$/u.test(values.tax_number))throw httpError(400,"INVALID_PLATFORM_SETTINGS");
+  const result=await withTransaction(async client=>{
+    const before=(await client.query("SELECT legal_name,address,tax_office,tax_number,phone,email,updated_at,updated_by FROM platform_settings WHERE id=1")).rows[0];
+    const after=(await client.query("UPDATE platform_settings SET legal_name=$1,address=$2,tax_office=$3,tax_number=$4,phone=$5,email=$6,updated_at=now(),updated_by=$7 WHERE id=1 RETURNING legal_name,address,tax_office,tax_number,phone,email,updated_at,updated_by",[...settingsKeys.map(k=>values[k]),req.auth!.sub])).rows[0];
+    await audit(client,req.auth!.sub,null,"platform_settings.updated","platform_settings","00000000-0000-4000-8000-000000000001",{before,after});
+    return after;
+  });
+  res.json(result);
+}));
+
+
 const text = (v: unknown, max = 500) => typeof v === "string" && v.trim().length > 0 && v.trim().length <= max;
 const optText = (v: unknown, max = 5000) => v === undefined || (typeof v === "string" && v.length <= max);
 const optBool = (v: unknown) => v === undefined || typeof v === "boolean";
@@ -90,7 +120,7 @@ adminRouter.get("/api/admin/hotels/:id", ...managers, h(async (req, res) => {
   const publications = (await pool.query(
     `SELECT s.id, s.agency_id, a.name AS agency_name, s.rate_plan_id, s.markup_type, s.markup_value, s.active
        FROM agency_hotel_sales s JOIN agencies a ON a.id = s.agency_id JOIN rate_plans rp ON rp.id = s.rate_plan_id
-       JOIN rooms r ON r.id = rp.room_id WHERE r.hotel_id = $1`, [id])).rows;
+       JOIN rooms r ON r.id = rp.room_id WHERE r.hotel_id = $1 AND ($2::boolean OR a.parent_agency_id = $3)`, [id, isPlatformWide(req.auth!.role), req.auth!.agencyId])).rows;
   res.json({ ...hotel, rooms, ratePlans, publications });
 }));
 
@@ -147,7 +177,9 @@ adminRouter.patch("/api/admin/rooms/:id", ...managers, h(async (req, res) => {
 adminRouter.post("/api/admin/rooms/:id/rate-plans", ...managers, h(async (req, res) => {
   const roomId = uuidParam(req), { boardName, currency, cancellationPolicy, paymentTerms, salesConditions, contractId } = req.body || {};
   if (!text(boardName, 50) || typeof currency !== "string" || !CURRENCY_RE.test(currency)
-      || !isObj(cancellationPolicy) || !isObj(paymentTerms) || !isObj(salesConditions)) throw httpError(400, "INVALID_RATE_PLAN");
+      || !isObj(salesConditions)) throw httpError(400, "INVALID_RATE_PLAN");
+  const termErrors: Record<string, string> = {};
+  if (!validateRatePlanTerms(cancellationPolicy, paymentTerms, termErrors)) throw httpError(400, "VALIDATION_FAILED", { fields: termErrors });
   const owner = await ownedHotel(pool, req, ROOM_SQL, roomId);
   if (!(await pool.query("SELECT 1 FROM currencies WHERE code = $1 AND active", [currency])).rowCount) throw httpError(400, "CURRENCY_NOT_SUPPORTED");
   if (contractId !== undefined) {
@@ -174,7 +206,13 @@ adminRouter.post("/api/admin/rooms/:id/rate-plans", ...managers, h(async (req, r
 
 adminRouter.patch("/api/admin/rate-plans/:id", ...managers, h(async (req, res) => {
   const id = uuidParam(req), b = req.body || {};
-  if (!optBool(b.active) || !isObj(b.cancellationPolicy) || !isObj(b.paymentTerms)) throw httpError(400, "INVALID_RATE_PLAN");
+  if (!optBool(b.active)) throw httpError(400, "INVALID_RATE_PLAN");
+  if (b.cancellationPolicy !== undefined || b.paymentTerms !== undefined) {
+    const current = (await pool.query("SELECT cancellation_policy, payment_terms FROM rate_plans WHERE id = $1", [id])).rows[0];
+    const termErrors: Record<string, string> = {};
+    if (!validateRatePlanTerms(b.cancellationPolicy ?? current?.cancellation_policy, b.paymentTerms ?? current?.payment_terms, termErrors))
+      throw httpError(400, "VALIDATION_FAILED", { fields: termErrors });
+  }
   const owner = await ownedHotel(pool, req, RATE_PLAN_SQL, id);
   const fields = { active: b.active, cancellationPolicy: b.cancellationPolicy && JSON.stringify(b.cancellationPolicy), paymentTerms: b.paymentTerms && JSON.stringify(b.paymentTerms) };
   const { sets, values } = patchSet(fields, { active: "active", cancellationPolicy: "cancellation_policy", paymentTerms: "payment_terms" });
@@ -230,6 +268,12 @@ adminRouter.get("/api/admin/rate-plans/:id/calendar", ...managers, h(async (req,
 }));
 
 // ---------------------------------------------------------------- publications (open a rate plan to a sub-agency)
+async function requirePublishableRatePlan(ratePlanId: string) {
+  const plan = (await pool.query("SELECT cancellation_policy, payment_terms FROM rate_plans WHERE id = $1", [ratePlanId])).rows[0];
+  if (!plan || !validateRatePlanTerms(plan.cancellation_policy, plan.payment_terms))
+    throw httpError(409, "RATE_PLAN_TERMS_REQUIRED");
+}
+
 const MARKUP_TYPES = ["percent", "fixed"];
 const validMarkup = (type: unknown, value: unknown) =>
   MARKUP_TYPES.includes(type as string) && typeof value === "number" && Number.isFinite(value) && value >= 0 && value <= (type === "percent" ? 1000 : 1e9);
@@ -241,8 +285,10 @@ adminRouter.post("/api/admin/publications", ...managers, h(async (req, res) => {
   const owner = await ownedHotel(pool, req, RATE_PLAN_SQL, ratePlanId);
   if (!hasAtMostDecimals(markupValue, markupType === "fixed" ? await currencyDigitsOfRatePlan(ratePlanId) : 3))
     throw httpError(400, "INVALID_PUBLICATION", { reason: "MARKUP_PRECISION" });
+  await requirePublishableRatePlan(ratePlanId);
   const target = (await pool.query("SELECT type, active FROM agencies WHERE id::text = $1", [agencyId])).rows[0];
   if (!target || target.type !== "sub" || !target.active) throw httpError(400, "TARGET_MUST_BE_ACTIVE_SUB_AGENCY");
+  await publicationHierarchy(ratePlanId, agencyId, req.auth!.role === "master_agency");
   const row = await withTransaction(async client => {
     const r = (await client.query(
       `INSERT INTO agency_hotel_sales(agency_id, hotel_id, rate_plan_id, markup_type, markup_value, active)
@@ -262,6 +308,12 @@ adminRouter.patch("/api/admin/publications/:id", ...managers, h(async (req, res)
   if (!optBool(b.active) || ((b.markupType !== undefined || b.markupValue !== undefined) && !validMarkup(b.markupType, b.markupValue)))
     throw httpError(400, "INVALID_PUBLICATION");
   const owner = await ownedHotel(pool, req, PUBLICATION_SQL, id);
+  if (b.active === true) {
+    const rp = (await pool.query("SELECT rate_plan_id FROM agency_hotel_sales WHERE id = $1", [id])).rows[0]?.rate_plan_id;
+    await requirePublishableRatePlan(rp);
+    const target = (await pool.query("SELECT agency_id FROM agency_hotel_sales WHERE id = $1", [id])).rows[0];
+    await publicationHierarchy(rp, target.agency_id, req.auth!.role === "master_agency");
+  }
   if (b.markupValue !== undefined) {
     const rp = (await pool.query("SELECT rate_plan_id FROM agency_hotel_sales WHERE id = $1", [id])).rows[0].rate_plan_id;
     if (!hasAtMostDecimals(b.markupValue, b.markupType === "fixed" ? await currencyDigitsOfRatePlan(rp) : 3))
@@ -279,34 +331,122 @@ adminRouter.patch("/api/admin/publications/:id", ...managers, h(async (req, res)
   res.json(row);
 }));
 
-// ---------------------------------------------------------------- agencies and users (system administrator)
-adminRouter.post("/api/admin/agencies", authenticate, roles("system_admin"), h(async (req, res) => {
-  const { name, type } = req.body || {};
-  if (!text(name, 200) || !["master", "sub"].includes(type)) throw httpError(400, "INVALID_AGENCY");
-  const id = randomUUID();
-  await withTransaction(async client => {
-    await client.query("INSERT INTO agencies(id,name,type) VALUES ($1,$2,$3)", [id, name.trim(), type]);
-    await audit(client, req.auth!.sub, id, "agency.created", "agency", id, { targetAgencyId: id, after: await rowJson(client, "agencies", id) });
-  });
-  res.status(201).json({ id, name: name.trim(), type });
+// Active sub-agencies eligible for publication selectors. Master agencies only see
+// sub-agencies already associated with hotels they own through publications.
+adminRouter.get("/api/admin/publication-agencies", ...managers, h(async (req, res) => {
+  const ratePlanId = req.query.ratePlanId;
+  if (typeof ratePlanId !== "string" || !UUID_RE.test(ratePlanId)) throw httpError(400, "RATE_PLAN_REQUIRED");
+  const owner = await ownedHotel(pool, req, RATE_PLAN_SQL, ratePlanId);
+  const result = await pool.query(
+    "SELECT id, name FROM agencies WHERE type = 'sub' AND active AND parent_agency_id IS NOT NULL AND ($1::boolean OR parent_agency_id = $2) ORDER BY name, id",
+    [isPlatformWide(req.auth!.role), owner.owner_agency_id]);
+  res.json({ items: result.rows });
 }));
 
-adminRouter.patch("/api/admin/agencies/:id", authenticate, roles("system_admin"), h(async (req, res) => {
+// One hierarchy scope gate for agency and user management. Out-of-scope IDs are 404.
+async function hierarchyAgency(req: AuthedRequest, agencyId: string, allowSelf = false) {
+  const agency = (await pool.query("SELECT id, type, parent_agency_id, active FROM agencies WHERE id::text = $1", [agencyId])).rows[0];
+  if (!agency || (req.auth!.role === "master_agency" &&
+    !(agency.type === "sub" && agency.parent_agency_id === req.auth!.agencyId) &&
+    !(allowSelf && agency.id === req.auth!.agencyId))) throw httpError(404, "NOT_FOUND");
+  return agency;
+}
+async function publicationHierarchy(ratePlanId: string, targetAgencyId: string, restrictToOwner: boolean) {
+  const row = (await pool.query(
+    `SELECT a.parent_agency_id, h.owner_agency_id
+       FROM agencies a CROSS JOIN rate_plans rp
+       JOIN rooms r ON r.id = rp.room_id JOIN hotels h ON h.id = r.hotel_id
+      WHERE a.id::text = $1 AND rp.id = $2`, [targetAgencyId, ratePlanId])).rows[0];
+  if (!row || !row.parent_agency_id || (restrictToOwner && row.parent_agency_id !== row.owner_agency_id))
+    throw httpError(409, "TARGET_NOT_IN_HIERARCHY");
+}
+
+// Read-only lists for management selectors; never expose password hashes.
+adminRouter.get("/api/admin/agencies", ...managers, h(async (req, res) => {
+  const result = await pool.query(
+    `SELECT a.id, a.name, a.type, a.active, a.parent_agency_id, p.name AS parent_agency_name
+       FROM agencies a LEFT JOIN agencies p ON p.id = a.parent_agency_id
+      WHERE $1::boolean OR a.parent_agency_id = $2 OR a.id = $2
+      ORDER BY a.name, a.id`,
+    [isPlatformWide(req.auth!.role), req.auth!.agencyId]);
+  res.json({ items: result.rows });
+}));
+
+adminRouter.get("/api/admin/agencies/:id", ...managers, h(async (req, res) => {
+  const agency = await hierarchyAgency(req, uuidParam(req));
+  res.json(agency);
+}));
+
+adminRouter.get("/api/admin/users/:id", ...managers, h(async (req, res) => {
+  const id = uuidParam(req);
+  const user = (await pool.query("SELECT id, email, role, agency_id, active FROM users WHERE id = $1", [id])).rows[0];
+  if (!user) throw httpError(404, "NOT_FOUND");
+  if (req.auth!.role === "master_agency") {
+    if (!user.agency_id) throw httpError(404, "NOT_FOUND");
+    await hierarchyAgency(req, user.agency_id, true);
+  }
+  res.json(user);
+}));
+
+adminRouter.get("/api/admin/users", ...managers, h(async (req, res) => {
+  const result = await pool.query(
+    `SELECT u.id, u.email, u.role, u.agency_id, u.active FROM users u
+       LEFT JOIN agencies a ON a.id = u.agency_id
+      WHERE $1::boolean OR u.agency_id = $2 OR a.parent_agency_id = $2
+      ORDER BY u.email, u.id`,
+    [isPlatformWide(req.auth!.role), req.auth!.agencyId]);
+  res.json({ items: result.rows });
+}));
+
+adminRouter.post("/api/admin/agencies", authenticate, roles("system_admin", "master_agency"), h(async (req, res) => {
+  const { name } = req.body || {};
+  const type = req.auth!.role === "master_agency" ? "sub" : req.body?.type;
+  const parentAgencyId = req.auth!.role === "master_agency" ? req.auth!.agencyId : req.body?.parentAgencyId ?? null;
+  if (!text(name, 200) || !["master", "sub"].includes(type)) throw httpError(400, "INVALID_AGENCY");
+  if (type === "master" && parentAgencyId !== null) throw httpError(400, "INVALID_PARENT");
+  if (type === "sub" && parentAgencyId === null) throw httpError(400, "PARENT_AGENCY_REQUIRED", { fields: { parentAgencyId: "REQUIRED" } });
+  if (parentAgencyId !== null) {
+    if (typeof parentAgencyId !== "string" || !UUID_RE.test(parentAgencyId)) throw httpError(400, "INVALID_PARENT");
+    const parent = await hierarchyAgency(req, parentAgencyId, true);
+    if (parent.type !== "master") throw httpError(400, "INVALID_PARENT");
+  }
+  const id = randomUUID();
+  await withTransaction(async client => {
+    await client.query("INSERT INTO agencies(id,name,type,parent_agency_id) VALUES ($1,$2,$3,$4)", [id, name.trim(), type, parentAgencyId]);
+    await audit(client, req.auth!.sub, id, "agency.created", "agency", id, { targetAgencyId: id, after: await rowJson(client, "agencies", id) });
+  });
+  res.status(201).json({ id, name: name.trim(), type, parentAgencyId });
+}));
+
+adminRouter.patch("/api/admin/agencies/:id", authenticate, roles("system_admin", "master_agency"), h(async (req, res) => {
   const id = uuidParam(req), b = req.body || {};
-  if (typeof b.active !== "boolean") throw httpError(400, "ACTIVE_REQUIRED");
+  const agency = await hierarchyAgency(req, id);
+  if (req.auth!.role === "master_agency" && b.parentAgencyId !== undefined) throw httpError(403, "FORBIDDEN");
+  if (b.active !== undefined && typeof b.active !== "boolean") throw httpError(400, "ACTIVE_REQUIRED");
+  if (b.parentAgencyId !== undefined) {
+    if (agency.type !== "sub") throw httpError(400, "INVALID_PARENT");
+    if (b.parentAgencyId !== null) {
+      if (typeof b.parentAgencyId !== "string" || !UUID_RE.test(b.parentAgencyId)) throw httpError(400, "INVALID_PARENT");
+      const parent = await hierarchyAgency(req, b.parentAgencyId);
+      if (parent.type !== "master") throw httpError(400, "INVALID_PARENT");
+    }
+  }
+  if (b.active === undefined && b.parentAgencyId === undefined) throw httpError(400, "INVALID_AGENCY");
   const row = await withTransaction(async client => {
     const before = await rowJson(client, "agencies", id);
-    const r = (await client.query("UPDATE agencies SET active = $2 WHERE id = $1 RETURNING id, name, type, active", [id, b.active])).rows[0];
-    if (!r) throw httpError(404, "NOT_FOUND");
-    await audit(client, req.auth!.sub, id, b.active ? "agency.activated" : "agency.deactivated", "agency", id,
+    const result = (await client.query(
+      `UPDATE agencies SET active = COALESCE($2, active), parent_agency_id = CASE WHEN $3::boolean THEN $4 ELSE parent_agency_id END
+        WHERE id = $1 RETURNING id, name, type, active, parent_agency_id`,
+      [id, b.active ?? null, b.parentAgencyId !== undefined, b.parentAgencyId ?? null])).rows[0];
+    await audit(client, req.auth!.sub, id, "agency.updated", "agency", id,
       { targetAgencyId: id, before, after: await rowJson(client, "agencies", id) });
-    return r;
+    return result;
   });
   res.json(row);
 }));
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-adminRouter.post("/api/admin/users", authenticate, roles("system_admin"), h(async (req, res) => {
+adminRouter.post("/api/admin/users", authenticate, roles("system_admin", "master_agency"), h(async (req, res) => {
   const { email, password, role, agencyId } = req.body || {};
   if (typeof email !== "string" || !EMAIL_RE.test(email.trim()) || typeof password !== "string" || password.length < 12
       || !["system_admin", "back_office", "master_agency", "sub_agency"].includes(role)) throw httpError(400, "INVALID_USER");
@@ -317,6 +457,13 @@ adminRouter.post("/api/admin/users", authenticate, roles("system_admin"), h(asyn
     const agency = (await pool.query("SELECT type FROM agencies WHERE id::text = $1", [agencyId])).rows[0];
     if (!agency) throw httpError(400, "AGENCY_NOT_FOUND");
     if (agency.type !== (role === "master_agency" ? "master" : "sub")) throw httpError(400, "ROLE_AGENCY_TYPE_MISMATCH");
+  }
+  if (req.auth!.role === "master_agency") {
+    if (role !== "master_agency" && role !== "sub_agency") throw httpError(403, "FORBIDDEN");
+    const agency = await hierarchyAgency(req, agencyId, true);
+    if (role === "master_agency" && agency.id !== req.auth!.agencyId) throw httpError(404, "NOT_FOUND");
+    if (role === "sub_agency" && (agency.type !== "sub" || agency.parent_agency_id !== req.auth!.agencyId))
+      throw httpError(404, "NOT_FOUND");
   }
   const id = randomUUID();
   await withTransaction(async client => {
@@ -330,9 +477,17 @@ adminRouter.post("/api/admin/users", authenticate, roles("system_admin"), h(asyn
   res.status(201).json({ id, email: email.trim().toLowerCase(), role, agencyId: platform ? null : agencyId });
 }));
 
-adminRouter.patch("/api/admin/users/:id", authenticate, roles("system_admin"), h(async (req, res) => {
+adminRouter.patch("/api/admin/users/:id", authenticate, roles("system_admin", "master_agency"), h(async (req, res) => {
   const id = uuidParam(req), b = req.body || {};
   if (typeof b.active !== "boolean") throw httpError(400, "ACTIVE_REQUIRED");
+  if (req.auth!.role === "master_agency") {
+    const user = (await pool.query("SELECT agency_id, role FROM users WHERE id = $1", [id])).rows[0];
+    if (!user) throw httpError(404, "NOT_FOUND");
+    const agency = await hierarchyAgency(req, user.agency_id, true);
+    if (user.role === "master_agency" ? agency.id !== req.auth!.agencyId :
+        user.role !== "sub_agency" || agency.parent_agency_id !== req.auth!.agencyId)
+      throw httpError(404, "NOT_FOUND");
+  }
   const row = await withTransaction(async client => {
     const before = await rowJson(client, "users", id);
     const r = (await client.query(
