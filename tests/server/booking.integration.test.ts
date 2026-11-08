@@ -515,7 +515,7 @@ test("room distribution: booking rechecks per-room capacity even when aggregate 
   await pool.query("UPDATE rooms SET max_adults=3 WHERE id=$1", [R1]);
   const s = await search(tok.a!, fiveAdults);
   assert.equal(s.status, 200, s.raw);
-  const q = findResult(s.body.results, H1, "AI")[0];
+  const q = s.body.results.find((r: any) => r.hotel.id === H1 && r.board === "AI" && r.room.name === "Double");
   assert.ok(q, "3+1+1 quote must be available at max_adults=3");
   await pool.query("UPDATE rooms SET max_adults=2 WHERE id=$1", [R1]);
   assert.ok(fiveAdults.adults <= 2 * fiveAdults.rooms, "aggregate capacity would pass");
@@ -529,7 +529,7 @@ test("room distribution: draft submit rechecks per-room capacity even when aggre
   await pool.query("UPDATE rooms SET max_adults=3 WHERE id=$1", [R1]);
   const s = await search(tok.a!, fiveAdults);
   assert.equal(s.status, 200, s.raw);
-  const q = findResult(s.body.results, H1, "AI")[0];
+  const q = s.body.results.find((r: any) => r.hotel.id === H1 && r.board === "AI" && r.room.name === "Double");
   assert.ok(q);
   const draft = await book(tok.a!, q.quoteId, randomUUID(), { ...fiveAdultGuests, draft: true });
   assert.equal(draft.status, 201, draft.raw);
