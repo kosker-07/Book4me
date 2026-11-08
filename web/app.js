@@ -216,10 +216,8 @@ async function agencies(){
     const tr=el('tr');
     for(const x of [u.email,roleNames[u.role]||u.role,agencyNames.get(u.agency_id)||'Platform',u.active?'Aktif':'Pasif'])tr.append(node('td',x));
     tr.append(el('td',{},[btn('Düzenle',()=>{clear();view().append(editor('Kullanıcı düzenle','/api/admin/users/'+u.id,'PATCH',[
-      choice('Rol','role',Object.keys(roleNames).map(k=>[k,roleNames[k]]),u.role),
-      choice('Acente','agencyId',[['','Platform'],...agencyRows.map(a=>[a.id,a.name])],u.agency_id||''),
       choice('Aktif','active',[['true','Evet'],['false','Hayır']],String(u.active))
-    ],()=>go('agencies'),raw=>({...raw,active:raw.active==='true',agencyId:raw.agencyId||null})));})]));
+    ],()=>go('agencies'),raw=>({active:raw.active==='true'})));})]));
     userTable.append(tr);
   }
   userList.append(userTable);
