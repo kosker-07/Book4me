@@ -2,6 +2,7 @@ import express, { NextFunction, Request, Response } from "express";
 import type { PoolClient } from "pg";
 import { createHash, randomUUID } from "node:crypto";
 import { pool, withTransaction } from "./db";
+import { bootstrapAdmin } from "./bootstrap-admin";
 import { hashPassword, issueSession, verifyPassword } from "./security";
 import { Candidate, chooseWinners, convertMinor, formatMinor, Markup, nightlySellMinor, normalizeDecimal, parseMinor, priceCandidate } from "./pricing";
 import { ContractEligibility, evaluateContract, NationalityRule, rulesByContract } from "./eligibility";
@@ -76,6 +77,31 @@ app.post("/api/auth/logout", authenticate, async (req: AuthedRequest, res, next)
     await pool.query("UPDATE users SET token_version = token_version + 1 WHERE id = $1", [req.auth!.sub]);
     await audit(pool, req.auth!.sub, req.auth!.agencyId, "auth.logout", "user", req.auth!.sub);
     res.json({ ok: true });
+  } catch (error) { next(error); }
+});
+
+// Change password for the currently authenticated user. Invalidates all existing sessions.
+app.post("/api/auth/change-password", authenticate, async (req: AuthedRequest, res, next) => {
+  try {
+    const currentPassword = req.body?.currentPassword;
+    const newPassword = req.body?.newPassword;
+    if (typeof currentPassword !== "string" || typeof newPassword !== "string")
+      return res.status(400).json({ error: "CURRENT_AND_NEW_PASSWORD_REQUIRED" });
+    if (newPassword.length < 12) return res.status(400).json({ error: "PASSWORD_TOO_SHORT" });
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+      const user = (await client.query("SELECT password_hash FROM users WHERE id = $1 FOR UPDATE", [req.auth!.sub])).rows[0];
+      if (!user || !verifyPassword(currentPassword, user.password_hash)) {
+        await client.query("ROLLBACK");
+        return res.status(401).json({ error: "INVALID_CURRENT_PASSWORD" });
+      }
+      await client.query("UPDATE users SET password_hash = $1, token_version = token_version + 1 WHERE id = $2",
+        [hashPassword(newPassword), req.auth!.sub]);
+      await client.query("COMMIT");
+      res.json({ ok: true, sessionsRevoked: true });
+    } catch (error) { await client.query("ROLLBACK"); throw error; }
+    finally { client.release(); }
   } catch (error) { next(error); }
 });
 
@@ -814,6 +840,12 @@ app.use((error: any, _req: Request, res: Response, _next: NextFunction) => {
 const port = Number(process.env.PORT || 3000);
 if (require.main === module) {
   if (!process.env.DATABASE_URL || sessionSecret().length < 32) throw new Error("DATABASE_URL and SESSION_SECRET (32+ chars) are required.");
-  app.listen(port, () => console.log(`BED4BOOK API listening on :${port}`));
+  bootstrapAdmin().then(() => {
+    app.listen(port, () => console.log(`BED4BOOK API listening on :${port}`));
+  }).catch(() => {
+    console.error("Yönetici başlangıç adımı başarısız");
+    process.exitCode = 1;
+    void pool.end();
+  });
 }
 export default app;
