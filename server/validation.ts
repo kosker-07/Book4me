@@ -40,9 +40,9 @@ export function validateStay(body: any, errors: FieldErrors, today = new Date().
   if (!isInt(rooms, 1, MAX_ROOMS)) errors.rooms = "INTEGER_1_TO_10";
   validateOccupancy({ adults, children, childAges }, errors);
   if (!errors.adults && isInt(rooms, 1, MAX_ROOMS) && adults < rooms) errors.adults = "AT_LEAST_ONE_ADULT_PER_ROOM";
-  if (!Array.isArray(roomOccupancies) || !isInt(rooms, 1, MAX_ROOMS) || roomOccupancies.length !== rooms) {
+  if (isInt(rooms, 1, MAX_ROOMS) && (!Array.isArray(roomOccupancies) || roomOccupancies.length !== rooms)) {
     errors.roomOccupancies = "ONE_OCCUPANCY_PER_ROOM";
-  } else {
+  } else if (isInt(rooms, 1, MAX_ROOMS)) {
     const validRooms = roomOccupancies.map((room, index) => validateOccupancy(room, errors, `roomOccupancies[${index}].`));
     if (validRooms.every(Boolean)) {
       const sumAdults = validRooms.reduce((sum, room) => sum + room!.adults, 0);
