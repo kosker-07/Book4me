@@ -332,38 +332,68 @@ async function publicationHierarchy(ratePlanId: string, targetAgencyId: string) 
 }
 
 // Read-only lists for management selectors; never expose password hashes.
-adminRouter.get("/api/admin/agencies", authenticate, roles("system_admin"), h(async (_req, res) => {
-  const result = await pool.query("SELECT id, name, type, active FROM agencies ORDER BY name, id");
+adminRouter.get("/api/admin/agencies", ...managers, h(async (req, res) => {
+  const result = await pool.query(
+    `SELECT a.id, a.name, a.type, a.active, a.parent_agency_id, p.name AS parent_agency_name
+       FROM agencies a LEFT JOIN agencies p ON p.id = a.parent_agency_id
+      WHERE $1::boolean OR a.parent_agency_id = $2 OR a.id = $2
+      ORDER BY a.name, a.id`,
+    [isPlatformWide(req.auth!.role), req.auth!.agencyId]);
   res.json({ items: result.rows });
 }));
 
-adminRouter.get("/api/admin/users", authenticate, roles("system_admin"), h(async (_req, res) => {
-  const result = await pool.query("SELECT id, email, role, agency_id, active FROM users ORDER BY email, id");
+adminRouter.get("/api/admin/users", ...managers, h(async (req, res) => {
+  const result = await pool.query(
+    `SELECT u.id, u.email, u.role, u.agency_id, u.active FROM users u
+       LEFT JOIN agencies a ON a.id = u.agency_id
+      WHERE $1::boolean OR u.agency_id = $2 OR a.parent_agency_id = $2
+      ORDER BY u.email, u.id`,
+    [isPlatformWide(req.auth!.role), req.auth!.agencyId]);
   res.json({ items: result.rows });
 }));
 
-// ---------------------------------------------------------------- agencies and users (system administrator)
-adminRouter.post("/api/admin/agencies", authenticate, roles("system_admin"), h(async (req, res) => {
-  const { name, type } = req.body || {};
+adminRouter.post("/api/admin/agencies", authenticate, roles("system_admin", "master_agency"), h(async (req, res) => {
+  const { name } = req.body || {};
+  const type = req.auth!.role === "master_agency" ? "sub" : req.body?.type;
+  const parentAgencyId = req.auth!.role === "master_agency" ? req.auth!.agencyId : req.body?.parentAgencyId ?? null;
   if (!text(name, 200) || !["master", "sub"].includes(type)) throw httpError(400, "INVALID_AGENCY");
+  if (type === "master" && parentAgencyId !== null) throw httpError(400, "INVALID_PARENT");
+  if (parentAgencyId !== null) {
+    if (typeof parentAgencyId !== "string" || !UUID_RE.test(parentAgencyId)) throw httpError(400, "INVALID_PARENT");
+    const parent = await hierarchyAgency(req, parentAgencyId, true);
+    if (parent.type !== "master") throw httpError(400, "INVALID_PARENT");
+  }
   const id = randomUUID();
   await withTransaction(async client => {
-    await client.query("INSERT INTO agencies(id,name,type) VALUES ($1,$2,$3)", [id, name.trim(), type]);
+    await client.query("INSERT INTO agencies(id,name,type,parent_agency_id) VALUES ($1,$2,$3,$4)", [id, name.trim(), type, parentAgencyId]);
     await audit(client, req.auth!.sub, id, "agency.created", "agency", id, { targetAgencyId: id, after: await rowJson(client, "agencies", id) });
   });
-  res.status(201).json({ id, name: name.trim(), type });
+  res.status(201).json({ id, name: name.trim(), type, parentAgencyId });
 }));
 
-adminRouter.patch("/api/admin/agencies/:id", authenticate, roles("system_admin"), h(async (req, res) => {
+adminRouter.patch("/api/admin/agencies/:id", authenticate, roles("system_admin", "master_agency"), h(async (req, res) => {
   const id = uuidParam(req), b = req.body || {};
-  if (typeof b.active !== "boolean") throw httpError(400, "ACTIVE_REQUIRED");
+  const agency = await hierarchyAgency(req, id);
+  if (req.auth!.role === "master_agency" && b.parentAgencyId !== undefined) throw httpError(403, "FORBIDDEN");
+  if (b.active !== undefined && typeof b.active !== "boolean") throw httpError(400, "ACTIVE_REQUIRED");
+  if (b.parentAgencyId !== undefined) {
+    if (agency.type !== "sub") throw httpError(400, "INVALID_PARENT");
+    if (b.parentAgencyId !== null) {
+      if (typeof b.parentAgencyId !== "string" || !UUID_RE.test(b.parentAgencyId)) throw httpError(400, "INVALID_PARENT");
+      const parent = await hierarchyAgency(req, b.parentAgencyId);
+      if (parent.type !== "master") throw httpError(400, "INVALID_PARENT");
+    }
+  }
+  if (b.active === undefined && b.parentAgencyId === undefined) throw httpError(400, "INVALID_AGENCY");
   const row = await withTransaction(async client => {
     const before = await rowJson(client, "agencies", id);
-    const r = (await client.query("UPDATE agencies SET active = $2 WHERE id = $1 RETURNING id, name, type, active", [id, b.active])).rows[0];
-    if (!r) throw httpError(404, "NOT_FOUND");
-    await audit(client, req.auth!.sub, id, b.active ? "agency.activated" : "agency.deactivated", "agency", id,
+    const result = (await client.query(
+      `UPDATE agencies SET active = COALESCE($2, active), parent_agency_id = CASE WHEN $3::boolean THEN $4 ELSE parent_agency_id END
+        WHERE id = $1 RETURNING id, name, type, active, parent_agency_id`,
+      [id, b.active ?? null, b.parentAgencyId !== undefined, b.parentAgencyId ?? null])).rows[0];
+    await audit(client, req.auth!.sub, id, "agency.updated", "agency", id,
       { targetAgencyId: id, before, after: await rowJson(client, "agencies", id) });
-    return r;
+    return result;
   });
   res.json(row);
 }));
