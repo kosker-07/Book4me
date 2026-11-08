@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Mutation check M1–M18: each mutation temporarily injects a known defect, runs `npm run test:server` and
+// Mutation check M1–M23: each mutation temporarily injects a known defect, runs `npm run test:server` and
 // verifies that the expected tests turn red. The source file is restored after every mutation (also on
 // Ctrl-C / crash) and `git diff --quiet` proves it is byte-identical to the committed version.
 //
@@ -11,9 +11,9 @@
 //
 // --dry-run applies and restores every mutation without running tests (checks that each patch still
 // matches the code exactly once). --unit-only needs no database: it runs only the unit test files and checks
-// the mutations that a unit test must catch (M2, M3, M8, M10); the others are reported as not verifiable. Exit code 0 only when every mutation was caught and all files restored.
+// the mutations that a unit test must catch (M2, M3, M8, M10, M19); the others are reported as not verifiable. Exit code 0 only when every mutation was caught and all files restored.
 import { execFileSync, spawnSync } from "node:child_process";
-import { readFileSync, writeFileSync, readdirSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 
 const M = [
   { id: "M1", what: "İptal/ret stok iadesini kaldır", expect: ["11", "12"], edits: [["server/app.ts",
@@ -57,7 +57,19 @@ const M = [
     "  if (!target || target.type !== \"sub\" || !target.active) throw httpError(400, \"TARGET_MUST_BE_ACTIVE_SUB_AGENCY\");",
     "  if (!target) throw httpError(400, \"TARGET_MUST_BE_ACTIVE_SUB_AGENCY\");"]] },
   { id: "M18", what: "Voucher otel adını konumla değiştir", expect: ["A2"], edits: [["server/app.ts",
-    "bookingNo: b.booking_no, status: b.status, hotelName: b.hotel_name,", "bookingNo: b.booking_no, status: b.status, hotelName: b.hotel_location,"]] }
+    "bookingNo: b.booking_no, status: b.status, hotelName: b.hotel_name,", "bookingNo: b.booking_no, status: b.status, hotelName: b.hotel_location,"]] },
+  // ---- nationality-based contract pricing
+  { id: "M19", what: "Uyruk hariç tutma kuralını yok say", expect: ["N04"], unit: ["eligibility: exclusion first"], edits: [["server/eligibility.ts",
+    "  const excluded = rules.filter(r => r.type === \"exclude\" && appliesTo(r, nationality));", "  const excluded: NationalityRule[] = [];"]] },
+  { id: "M20", what: "Uygun olmayan kontrat aramada yarışsın (başka pazarın fiyatına düşüş)", expect: ["N05"], edits: [["server/app.ts",
+    "        return e.eligible;   // ineligible contracts never compete and are never shown", "        return true;"]] },
+  { id: "M21", what: "Rezervasyonda uyruk uygunluğunu yeniden kontrol etme", expect: ["N09", "N16"], edits: [["server/app.ts",
+    "  if (!e.eligible) throw httpError(409, \"NATIONALITY_NOT_ELIGIBLE\", { nationalities: e.matches.filter(m => !m.eligible).map(m => m.nationality) });", ""]] },
+  { id: "M22", what: "Proforma güncel kurla yeniden çevirsin", expect: ["N17"], edits: [["server/app.ts",
+    "            payment_currency, payment_amount::text AS payment_amount, payment_eur_per_unit::text AS payment_eur_per_unit",
+    "            payment_currency, round(total * coalesce((SELECT f.eur_per_unit FROM fx_rates f WHERE f.currency = contract_currency), 1) / payment_eur_per_unit, 2)::text AS payment_amount, payment_eur_per_unit::text AS payment_eur_per_unit"]] },
+  { id: "M23", what: "Rezervasyonda kur değişimini kontrol etme", expect: ["N12"], edits: [["server/app.ts",
+    "  if (!contract || contract.historyId !== fxRateId) throw httpError(409, \"PRICE_CHANGED\", { reason: \"FX_RATE_CHANGED\" });", ""]] }
 ];
 
 const args = process.argv.slice(2);
@@ -105,8 +117,7 @@ function setupDatabase() {
   dbName = `bed4book_mutation_${process.pid}`;
   execFileSync("psql", [adminUrl, "-v", "ON_ERROR_STOP=1", "-qc", `CREATE DATABASE ${dbName}`]);
   const d = new URL(adminUrl); d.pathname = `/${dbName}`; dbUrl = d.toString();
-  for (const f of readdirSync("server/migrations").filter(x => x.endsWith(".sql")).sort())
-    execFileSync("psql", [dbUrl, "-v", "ON_ERROR_STOP=1", "-q", "-f", `server/migrations/${f}`], { stdio: ["ignore", "ignore", "inherit"] });
+  execFileSync("npx", ["tsx", "server/migrate.ts"], { env: { ...process.env, DATABASE_URL: dbUrl }, stdio: ["ignore", "ignore", "inherit"] });
   process.on("exit", () => { try { execFileSync("psql", [adminUrl, "-qc", `DROP DATABASE IF EXISTS ${dbName} WITH (FORCE)`]); } catch { /* best effort */ } });
 }
 
