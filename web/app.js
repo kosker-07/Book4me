@@ -144,7 +144,7 @@ async function publicationEditor(hotelId,plan,publications){
    }))
   ])));
  }
- const agencies=(await api('/api/admin/agencies')).items.filter(x=>x.type==='sub'&&x.active);
+ const agencies=(await api('/api/admin/publication-agencies')).items;
  view().append(editor('Acenteye yayınla','/api/admin/publications','POST',[
   choice('Acente','agencyId',agencies.map(x=>[x.id,x.name])),
   choice('Markup türü','markupType',[['percent','Yüzde'],['fixed','Sabit']]),
