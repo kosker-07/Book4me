@@ -22,8 +22,18 @@ const isAgency=()=>session.user?.role==='sub_agency';
 const bookingBase=()=>isAgency()?'/api/agency/bookings':'/api/backoffice/bookings';
 function fail(e){if(e.status===401){resetSession();setAuth(false);message('Oturum sona erdi. Yeniden giriş yapın.');return}message(errText(e))}
 function setAuth(ok){show('login',!ok);show('app',ok);show('logout',ok);$('menuToggle').classList.toggle('hidden',!ok);$('userBadge').textContent=ok?(roleNames[session.user.role]||session.user.role):'';if(ok)nav()}
-function nav(){const root=$('navItems');root.replaceChildren();for(const [id,label] of(isAgency()?navAgency:navAdmin)){const b=btn(label,()=>go(id));b.dataset.testid='nav-'+id;b.classList.toggle('active',id===page);root.append(b)}}
-async function go(id){page=id;$('sidebar').classList.remove('open');$('menuToggle').setAttribute('aria-expanded','false');nav();clear();message('');const title=(isAgency()?navAgency:navAdmin).find(x=>x[0]===id)?.[1]||id;$('pageTitle').textContent=title;try{if(id.startsWith('soon-'))return soon(title);if(id==='account')return account();if(id==='search')return search();if(id==='bookings')return await bookings();if(id==='dashboard')return await dashboard();if(id==='hotels')return await hotels();if(id==='markets')return await markets();if(id==='currencies')return await currencies();if(id==='agencies')return await agencies();return soon(title)}catch(e){fail(e);view().append(node('div','Veri yüklenemedi.','card empty'))}}
+function nav(){const root=$('navItems');root.replaceChildren();for(const [id,label] of(isAgency()?navAgency:session.user?.role==='system_admin'?[...navAdmin.slice(0,6),['platform-settings','Şirket bilgileri'],...navAdmin.slice(6)]:navAdmin){const b=btn(label,()=>go(id));b.dataset.testid='nav-'+id;b.classList.toggle('active',id===page);root.append(b)}}
+async function go(id){page=id;$('sidebar').classList.remove('open');$('menuToggle').setAttribute('aria-expanded','false');nav();clear();message('');const title=(isAgency()?navAgency:navAdmin).find(x=>x[0]===id)?.[1]||id;$('pageTitle').textContent=title;try{if(id.startsWith('soon-'))return soon(title);if(id==='account')return account();if(id==='search')return search();if(id==='bookings')return await bookings();if(id==='dashboard')return await dashboard();if(id==='hotels')return await hotels();if(id==='markets')return await markets();if(id==='currencies')return await currencies();if(id==='agencies')return await agencies();if(id==='platform-settings')return await platformSettings();return soon(title)}catch(e){fail(e);view().append(node('div','Veri yüklenemedi.','card empty'))}}
+async function platformSettings(){
+  if(session.user?.role!=='system_admin')return;
+  const data=await api('/api/admin/platform-settings');
+  const fields=[['legal_name','Şirket unvanı'],['address','Adres'],['tax_office','Vergi dairesi'],['tax_number','Vergi numarası'],['phone','Telefon'],['email','E-posta']];
+  const form=el('form',{},fields.map(([key,label])=>field(label,key,key==='address'?'textarea':key==='email'?'email':'text',data[key]||'')));
+  for(const input of form.querySelectorAll('input,textarea'))input.required=false;
+  form.append(el('button',{text:'Kaydet',cls:'primary',type:'submit'}));
+  form.onsubmit=async ev=>{ev.preventDefault();try{await api('/api/admin/platform-settings',{method:'PUT',body:Object.fromEntries(new FormData(form))});message('Şirket bilgileri kaydedildi.')}catch(err){fail(err)}};
+  view().append(card('Şirket bilgileri',form));
+}
 function soon(name){view().append(card(name,wrap(node('p','Bu modül için kullanılabilir API veya tamamlanmış arayüz henüz bulunmuyor.'),node('span','Yakında','chip'))))}
 $('menuToggle').onclick=()=>{const open=$('sidebar').classList.toggle('open');$('menuToggle').setAttribute('aria-expanded',String(open))};
 $('loginForm').onsubmit=async e=>{e.preventDefault();message('');const f=new FormData(e.currentTarget);try{await signIn(f.get('email'),f.get('password'));e.currentTarget.reset();setAuth(true);go(isAgency()?'search':'dashboard')}catch(err){fail(err)}};

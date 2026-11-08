@@ -11,6 +11,35 @@ import { isCalendarDate, nightsBetween, UUID_RE, validateRatePlanTerms } from ".
 import { formatMinor, normalizeDecimal, parseMinor } from "./pricing";
 
 export const adminRouter = Router();
+
+const settingsKeys = ["legal_name","address","tax_office","tax_number","phone","email"] as const;
+const settingsLimits: Record<string,number> = {legal_name:200,address:1000,tax_office:200,tax_number:40,phone:40,email:254};
+adminRouter.get("/api/admin/platform-settings",authenticate,roles("system_admin","back_office"),h(async (_req,res)=>{
+  const row=(await pool.query("SELECT legal_name,address,tax_office,tax_number,phone,email,updated_at,updated_by FROM platform_settings WHERE id=1")).rows[0];
+  res.json(row || {legal_name:null,address:null,tax_office:null,tax_number:null,phone:null,email:null,updated_at:null,updated_by:null});
+}));
+adminRouter.put("/api/admin/platform-settings",authenticate,roles("system_admin"),h(async (req,res)=>{
+  const body=req.body;
+  if(!body||typeof body!=="object"||Array.isArray(body)||Object.keys(body).some(k=>!settingsKeys.includes(k as any)))throw httpError(400,"INVALID_PLATFORM_SETTINGS");
+  const values: Record<string,string|null>={};
+  for(const k of settingsKeys){
+    const v=body[k];
+    if(v!==undefined&&v!==null&&typeof v!=="string")throw httpError(400,"INVALID_PLATFORM_SETTINGS");
+    if(typeof v==="string"&&v.length>settingsLimits[k])throw httpError(400,"INVALID_PLATFORM_SETTINGS");
+    values[k]=typeof v==="string"?v.trim()||null:null;
+  }
+  if(values.email&&!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(values.email))throw httpError(400,"INVALID_PLATFORM_SETTINGS");
+  if(values.phone&&!/^[+\d\s().\-]{5,40}$/.test(values.phone))throw httpError(400,"INVALID_PLATFORM_SETTINGS");
+  if(values.tax_number&&!/^[\p{L}\d\s.\-\/]{2,40}$/u.test(values.tax_number))throw httpError(400,"INVALID_PLATFORM_SETTINGS");
+  const result=await withTransaction(async client=>{
+    const before=(await client.query("SELECT legal_name,address,tax_office,tax_number,phone,email,updated_at,updated_by FROM platform_settings WHERE id=1 FOR UPDATE")).rows[0];
+    const after=(await client.query("UPDATE platform_settings SET legal_name=$1,address=$2,tax_office=$3,tax_number=$4,phone=$5,email=$6,updated_at=now(),updated_by=$7 WHERE id=1 RETURNING legal_name,address,tax_office,tax_number,phone,email,updated_at,updated_by",[...settingsKeys.map(k=>values[k]),req.auth!.sub])).rows[0];
+    await audit(client,req.auth!.sub,null,"platform_settings.updated","platform_settings","00000000-0000-4000-8000-000000000001",{before,after});
+    return after;
+  });
+  res.json(result);
+}));
+
 export const managers = [authenticate, roles("system_admin", "back_office", "master_agency")] as const;
 type Handler = (req: AuthedRequest, res: Response) => Promise<unknown>;
 export const h = (fn: Handler) => async (req: AuthedRequest, res: Response, next: NextFunction) => {

@@ -12,7 +12,7 @@ import type { AddressInfo } from "node:net";
 import type { Server } from "node:http";
 
 const DB_URL = process.env.DATABASE_URL;
-process.env.PLATFORM_LEGAL_NAME = "BED4BOOK Platform Test Ltd.";
+
 process.env.SESSION_SECRET = process.env.SESSION_SECRET || "integration-test-secret-at-least-32-chars";
 if (!DB_URL && process.env.CI) throw new Error("DATABASE_URL is required for integration tests in CI.");
 const skip = DB_URL ? false : "DATABASE_URL not set; integration tests skipped locally";
@@ -355,6 +355,7 @@ test("N17 proforma: pending/approved only, numbered, stored once, from the snaps
   const draft = (await bookFor(["GB"], { draft: true, searchExtra: { paymentCurrency: "EUR" } })).booking.body.id;
   assert.equal((await call("GET", `/api/agency/bookings/${draft}/proforma`, undefined, tok.a)).status, 409, "no proforma for a draft");
   const id1 = (await bookFor(["GB"], { searchExtra: { paymentCurrency: "EUR" } })).booking.body.id;
+  await pool.query("UPDATE platform_settings SET legal_name=NULL,address=NULL,tax_office=NULL,tax_number=NULL,phone=NULL,email=NULL WHERE id=1");
   const first = await call("GET", `/api/agency/bookings/${id1}/proforma`, undefined, tok.a);
   assert.equal(first.status, 201);
   assert.equal(first.headers.get("content-type"), "application/pdf");
@@ -366,11 +367,11 @@ test("N17 proforma: pending/approved only, numbered, stored once, from the snaps
   await pool.query("UPDATE fx_rates SET eur_per_unit=5, valid_at=now() WHERE currency='GBP'"); // later FX change
   const row = (await pool.query("SELECT payment_amount::text AS p, contract_amount::text AS c FROM proformas WHERE booking_id=$1", [id1])).rows[0];
   assert.deepEqual(row, { p: "168.00", c: "140.00" });
-  assert.equal((await pool.query("SELECT seller_legal_name FROM proformas WHERE booking_id=$1",[id1])).rows[0].seller_legal_name,"BED4BOOK Platform Test Ltd.");
+  assert.equal((await pool.query("SELECT seller_legal_name FROM proformas WHERE booking_id=$1",[id1])).rows[0].seller_legal_name,"BED4BOOK");
   if (hasPdftotext) {
     const dir = mkdtempSync(join(tmpdir(), "proforma-")), file = join(dir, "p.pdf"); writeFileSync(file, first.buf);
     const text = execFileSync("pdftotext", ["-layout", file, "-"]).toString("utf8").replace(/\s+/g, " ");
-    for (const s of ["PROFORMA", "Not a tax invoice", "Vergi faturası değildir", `PF-${year}-000001`, "BED4BOOK Platform Test Ltd.", "140.00 GBP", "168.00 EUR", "UK-MARKET", "Lead Guest (yetişkin/adult, GB)", "half-up"])
+    for (const s of ["PROFORMA", "Not a tax invoice", "Vergi faturası değildir", `PF-${year}-000001`, "BED4BOOK", "140.00 GBP", "168.00 EUR", "UK-MARKET", "Lead Guest (yetişkin/adult, GB)", "half-up"])
       assert.ok(text.includes(s), `proforma must contain "${s}"; got ${text}`);
     assert.ok(!text.includes("Hotel One Turizm A.Ş."), "DMC legal name must not appear on buyer proforma");
   }
@@ -391,6 +392,33 @@ test("N17 proforma: pending/approved only, numbered, stored once, from the snaps
   assert.equal((await call("GET", `/api/agency/bookings/${id1}/proforma`, undefined, tok.a)).status, 409);
 });
 
+
+test("N17b platform seller settings: role scope, PDF snapshot, immutable previous issue", {skip}, async()=>{
+  assert.equal((await call("GET","/api/admin/platform-settings",undefined,tok.a)).status,403);
+  assert.equal((await call("GET","/api/admin/platform-settings",undefined,tok.m1)).status,403);
+  assert.equal((await call("PUT","/api/admin/platform-settings",{legal_name:"Unauthorized"},tok.bo)).status,403);
+  assert.equal((await call("GET","/api/admin/platform-settings",undefined,tok.bo)).status,200);
+  const settings={legal_name:"BED4BOOK Test Platform A.Ş.",address:"Antalya",tax_office:"Muratpaşa",tax_number:"1234567890",phone:"+90 242 123 45 67",email:"finance@example.com"};
+  const updated=await call("PUT","/api/admin/platform-settings",settings,tok.admin);
+  assert.equal(updated.status,200,updated.raw);
+  const id=(await bookFor(["GB"],{searchExtra:{paymentCurrency:"EUR"}})).booking.body.id;
+  const first=await call("GET",`/api/agency/bookings/${id}/proforma`,undefined,tok.a);
+  assert.equal(first.status,201);
+  const record=(await pool.query("SELECT seller_legal_name,seller_settings FROM proformas WHERE booking_id=$1",[id])).rows[0];
+  assert.equal(record.seller_legal_name,settings.legal_name);
+  assert.equal(record.seller_settings.tax_number,settings.tax_number);
+  if(hasPdftotext){
+    const text=spawnSync("pdftotext",["-","-"],{input:first.buf}).stdout.toString("utf8");
+    for(const expected of [settings.legal_name,settings.tax_office,settings.tax_number])assert.ok(text.includes(expected),expected);
+    assert.ok(!text.includes("Hotel One Turizm A.Ş."));
+  }
+  const changed=await call("PUT","/api/admin/platform-settings",{...settings,legal_name:"Different Platform Ltd.",tax_number:"9876543210"},tok.admin);
+  assert.equal(changed.status,200);
+  const again=await call("GET",`/api/agency/bookings/${id}/proforma`,undefined,tok.a);
+  assert.equal(again.status,200);
+  assert.deepEqual(again.buf,first.buf,"existing proforma PDF must be immutable");
+  assert.equal((await pool.query("SELECT seller_legal_name FROM proformas WHERE booking_id=$1",[id])).rows[0].seller_legal_name,settings.legal_name);
+});
 test("N18 proforma numbering is sequential and collision-free under concurrency", { skip }, async () => {
   const ids: string[] = [];
   for (let i = 0; i < 4; i++) ids.push((await bookFor(["TR"])).booking.body.id);

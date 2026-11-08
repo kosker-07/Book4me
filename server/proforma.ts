@@ -16,6 +16,8 @@ export interface ProformaData {
   sellerAddress?: string;
   sellerTaxOffice?: string;
   sellerTaxNumber?: string;
+  sellerPhone?: string;
+  sellerEmail?: string;
   bookingNo: string;
   bookingStatus: string;
   agencyName: string;
@@ -71,6 +73,8 @@ export function renderProforma(p: ProformaData): Promise<Buffer> {
       ...(p.sellerAddress ? [["Adres / Address", p.sellerAddress] as [string,string]] : []),
       ...(p.sellerTaxOffice ? [["Vergi Dairesi / Tax Office", p.sellerTaxOffice] as [string,string]] : []),
       ...(p.sellerTaxNumber ? [["Vergi No / Tax Number", p.sellerTaxNumber] as [string,string]] : []),
+      ...(p.sellerPhone ? [["Telefon / Phone", p.sellerPhone] as [string,string]] : []),
+      ...(p.sellerEmail ? [["E-posta / Email", p.sellerEmail] as [string,string]] : []),
       ["Acente / Agency", p.agencyName],
       ["Rezervasyon No / Booking No", p.bookingNo],
       ["Durum / Status", STATUS_TR[p.bookingStatus] ?? p.bookingStatus],

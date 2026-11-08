@@ -795,6 +795,8 @@ async function issueProforma(bookingId: string, actorId: string, scopeSql: strin
   const contractCurrency = String(snap.contract_currency).trim(), paymentCurrency = String(snap.payment_currency).trim();
   try {
     return await withTransaction(async client => {
+      const settings = (await client.query("SELECT legal_name,address,tax_office,tax_number,phone,email FROM platform_settings WHERE id=1")).rows[0] || {};
+      const platformSeller = settings.legal_name || "BED4BOOK";
       const year = new Date().getUTCFullYear();
       // Atomic per-year counter: one conditional upsert, no explicit lock; concurrent issues get distinct numbers.
       const seq = (await client.query(
@@ -802,8 +804,9 @@ async function issueProforma(bookingId: string, actorId: string, scopeSql: strin
          ON CONFLICT (year) DO UPDATE SET last_seq = proforma_counters.last_seq + 1 RETURNING last_seq`, [year])).rows[0].last_seq as number;
       const number = `PF-${year}-${String(seq).padStart(6, "0")}`, version = latest ? latest.version + 1 : 1, issuedAt = new Date();
       const pdf = await renderProforma({
-        number, version, supersedesNumber: latest?.number ?? null, issuedAt, sellerLegalName: process.env.PLATFORM_LEGAL_NAME?.trim() || "BED4BOOK",
-        sellerAddress: process.env.PLATFORM_ADDRESS?.trim(), sellerTaxOffice: process.env.PLATFORM_TAX_OFFICE?.trim(), sellerTaxNumber: process.env.PLATFORM_TAX_NUMBER?.trim(),
+        number, version, supersedesNumber: latest?.number ?? null, issuedAt, sellerLegalName: platformSeller,
+        sellerAddress: settings.address, sellerTaxOffice: settings.tax_office, sellerTaxNumber: settings.tax_number,
+        sellerPhone: settings.phone, sellerEmail: settings.email,
         bookingNo: b.booking_no, bookingStatus: b.status, agencyName: role === "master_agency" && (await pool.query("SELECT parent_agency_id FROM agencies WHERE id=$1", [b.agency_id])).rows[0]?.parent_agency_id !== agencyId ? "BED4BOOK" : b.agency_name, hotelName: b.hotel_name, hotelLocation: b.hotel_location,
         checkIn: b.check_in, checkOut: b.check_out, nights: nightsBetween(b.check_in, b.check_out).length,
         roomName: b.room_name, board: b.board_name, rooms: b.room_count, roomOccupancies: b.room_occupancies,
@@ -820,7 +823,8 @@ async function issueProforma(bookingId: string, actorId: string, scopeSql: strin
                                contract_currency, contract_amount, seller_legal_name, issued_by, issued_at, pdf, sha256)
          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)`,
         [id, bookingId, number, year, seq, version, latest?.id ?? null, reason ?? "", b.status, paymentCurrency, snap.payment_amount,
-         contractCurrency, snap.total, process.env.PLATFORM_LEGAL_NAME?.trim() || "BED4BOOK", actorId, issuedAt.toISOString(), pdf, sha256]);
+         contractCurrency, snap.total, platformSeller, actorId, issuedAt.toISOString(), pdf, sha256]);
+      await client.query("UPDATE proformas SET seller_settings=$2::jsonb WHERE id=$1", [id, JSON.stringify({legal_name:platformSeller,address:settings.address??null,tax_office:settings.tax_office??null,tax_number:settings.tax_number??null,phone:settings.phone??null,email:settings.email??null})]);
       await audit(client, actorId, b.agency_id, version === 1 ? "proforma.issued" : "proforma.reissued", "booking", bookingId,
         { targetAgencyId: b.agency_id, after: { number, version, supersedes: latest?.number ?? null, reason, paymentCurrency, paymentAmount: snap.payment_amount, sha256 } });
       return { pdf, sha256, number, created: true };
@@ -885,7 +889,7 @@ app.use((error: any, _req: Request, res: Response, _next: NextFunction) => {
 });
 
 const port = Number(process.env.PORT || 3000);
-if (!process.env.PLATFORM_LEGAL_NAME?.trim()) console.warn("PLATFORM_LEGAL_NAME tanımlı değil; satıcı adı BED4BOOK olarak kullanılacak.");
+
 if (require.main === module) {
   if (!process.env.DATABASE_URL || sessionSecret().length < 32) throw new Error("DATABASE_URL and SESSION_SECRET (32+ chars) are required.");
   // A failed admin bootstrap must never keep the API down: log the reason (never the password) and start anyway.
