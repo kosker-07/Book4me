@@ -205,8 +205,8 @@ async function loadRules(db: { query: PoolClient["query"] }, contractIds: string
   }));
 }
 
-const fitsOccupancy = (row: { max_adults: number; max_children: number }, rooms: number, adults: number, children: number) =>
-  adults <= row.max_adults * rooms && children <= row.max_children * rooms;
+const fitsOccupancy = (row: { max_adults: number; max_children: number }, occupancies: { adults: number; children: number }[]) =>
+  occupancies.every(room => room.adults <= row.max_adults && room.children <= row.max_children);
 
 const toCandidate = (row: CandidateRow): Candidate => ({
   ratePlanId: row.rate_plan_id, hotelId: row.hotel_id, roomId: row.room_id, board: row.board_name,
@@ -241,7 +241,7 @@ app.post("/api/agency/searches", authenticate, roles("sub_agency"), requireAgenc
     const byRatePlan = new Map(rows.map(r => [r.rate_plan_id, r]));
     const eligibilityOf = new Map<string, ContractEligibility>();
     const offers = rows
-      .filter(r => fitsOccupancy(r, stay.rooms, stay.adults, stay.children))
+      .filter(r => fitsOccupancy(r, stay.roomOccupancies))
       .filter(r => {
         const e = evaluateContract(rulesFor.get(r.contract_id) ?? [], nationalities);
         eligibilityOf.set(r.rate_plan_id, e);
@@ -416,7 +416,7 @@ app.post("/api/agency/bookings", authenticate, roles("sub_agency"), requireAgenc
   const q = checked.quote;
   if (q.agencyId !== agencyId) return res.status(404).json({ error: "PRODUCT_NOT_PUBLISHED" });
   const sameAges = [...childAges].sort((a, b) => a - b).join(",") === [...q.childAges].sort((a, b) => a - b).join(",");
-  if (adults !== q.adults || children !== q.children || !sameAges)
+  if (adults !== q.adults || children !== q.children || !sameAges ||\n      JSON.stringify(req.body.roomOccupancies) !== JSON.stringify(q.roomOccupancies))
     return res.status(409).json({ error: "QUOTE_OCCUPANCY_MISMATCH" });
   const nationalities = [guest.nationality, ...otherGuests.map(g => g.nationality)].sort();
   if (nationalities.join(",") !== [...q.nationalities].sort().join(","))
@@ -456,7 +456,7 @@ app.post("/api/agency/bookings", authenticate, roles("sub_agency"), requireAgenc
 
       const sale = await publishedSale(client, agencyId, q.ratePlanId); // re-check only the quoted winner
       if (sale.currency !== q.currency || sale.minorUnits !== q.minorUnits) throw httpError(409, "PRICE_CHANGED");
-      if (adults > sale.maxAdults * q.rooms || children > sale.maxChildren * q.rooms) throw httpError(409, "OCCUPANCY_EXCEEDS_CAPACITY");
+      if (!q.roomOccupancies.every(room => room.adults <= sale.maxAdults && room.children <= sale.maxChildren)) throw httpError(409, "OCCUPANCY_EXCEEDS_CAPACITY");
       const eligibility = await revalidateContract(client, sale, q.contractId, q.checkIn, q.checkOut, nationalities);
       const fx = await revalidateFx(client, q.currency, q.fxRateId, q.paymentCurrency, q.paymentFxRateId);
       if (fx.paymentMinorUnits !== q.paymentMinorUnits) throw httpError(409, "PRICE_CHANGED");
