@@ -202,7 +202,7 @@ async function loadCandidates(db: { query: PoolClient["query"] }, agencyId: stri
        JOIN inventory_daily d ON d.rate_plan_id = rp.id
             AND d.stay_date >= $2::date AND d.stay_date < $3::date AND d.allotment - d.reserved >= $4
       WHERE s.agency_id = $1 AND s.active
-      GROUP BY rp.id, cur.minor_units, hc.id, r.id, h.id, s.markup_type, s.markup_value, s.source, buyer.parent_agency_id, parent.marketplace_markup_percent, h.owner_agency_id
+      GROUP BY rp.id, cur.minor_units, hc.id, r.id, h.id, s.markup_type, s.markup_value, s.source, buyer.parent_agency_id, buyer.id, parent.marketplace_markup_percent, buyer.marketplace_markup_percent, h.owner_agency_id
      HAVING count(*) = $5`,
     [agencyId, checkIn, checkOut, rooms, nights]
   );
