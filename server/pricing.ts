@@ -58,6 +58,7 @@ export interface Candidate {
   /** ISO 4217 minor units of `currency` (default 2). */
   minorUnits?: number;
   markup: Markup;
+  platformFeePercent?: string | number;
   nights: CandidateNight[];
 }
 
@@ -99,7 +100,10 @@ export function priceCandidate(
   eurPerUnit: Map<string, number>, nationalities: readonly string[] = []
 ): PricedOffer {
   const digits = c.minorUnits ?? 2;
-  const nightSellMinor = c.nights.map(n => nightlySellMinor(parseMinor(n.netPrice, digits), c.markup, digits));
+  const nightSellMinor = c.nights.map(n => {
+    const net = parseMinor(n.netPrice, digits);
+    return nightlySellMinor(net, c.markup, digits) + platformFeeMinor(net, c.platformFeePercent ?? 0, digits);
+  });
   const totalMinor = nightSellMinor.reduce((s, v) => s + v, 0) * rooms;
   const rate = c.currency === "EUR" ? 1 : eurPerUnit.get(c.currency);
   const eurCents = rate === undefined || !(rate > 0) ? null : Math.round((totalMinor * rate * 100) / 10 ** digits);
@@ -147,16 +151,14 @@ export interface MarketplacePriceChain {
   buyerMarkupPercent: string;
   buyerMarkupMinor: number;
   saleMinor: number;
-  platformFeePercent: string;
-  platformFeeMinor: number;
 }
 export function priceMarketplaceChain(
   netMinor: number, platformMarginPercent: string | number,
-  buyerMarkupPercent: string | number, platformFeePercent: string | number,
+  buyerMarkupPercent: string | number,
   digits = 2
 ): MarketplacePriceChain {
   if (!Number.isSafeInteger(netMinor) || netMinor < 0) throw new Error("Invalid net amount");
-  const validated = [platformMarginPercent, buyerMarkupPercent, platformFeePercent].map(v => {
+  const validated = [platformMarginPercent, buyerMarkupPercent].map(v => {
     // Reject precision beyond three decimals rather than silently rounding percentages.
     const raw = String(v).trim();
     if (!/^(?:\d+)(?:\.\d{1,3})?$/.test(raw)) throw new Error("Invalid percentage precision");
@@ -165,15 +167,22 @@ export function priceMarketplaceChain(
     const text = String(milli / 1000);
     return { milli, text };
   });
-  const platform = validated[0]!, buyer = validated[1]!, fee = validated[2]!;
+  const platform = validated[0]!, buyer = validated[1]!;
   const platformMarginMinor = nightlySellMinor(netMinor, { type: "percent", value: platform.text }, digits) - netMinor;
   const buyerCostMinor = netMinor + platformMarginMinor;
   const buyerMarkupMinor = nightlySellMinor(buyerCostMinor, { type: "percent", value: buyer.text }, digits) - buyerCostMinor;
-  // The fee is a separate DMC-to-sub accounting item; it never contributes to saleMinor.
-  const platformFeeMinor = nightlySellMinor(netMinor, { type: "percent", value: fee.text }, digits) - netMinor;
   return {
     netMinor, platformMarginPercent: platform.text, platformMarginMinor, buyerCostMinor,
-    buyerMarkupPercent: buyer.text, buyerMarkupMinor, saleMinor: buyerCostMinor + buyerMarkupMinor,
-    platformFeePercent: fee.text, platformFeeMinor
+    buyerMarkupPercent: buyer.text, buyerMarkupMinor, saleMinor: buyerCostMinor + buyerMarkupMinor
   };
+}
+
+/** Direct-publication service fee: exact percent validation, nightly half-up rounding. */
+export function platformFeeMinor(netMinor: number, percent: string | number, digits = 2): number {
+  if (!Number.isSafeInteger(netMinor) || netMinor < 0) throw new Error("Invalid net amount");
+  const raw = String(percent).trim();
+  if (!/^(?:\\d+)(?:\\.\\d{1,3})?$/.test(raw)) throw new Error("Invalid percentage precision");
+  const milli = parseMinor(raw, 3);
+  if (milli < 0 || milli > 100000) throw new Error("Percentage out of range");
+  return nightlySellMinor(netMinor, { type: "percent", value: String(milli / 1000) }, digits) - netMinor;
 }
