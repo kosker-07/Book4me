@@ -1,7 +1,7 @@
 // Shared HTTP helpers: authentication, role checks, errors, audit.
 import { NextFunction, Request, Response } from "express";
 import { pool } from "./db";
-import { SessionClaims, verifySession } from "./security";
+import { IDLE_TTL_SECONDS, SessionClaims, issueSession, verifySession } from "./security";
 import { UUID_RE } from "./validation";
 import { currentContext } from "./context";
 
@@ -19,22 +19,79 @@ export const roles = (...allowed: Role[]) => (req: AuthedRequest, res: Response,
   next();
 };
 
-/** Verifies the bearer token and re-checks the user on every request: active user, active agency,
- *  unchanged role/agency and unchanged token_version (logout and deactivation revoke sessions). */
-export const authenticate = async (req: AuthedRequest, res: Response, next: NextFunction) => {
+// ---------------------------------------------------------------------------------------------
+// Browser session cookie. The web UI never holds the token in JavaScript: the server sets it in an
+// HttpOnly cookie, so a page reload keeps the user signed in and a script cannot read the credential.
+// SameSite=Strict keeps other sites from sending it; state-changing requests must also carry the
+// X-Requested-With header, which a cross-site form or link cannot add.
+// ---------------------------------------------------------------------------------------------
+export const SESSION_COOKIE = "b4b_session";
+const CSRF_HEADER_VALUE = "bed4book";
+/** A renewed cookie is sent only when the current one is at least this old, not on every request. */
+const RENEW_AFTER_SECONDS = 5 * 60;
+
+const isHttps = (req: Request) =>
+  req.secure || String(req.headers["x-forwarded-proto"] || "").split(",")[0]!.trim().toLowerCase() === "https";
+
+const cookieAttributes = (req: Request) => `Path=/; HttpOnly; SameSite=Strict${isHttps(req) ? "; Secure" : ""}`;
+
+export function setSessionCookie(req: Request, res: Response, token: string) {
+  res.append("Set-Cookie", `${SESSION_COOKIE}=${token}; Max-Age=${IDLE_TTL_SECONDS}; ${cookieAttributes(req)}`);
+}
+export function clearSessionCookie(req: Request, res: Response) {
+  res.append("Set-Cookie", `${SESSION_COOKIE}=; Max-Age=0; ${cookieAttributes(req)}`);
+}
+function sessionCookie(req: Request): string | null {
+  for (const part of String(req.headers.cookie || "").split(";")) {
+    const eq = part.indexOf("=");
+    if (eq > 0 && part.slice(0, eq).trim() === SESSION_COOKIE) return part.slice(eq + 1).trim() || null;
+  }
+  return null;
+}
+
+type SessionResult = { claims: SessionClaims } | { status: number; error: string };
+
+/** Verifies the session and re-checks the user: active user, active agency, unchanged role/agency and
+ *  unchanged token_version (logout and deactivation revoke sessions).
+ *  The token comes from the Authorization header (API clients) or, without one, from the browser cookie.
+ *  A cookie session ends after IDLE_TTL_SECONDS without a request and is renewed while the user is active. */
+export async function resolveSession(req: Request, res: Response): Promise<SessionResult> {
   const header = req.headers.authorization || "";
-  if (!/^Bearer\s+/i.test(header)) return res.status(401).json({ error: "UNAUTHENTICATED" });
-  const claims = verifySession(header.replace(/^Bearer\s+/i, ""), sessionSecret());
-  if (!claims) return res.status(401).json({ error: "UNAUTHENTICATED" });
+  const bearer = /^Bearer\s+/i.test(header);
+  const token = bearer ? header.replace(/^Bearer\s+/i, "") : sessionCookie(req);
+  if (!token) return { status: 401, error: "UNAUTHENTICATED" };
+  const claims = verifySession(token, sessionSecret());
+  if (!claims) {
+    if (!bearer) clearSessionCookie(req, res);
+    return { status: 401, error: "UNAUTHENTICATED" };
+  }
+  if (!bearer && !["GET", "HEAD", "OPTIONS"].includes(req.method) && req.headers["x-requested-with"] !== CSRF_HEADER_VALUE)
+    return { status: 403, error: "CSRF_CHECK_FAILED" };
+  const result = await pool.query(
+    `SELECT u.id, u.role, u.agency_id, u.active, u.token_version, a.active AS agency_active
+       FROM users u LEFT JOIN agencies a ON a.id = u.agency_id WHERE u.id = $1`, [claims.sub]);
+  const user = result.rows[0];
+  if (!user || !user.active || user.role !== claims.role || user.agency_id !== claims.agencyId
+      || (user.agency_id && !user.agency_active) || user.token_version !== (claims.ver ?? 0)) {
+    if (!bearer) clearSessionCookie(req, res);
+    return { status: 401, error: "SESSION_REVOKED" };
+  }
+  if (!bearer && claims.max !== undefined) {
+    const nowSec = Math.floor(Date.now() / 1000);
+    const age = IDLE_TTL_SECONDS - (claims.exp - nowSec);
+    if (age >= RENEW_AFTER_SECONDS && claims.exp < claims.max) {
+      const { exp: _exp, ...rest } = claims;
+      setSessionCookie(req, res, issueSession(rest, sessionSecret()));
+    }
+  }
+  return { claims };
+}
+
+export const authenticate = async (req: AuthedRequest, res: Response, next: NextFunction) => {
   try {
-    const result = await pool.query(
-      `SELECT u.id, u.role, u.agency_id, u.active, u.token_version, a.active AS agency_active
-         FROM users u LEFT JOIN agencies a ON a.id = u.agency_id WHERE u.id = $1`, [claims.sub]);
-    const user = result.rows[0];
-    if (!user || !user.active || user.role !== claims.role || user.agency_id !== claims.agencyId
-        || (user.agency_id && !user.agency_active) || user.token_version !== (claims.ver ?? 0))
-      return res.status(401).json({ error: "SESSION_REVOKED" });
-    req.auth = claims;
+    const session = await resolveSession(req, res);
+    if ("error" in session) return res.status(session.status).json({ error: session.error });
+    req.auth = session.claims;
     next();
   } catch (error) { next(error); }
 };

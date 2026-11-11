@@ -4,13 +4,13 @@ import type { PoolClient } from "pg";
 import { createHash, randomUUID } from "node:crypto";
 import { pool, withTransaction } from "./db";
 import { bootstrapAdmin } from "./bootstrap-admin";
-import { hashPassword, issueSession, verifyPassword } from "./security";
+import { BROWSER_SESSION_MAX_SECONDS, hashPassword, issueSession, verifyPassword } from "./security";
 import { Candidate, chooseWinners, convertMinor, formatMinor, Markup, nightlySellMinor, normalizeDecimal, parseMinor, priceCandidate } from "./pricing";
 import { ContractEligibility, evaluateContract, NationalityRule, rulesByContract } from "./eligibility";
 import { comparisonRates, FxRate, loadFreshRates } from "./fx";
 import { FieldErrors, nightsBetween, validateGuest, validateNationalities, validateOccupancy, validateOtherGuests, validateStay } from "./validation";
 import { signQuote, verifyQuote } from "./quotes";
-import { audit, authenticate, AuthedRequest, httpError, isPlatformWide, requireAgency, roles, sessionSecret, uuidParam } from "./http";
+import { audit, authenticate, AuthedRequest, clearSessionCookie, httpError, isPlatformWide, requireAgency, resolveSession, roles, sessionSecret, setSessionCookie, uuidParam } from "./http";
 import { adminRouter } from "./admin-routes";
 import { contractRouter } from "./contract-routes";
 import { distributionRouter } from "./distribution-routes";
@@ -87,6 +87,9 @@ app.post("/api/auth/login", async (req, res, next) => {
     if (!allowed) return res.status(401).json({ error: "INVALID_CREDENTIALS" });
     await audit(pool, user.id, user.agency_id, "auth.login", "user", user.id);
     const token = issueSession({ sub: user.id, role: user.role, agencyId: user.agency_id, ver: user.token_version }, sessionSecret());
+    // Browser session: HttpOnly cookie, ends after one hour without a request, renewed while the user is active.
+    setSessionCookie(req, res, issueSession({ sub: user.id, role: user.role, agencyId: user.agency_id, ver: user.token_version,
+      max: Math.floor(Date.now() / 1000) + BROWSER_SESSION_MAX_SECONDS }, sessionSecret()));
     res.json({ token, tokenType: "Bearer", expiresIn: 28800, user: { id: user.id, email: user.email, role: user.role, agencyId: user.agency_id } });
   } catch (error) { next(error); }
 });
@@ -96,6 +99,7 @@ app.post("/api/auth/logout", authenticate, async (req: AuthedRequest, res, next)
   try {
     await pool.query("UPDATE users SET token_version = token_version + 1 WHERE id = $1", [req.auth!.sub]);
     await audit(pool, req.auth!.sub, req.auth!.agencyId, "auth.logout", "user", req.auth!.sub);
+    clearSessionCookie(req, res);
     res.json({ ok: true });
   } catch (error) { next(error); }
 });
@@ -118,6 +122,16 @@ app.post("/api/auth/change-password", authenticate, async (req: AuthedRequest, r
       [hashPassword(newPassword), req.auth!.sub, user.password_hash]);
     if (!updated.rowCount) return res.status(401).json({ error: "INVALID_CURRENT_PASSWORD" });
     res.json({ ok: true, sessionsRevoked: true });
+  } catch (error) { next(error); }
+});
+
+// Session probe for the web UI on page load. Always 200, so a signed-out visitor produces no error:
+// { authenticated: false } or the same fields as /api/me.
+app.get("/api/auth/session", async (req, res, next) => {
+  try {
+    const session = await resolveSession(req, res);
+    if ("error" in session) return res.json({ authenticated: false });
+    res.json({ authenticated: true, userId: session.claims.sub, role: session.claims.role, agencyId: session.claims.agencyId });
   } catch (error) { next(error); }
 });
 

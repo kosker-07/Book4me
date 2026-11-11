@@ -18,6 +18,22 @@ test("signed sessions reject tampering and expiry", () => {
   assert.equal(verifySession(token, secret, 1_900_000_000_000), null);
 });
 
+test("browser sessions end after one idle hour and never outlive their absolute end", () => {
+  const secret = "test-secret-with-at-least-thirty-two-characters";
+  const t0 = 1_800_000_000_000, sec = t0 / 1000;
+  const claims = { sub: "user-1", role: "sub_agency" as const, agencyId: "agency-1", max: sec + 12 * 3600 };
+  const token = issueSession(claims, secret, t0);
+  assert.equal(verifySession(token, secret, t0)?.exp, sec + 3600, "one idle hour");
+  assert.equal(verifySession(token, secret, t0 + 3599_000)?.sub, "user-1");
+  assert.equal(verifySession(token, secret, t0 + 3600_000), null, "expired after one hour without renewal");
+  const late = issueSession(claims, secret, t0 + (12 * 3600 - 600) * 1000);
+  assert.equal(verifySession(late, secret, t0 + (12 * 3600 - 600) * 1000)?.exp, claims.max, "renewal is capped at the absolute end");
+  assert.equal(verifySession(late, secret, t0 + 12 * 3600 * 1000), null);
+  // API tokens (no max) keep their eight-hour lifetime.
+  const api = issueSession({ sub: "user-1", role: "sub_agency", agencyId: "agency-1" }, secret, t0);
+  assert.equal(verifySession(api, secret, t0)?.exp, sec + 8 * 3600);
+});
+
 // ---------------------------------------------------------------- B4B-01 login throttling policy
 import { LOGIN_LIMITS, loginThrottled, parseTrustProxy } from "../../server/login-guard";
 

@@ -81,8 +81,20 @@ await run("desktop admin login and pages", { viewport: { width: 1366, height: 90
     assert.equal(await page.getByText("Veri yüklenemedi.").count(), 0, `${id}: data failed to load`);
   }
 
+  // A page reload keeps the user signed in.
+  await page.reload();
+  await page.locator("#app").waitFor({ state: "visible" });
+  assert.equal(await page.locator("#login").isVisible(), false, "reload must not sign the user out");
+  await page.waitForLoadState("networkidle");
+  assert.equal(await toastText(page), "", "no error toast after reload");
+
   await page.locator("#logout").click();
   await page.locator("#login").waitFor({ state: "visible" });
+  // After logout a reload stays on the login form.
+  await page.reload();
+  await page.locator("#login").waitFor({ state: "visible" });
+  await page.waitForLoadState("networkidle");
+  assert.equal(await page.locator("#app").isVisible(), false, "logout must survive a reload");
 });
 
 // 3) Phone: the same login works and the menu opens from the menu button.

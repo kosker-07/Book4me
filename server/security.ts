@@ -1,6 +1,10 @@
 import { createHmac, randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
 
 const TOKEN_TTL_SECONDS = 8 * 60 * 60;
+/** Browser (cookie) sessions end after this much inactivity; every authenticated request renews them. */
+export const IDLE_TTL_SECONDS = 60 * 60;
+/** A browser session is never renewed past this age, however active the user is. */
+export const BROWSER_SESSION_MAX_SECONDS = 12 * 60 * 60;
 const KEY_LENGTH = 64;
 
 export function hashPassword(password: string): string {
@@ -29,11 +33,16 @@ export interface SessionClaims {
   /** users.token_version at issue time; a mismatch revokes the session (logout, deactivation). */
   ver?: number;
   exp: number;
+  /** Browser sessions only: absolute end (epoch seconds). Present = idle-renewed session; exp never passes it. */
+  max?: number;
 }
 
 export function issueSession(claims: Omit<SessionClaims, "exp">, secret: string, now = Date.now()): string {
   if (secret.length < 32) throw new Error("SESSION_SECRET must contain at least 32 characters.");
-  const payload: SessionClaims = { ...claims, exp: Math.floor(now / 1000) + TOKEN_TTL_SECONDS };
+  const nowSec = Math.floor(now / 1000);
+  // With `max` the token is a browser session: short idle lifetime, capped at the absolute end.
+  const exp = claims.max === undefined ? nowSec + TOKEN_TTL_SECONDS : Math.min(nowSec + IDLE_TTL_SECONDS, claims.max);
+  const payload: SessionClaims = { ...claims, exp };
   const body = Buffer.from(JSON.stringify(payload)).toString("base64url");
   const signature = createHmac("sha256", secret).update(body).digest("base64url");
   return `${body}.${signature}`;
@@ -50,6 +59,7 @@ export function verifySession(token: string, secret: string, now = Date.now()): 
     const claims = JSON.parse(Buffer.from(body, "base64url").toString("utf8")) as SessionClaims;
     if (!claims.sub || !claims.role || !Number.isFinite(claims.exp) || claims.exp <= Math.floor(now / 1000)) return null;
     if (!["system_admin", "master_agency", "sub_agency", "back_office"].includes(claims.role)) return null;
+    if (claims.max !== undefined && (!Number.isFinite(claims.max) || claims.exp > claims.max)) return null;
     return claims;
   } catch { return null; }
 }
