@@ -31,11 +31,28 @@ AU.login = (email, pw, tenantSlug) => {
 AU.start = u => {
   const c = B4M.ctx; c.org = u.org; c.uid = u.id; c.dmc = u.org == "s" ? u.oid : 0; c.acct = u.org == "a" ? u.oid : 0; c.support = null;
   if (u.org == "s" && !P_licOK(u.oid)) { const x = { ok: false, msg: "Lisansınız askıya alındı; tüm adresleriniz kapalı. Platformla iletişime geçin." }; AU.logout(); return x; }
+  AU.persist(u);
   B4M.audit.log("auth.login", u.id, u.name, u.org == "h" ? "P" : B4M.app.tidOf(u.oid));
   return ok("Hoş geldiniz, {n}.", { n: u.name }, { u });
 };
 const P_licOK = oid => B4M.parties.licOK(B4M.app.tidOf(oid));
-AU.logout = () => { const c = B4M.ctx; if (c.uid) B4M.audit.log("auth.logout", c.uid, ""); Object.assign(c, { org: "", uid: 0, dmc: 0, acct: 0, support: null }); };
+/* Persistent browser identity: no idle timeout; account revocation remains effective. 
+   This is only for the offline prototype. Production must use server-validated,
+   revocable HttpOnly Secure SameSite cookies, never a user-id localStorage credential. */
+AU.SESSION_KEY = "b4m-demo-session-v1";
+AU.persist = u => { try { localStorage.setItem(AU.SESSION_KEY, JSON.stringify({ uid: u.id, org: u.org, oid: u.oid })); } catch (e) { } };
+AU.clearPersisted = () => { try { localStorage.removeItem(AU.SESSION_KEY); } catch (e) { } };
+AU.restore = () => {
+  let s; try { s = JSON.parse(localStorage.getItem(AU.SESSION_KEY) || "null"); } catch (e) { AU.clearPersisted(); return false; }
+  if (!s || !Number.isSafeInteger(s.uid)) return false;
+  const u = db().get("users", s.uid);
+  if (!u || !u.active || u.org !== s.org || u.oid !== s.oid ||
+      (u.org === "s" && !P_licOK(u.oid))) { AU.clearPersisted(); return false; }
+  Object.assign(B4M.ctx, { org: u.org, uid: u.id, dmc: u.org === "s" ? u.oid : 0,
+    acct: u.org === "a" ? u.oid : 0, support: null });
+  return true;
+};
+AU.logout = () => { AU.clearPersisted(); const c = B4M.ctx; if (c.uid) B4M.audit.log("auth.logout", c.uid, ""); Object.assign(c, { org: "", uid: 0, dmc: 0, acct: 0, support: null }); };
 AU.changePw = (oldPw, nw) => { const u = B4M.app.user(); if (u.pw != U.pwHash(oldPw, u.salt)) return no("Mevcut şifre hatalı."); if (String(nw || "").length < 6) return no("Yeni şifre en az 6 karakter olmalı."); AU.setPw(u, nw); B4M.audit.log("user.password.changed", u.id, ""); return ok("Şifreniz değiştirildi."); };
 /* ---- kullanıcı yönetimi (yalnızca yönetici) ---- */
 AU.orgUsers = (org, oid) => db().where("users", u => u.org == org && u.oid == oid);
