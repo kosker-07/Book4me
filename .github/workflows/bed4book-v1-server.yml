@@ -57,6 +57,10 @@ jobs:
             echo "pdftotext already available"
           else
             for attempt in 1 2 3; do
+              # Replace the Azure mirror before apt resolves packages.
+              if [ -f /etc/apt/apt-mirrors.txt ]; then
+                sudo sed -i 's/azure\.archive\.ubuntu\.com/archive.ubuntu.com/g' /etc/apt/apt-mirrors.txt
+              fi
               if sudo apt-get update -q && sudo apt-get install -y -q poppler-utils; then
                 break
               fi
@@ -147,6 +151,10 @@ jobs:
             echo "pdftotext already available"
           else
             for attempt in 1 2 3; do
+              # Replace the Azure mirror before apt resolves packages.
+              if [ -f /etc/apt/apt-mirrors.txt ]; then
+                sudo sed -i 's/azure\.archive\.ubuntu\.com/archive.ubuntu.com/g' /etc/apt/apt-mirrors.txt
+              fi
               if sudo apt-get update -q && sudo apt-get install -y -q poppler-utils; then
                 break
               fi
