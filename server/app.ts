@@ -5,7 +5,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { pool, withTransaction } from "./db";
 import { bootstrapAdmin } from "./bootstrap-admin";
 import { hashPassword, issueSession, verifyPassword } from "./security";
-import { Candidate, chooseWinners, convertMinor, formatMinor, Markup, nightlySellMinor, normalizeDecimal, parseMinor, priceCandidate } from "./pricing";
+import { Candidate, chooseWinners, convertMinor, formatMinor, Markup, nightlySellMinor, normalizeDecimal, parseMinor, priceCandidate, priceMarketplaceChain } from "./pricing";
 import { ContractEligibility, evaluateContract, NationalityRule, rulesByContract } from "./eligibility";
 import { comparisonRates, FxRate, loadFreshRates } from "./fx";
 import { FieldErrors, nightsBetween, validateGuest, validateNationalities, validateOccupancy, validateOtherGuests, validateStay } from "./validation";
@@ -156,7 +156,8 @@ interface CandidateRow {
   contract_id: string;
   room_id: string; room_name: string; max_adults: number; max_children: number;
   hotel_id: string; hotel_name: string; location: string; category: string | null;
-  markup_type: "percent" | "fixed"; markup_value: string; nights: { date: string; price: string }[];
+  markup_type: "percent" | "fixed"; markup_value: string;
+  source: string; platform_margin_percent: string; buyer_markup_percent: string; nights: { date: string; price: string }[];
 }
 
 /** Published, active, bookable rate plans with allotment for every night, whose contract is active and valid
@@ -168,10 +169,17 @@ async function loadCandidates(db: { query: PoolClient["query"] }, agencyId: stri
             hc.id AS contract_id,
             r.id AS room_id, r.name AS room_name, r.max_adults, r.max_children,
             h.id AS hotel_id, h.name AS hotel_name, h.location, h.category,
-            s.markup_type, s.markup_value::text AS markup_value,
+            s.markup_type, s.markup_value::text AS markup_value, s.source,
+            CASE WHEN s.source = 'distribution_rule' THEN
+              coalesce(marketplace_applicable_margin(h.owner_agency_id, buyer.parent_agency_id, h.id), 0)::text
+              ELSE '0' END AS platform_margin_percent,
+            CASE WHEN s.source = 'distribution_rule' THEN parent.marketplace_markup_percent::text
+              ELSE '0' END AS buyer_markup_percent,
             json_agg(json_build_object('date', d.stay_date::text, 'price', d.price::text) ORDER BY d.stay_date) AS nights
        FROM effective_agency_sales($1) s
        JOIN agencies sa ON sa.id = s.agency_id AND sa.active
+       JOIN agencies buyer ON buyer.id = s.agency_id
+       LEFT JOIN agencies parent ON parent.id = buyer.parent_agency_id
        JOIN rate_plans rp ON rp.id = s.rate_plan_id AND rp.active
        JOIN currencies cur ON cur.code = rp.currency AND cur.active
        JOIN contract_rate_plans crp ON crp.rate_plan_id = rp.id
@@ -183,7 +191,7 @@ async function loadCandidates(db: { query: PoolClient["query"] }, agencyId: stri
        JOIN inventory_daily d ON d.rate_plan_id = rp.id
             AND d.stay_date >= $2::date AND d.stay_date < $3::date AND d.allotment - d.reserved >= $4
       WHERE s.agency_id = $1 AND s.active
-      GROUP BY rp.id, cur.minor_units, hc.id, r.id, h.id, s.markup_type, s.markup_value
+      GROUP BY rp.id, cur.minor_units, hc.id, r.id, h.id, s.markup_type, s.markup_value, s.source, buyer.parent_agency_id, parent.marketplace_markup_percent, h.owner_agency_id
      HAVING count(*) = $5`,
     [agencyId, checkIn, checkOut, rooms, nights]
   );
@@ -249,7 +257,19 @@ app.post("/api/agency/searches", authenticate, roles("sub_agency"), requireAgenc
         eligibilityOf.set(r.rate_plan_id, e);
         return e.eligible;   // ineligible contracts never compete and are never shown
       })
-      .map(r => priceCandidate(toCandidate(r), occupancy, stay.checkIn, stay.checkOut, stay.rooms, comparisonRates(fx), nationalities));
+      .map(r => {
+        const candidate = toCandidate(r);
+        if (r.source === "distribution_rule") {
+          candidate.nights = r.nights.map(n => ({
+            date: n.date,
+            netPrice: formatMinor(priceMarketplaceChain(
+              parseMinor(n.price, r.minor_units), r.platform_margin_percent,
+              r.buyer_markup_percent, 0, r.minor_units).saleMinor, r.minor_units)
+          }));
+          candidate.markup = { type: "percent", value: "0" };
+        }
+        return priceCandidate(candidate, occupancy, stay.checkIn, stay.checkOut, stay.rooms, comparisonRates(fx), nationalities);
+      });
     const results = chooseWinners(offers).map(w => {
       const row = byRatePlan.get(w.ratePlanId)!, digits = row.minor_units, contractFx = fx.get(w.currency)!;
       const pay = payment ?? { code: w.currency, minorUnits: digits };
@@ -294,15 +314,24 @@ app.post("/api/agency/searches", authenticate, roles("sub_agency"), requireAgenc
 interface Sale {
   markup: Markup; currency: string; minorUnits: number; hotelId: string; maxAdults: number; maxChildren: number;
   contractId: string; contractCode: string; contractName: string; sellerLegalName: string;
+  source: string; platformMarginPercent: string; buyerMarkupPercent: string;
 }
 
 /** The agency's active publication of exactly this rate plan, or 404. */
 async function publishedSale(client: PoolClient, agencyId: string, ratePlanId: string): Promise<Sale> {
   const row = (await client.query(
     `SELECT s.markup_type, s.markup_value::text AS markup_value, rp.currency, cur.minor_units, h.id AS hotel_id, r.max_adults, r.max_children,
-            hc.id AS contract_id, hc.code AS contract_code, hc.name AS contract_name, hc.seller_legal_name
+            hc.id AS contract_id, hc.code AS contract_code, hc.name AS contract_name, hc.seller_legal_name,
+            s.source,
+            CASE WHEN s.source = 'distribution_rule' THEN
+              coalesce(marketplace_applicable_margin(h.owner_agency_id, buyer.parent_agency_id, h.id), 0)::text
+              ELSE '0' END AS platform_margin_percent,
+            CASE WHEN s.source = 'distribution_rule' THEN parent.marketplace_markup_percent::text
+              ELSE '0' END AS buyer_markup_percent
        FROM effective_agency_sales($1) s
        JOIN agencies sa ON sa.id = s.agency_id AND sa.active
+       JOIN agencies buyer ON buyer.id = s.agency_id
+       LEFT JOIN agencies parent ON parent.id = buyer.parent_agency_id
        JOIN rate_plans rp ON rp.id = s.rate_plan_id AND rp.active
        JOIN currencies cur ON cur.code = rp.currency AND cur.active
        JOIN contract_rate_plans crp ON crp.rate_plan_id = rp.id
@@ -316,7 +345,8 @@ async function publishedSale(client: PoolClient, agencyId: string, ratePlanId: s
   return {
     markup: { type: row.markup_type, value: row.markup_value }, currency: String(row.currency).trim(), minorUnits: Number(row.minor_units),
     hotelId: row.hotel_id, maxAdults: row.max_adults, maxChildren: row.max_children,
-    contractId: row.contract_id, contractCode: row.contract_code, contractName: row.contract_name, sellerLegalName: row.seller_legal_name
+    contractId: row.contract_id, contractCode: row.contract_code, contractName: row.contract_name, sellerLegalName: row.seller_legal_name,
+    source: row.source, platformMarginPercent: row.platform_margin_percent, buyerMarkupPercent: row.buyer_markup_percent
   };
 }
 
@@ -348,6 +378,13 @@ async function revalidateFx(client: PoolClient, contractCurrency: string, fxRate
   return { contract, payment, paymentMinorUnits: cur.minorUnits };
 }
 
+/** Shared pricing for both booking and draft paths; publications retain their original markup. */
+function saleNightMinor(netMinor: number, sale: Sale): number {
+  return sale.source === "distribution_rule"
+    ? priceMarketplaceChain(netMinor, sale.platformMarginPercent, sale.buyerMarkupPercent, 0, sale.minorUnits).saleMinor
+    : nightlySellMinor(netMinor, sale.markup, sale.minorUnits);
+}
+
 /** Atomically decrements every night and writes the nightly price snapshot. Throws 409 on any failure. */
 async function reserveNights(client: PoolClient, bookingId: string, ratePlanId: string, checkIn: string, checkOut: string,
                              rooms: number, sale: Sale, expectedTotalMinor: number) {
@@ -361,7 +398,7 @@ async function reserveNights(client: PoolClient, bookingId: string, ratePlanId: 
       [ratePlanId, date, rooms]);
     if (updated.rowCount !== 1) throw httpError(409, "ALLOTMENT_UNAVAILABLE");
     const netMinor = parseMinor(updated.rows[0].price, digits);
-    nights.push({ date, inventoryId: updated.rows[0].id, netMinor, sellMinor: nightlySellMinor(netMinor, sale.markup, digits) });
+    nights.push({ date, inventoryId: updated.rows[0].id, netMinor, sellMinor: saleNightMinor(netMinor, sale) });
   }
   const totalMinor = nights.reduce((s, n) => s + n.sellMinor, 0) * rooms;
   if (totalMinor !== expectedTotalMinor) throw httpError(409, "PRICE_CHANGED");
@@ -379,7 +416,7 @@ async function currentTotalMinor(client: PoolClient, ratePlanId: string, checkIn
     "SELECT price::text AS price FROM inventory_daily WHERE rate_plan_id = $1 AND stay_date >= $2::date AND stay_date < $3::date ORDER BY stay_date",
     [ratePlanId, checkIn, checkOut])).rows;
   if (rows.length !== nightsBetween(checkIn, checkOut).length) throw httpError(409, "ALLOTMENT_UNAVAILABLE");
-  return rows.reduce((s: number, r: any) => s + nightlySellMinor(parseMinor(r.price, sale.minorUnits), sale.markup, sale.minorUnits), 0) * rooms;
+  return rows.reduce((s: number, r: any) => s + saleNightMinor(parseMinor(r.price, sale.minorUnits), sale), 0) * rooms;
 }
 
 async function writeSnapshot(client: PoolClient, bookingId: string, sale: Sale, ratePlanId: string, nationalities: string[],
