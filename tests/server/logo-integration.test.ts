@@ -8,12 +8,12 @@ import { renderProforma } from "../../server/proforma";
 import { renderVoucher } from "../../server/voucher";
 const root = process.cwd();
 const png = join(root,"web/assets/bed4book-logo.png");
-const pdfImage = (b:Buffer) => assert.match(b.toString("latin1"), /\\/Subtype\\s*\\/Image/);
+const pdfImage = (b:Buffer) => assert.match(b.toString("latin1"), /\/Subtype\s*\/Image/);
 
 test("L1 header uses original PNG and has no SVG reference", () => {
  const html=readFileSync(join(root,"web/index.html"),"utf8");
- assert.match(html,/assets\\/bed4book-logo\\.png/);
- assert.doesNotMatch(html,/logo\\.svg/);
+ assert.match(html,/assets\/bed4book-logo\.png/);
+ assert.doesNotMatch(html,/logo\.svg/);
  assert.equal(existsSync(join(root,"web/assets/logo.svg")),false);
 });
 test("L2 login logo, same-origin CSP and PNG endpoint",async()=>{
@@ -22,9 +22,9 @@ test("L2 login logo, same-origin CSP and PNG endpoint",async()=>{
  const base="http://127.0.0.1:"+addr.port;
  const login=await fetch(base+"/giris");assert.equal(login.status,200);
  assert.match(login.headers.get("content-security-policy")||"",/img-src 'self'/);
- assert.match(await login.text(),/img src="\\/app\\/assets\\/bed4book-logo\\.png"/);
+ assert.match(await login.text(),/img src="\/app\/assets\/bed4book-logo\.png"/);
  const img=await fetch(base+"/app/assets/bed4book-logo.png");assert.equal(img.status,200);
- assert.match(img.headers.get("content-type")||"",/image\\/png/);
+ assert.match(img.headers.get("content-type")||"",/image\/png/);
  const bytes=Buffer.from(await img.arrayBuffer());assert.equal(bytes.subarray(0,8).toString("hex"),"89504e470d0a1a0a");
  }finally{await new Promise<void>(resolve=>server.close(()=>resolve()));}
 });
