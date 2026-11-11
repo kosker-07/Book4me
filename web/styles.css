@@ -35,3 +35,6 @@ input:focus-visible,select:focus-visible,button:focus-visible,textarea:focus-vis
 @media(max-width:480px){.topbar{gap:5px}.logo{width:min(35vw,150px)}.theme-picker select{max-width:104px;font-size:11px}.topright{gap:5px}#userBadge{display:none}}
 @media(prefers-reduced-motion:reduce){.sidebar button,.primary,.ghost{transition:none!important}}
 @supports not (backdrop-filter:blur(1px)){.card,.ghost,.theme-picker select{background:var(--card)}}
+
+/* Preserve the supplied 3:1 brand banner without cropping. */
+.topbar .logo{height:36px;width:auto;max-width:min(54vw,230px);object-fit:contain;border-radius:8px}
