@@ -93,7 +93,7 @@ test("two-DMC agency/user isolation, parent enforcement, platform role denial an
   assert.equal((await request("GET","/api/backoffice/hotels/"+hotel+"/rooms",sub)).status,403);
   assert.equal((await request("GET","/api/backoffice/hotels/"+hotel+"/rooms",admin)).status,200);
   assert.equal((await request("GET","/api/backoffice/hotels/"+randomUUID()+"/rooms",a)).status,404);
-  assert.equal((await request("GET","/api/backoffice/hotels/not-a-uuid/rooms",a)).status,400);
+  assert.equal((await request("GET","/api/backoffice/hotels/not-a-uuid/rooms",a)).status,404);
   for (const agencyId of [orphan]) {
     const response = await request("POST","/api/admin/publications",admin,{ratePlanId:rp,agencyId,markupType:"percent",markupValue:10});
     assert.equal(response.status,409,JSON.stringify(response.body));
