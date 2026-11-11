@@ -8,6 +8,6 @@ export async function pdfText(buffer: Buffer | Uint8Array): Promise<string> {
       const content = await (await doc.getPage(page)).getTextContent();
       pages.push(content.items.map(item => "str" in item ? item.str : "").join(" "));
     }
-    return pages.join(" ").replace(/\\s+/g, " ").trim();
+    return pages.join(" ").replace(/\s+/g, " ").trim();
   } finally { await doc.destroy(); }
 }
