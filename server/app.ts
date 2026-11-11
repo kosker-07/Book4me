@@ -402,11 +402,23 @@ async function reserveNights(client: PoolClient, bookingId: string, ratePlanId: 
   }
   const totalMinor = nights.reduce((s, n) => s + n.sellMinor, 0) * rooms;
   if (totalMinor !== expectedTotalMinor) throw httpError(409, "PRICE_CHANGED");
-  for (const n of nights)
+  for (const n of nights) {
+    const breakdown = sale.source === "distribution_rule"
+      ? priceMarketplaceChain(n.netMinor, sale.platformMarginPercent, sale.buyerMarkupPercent, 0, digits)
+      : null;
     await client.query(
-      `INSERT INTO booking_nights(booking_id, stay_date, inventory_id, rooms, net_price, markup_type, markup_value, sell_price, currency)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
-      [bookingId, n.date, n.inventoryId, rooms, formatMinor(n.netMinor, digits), sale.markup.type, normalizeDecimal(sale.markup.value), formatMinor(n.sellMinor, digits), sale.currency]);
+      `INSERT INTO booking_nights(booking_id, stay_date, inventory_id, rooms, net_price, markup_type, markup_value, sell_price, currency,
+        marketplace_platform_margin_percent, marketplace_platform_margin, marketplace_buyer_cost,
+        marketplace_buyer_markup_percent, marketplace_buyer_markup)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)`,
+      [bookingId, n.date, n.inventoryId, rooms, formatMinor(n.netMinor, digits),
+       sale.markup.type, normalizeDecimal(sale.markup.value), formatMinor(n.sellMinor, digits), sale.currency,
+       breakdown?.platformMarginPercent ?? null,
+       breakdown ? formatMinor(breakdown.platformMarginMinor, digits) : null,
+       breakdown ? formatMinor(breakdown.buyerCostMinor, digits) : null,
+       breakdown?.buyerMarkupPercent ?? null,
+       breakdown ? formatMinor(breakdown.buyerMarkupMinor, digits) : null]);
+  }
   return totalMinor;
 }
 
