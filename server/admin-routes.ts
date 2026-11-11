@@ -420,7 +420,7 @@ adminRouter.post("/api/admin/agencies", authenticate, roles("system_admin", "mas
   res.status(201).json({ id, name: name.trim(), type, parentAgencyId });
 }));
 
-adminRouter.patch("/api/admin/agencies/:id", authenticate, roles("system_admin", "master_agency"), h(async (req, res) => {
+adminRouter.patch("/api/admin/agencies/:id", authenticate, roles("system_admin", "back_office", "master_agency"), h(async (req, res) => {
   const id = uuidParam(req), b = req.body || {};
   const selfMarkup = req.auth!.role === "master_agency" && id === req.auth!.agencyId;
   const agency = await hierarchyAgency(req, id, selfMarkup);
@@ -443,6 +443,8 @@ adminRouter.patch("/api/admin/agencies/:id", authenticate, roles("system_admin",
   const hasFinancial = financialFields.some(k => b[k] !== undefined);
   if (hasFinancial && (agency.type !== "master" ||
       (req.auth!.role === "master_agency" && id !== req.auth!.agencyId)))
+    throw httpError(403, "FORBIDDEN");
+  if (b.platformFeePercent !== undefined && !isPlatformWide(req.auth!.role))
     throw httpError(403, "FORBIDDEN");
   const percentages: Record<string, string> = {};
   for (const key of financialFields) {
