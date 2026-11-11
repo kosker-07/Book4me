@@ -282,3 +282,16 @@ test("D7 an inactive buyer DMC or seller DMC gets nothing through a rule", { ski
   await pool.query("UPDATE agencies SET active = false WHERE id = $1", [w.dmc.a]);
   assert.equal((await hotelsSeen(w.t.subB)).size, 0, "inactive seller DMC");
 });
+
+test("D8 PATCH platform margin persists and is visible on GET", { skip }, async () => {
+  const w = await seed();
+  const created = await rule(w.t.admin, { sellerAgencyId: w.dmc.a, effect: "allow", platformMarginPercent: 0 });
+  assert.equal(created.status, 201, JSON.stringify(created.body));
+  const patched = await request("PATCH", "/api/admin/distribution-rules/" + created.body.id, w.t.admin,
+    { platformMarginPercent: 12.375 });
+  assert.equal(patched.status, 200, JSON.stringify(patched.body));
+  assert.equal(Number(patched.body.platform_margin_percent), 12.375);
+  const listed = await request("GET", "/api/admin/distribution-rules", w.t.admin);
+  assert.equal(listed.status, 200, JSON.stringify(listed.body));
+  assert.equal(Number(listed.body.items.find((x: any) => x.id === created.body.id).platform_margin_percent), 12.375);
+});
