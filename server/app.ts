@@ -182,9 +182,9 @@ async function loadCandidates(db: { query: PoolClient["query"] }, agencyId: stri
             h.id AS hotel_id, h.name AS hotel_name, h.location, h.category,
             s.markup_type, s.markup_value::text AS markup_value, s.source,
             CASE WHEN s.source = 'distribution_rule' THEN
-              coalesce(marketplace_applicable_margin(h.owner_agency_id, buyer.parent_agency_id, h.id), 0)::text
+              coalesce(marketplace_applicable_margin(h.owner_agency_id, coalesce(buyer.parent_agency_id, buyer.id), h.id), 0)::text
               ELSE '0' END AS platform_margin_percent,
-            CASE WHEN s.source = 'distribution_rule' THEN parent.marketplace_markup_percent::text
+            CASE WHEN s.source = 'distribution_rule' THEN coalesce(parent.marketplace_markup_percent, buyer.marketplace_markup_percent)::text
               ELSE '0' END AS buyer_markup_percent,
             json_agg(json_build_object('date', d.stay_date::text, 'price', d.price::text) ORDER BY d.stay_date) AS nights
        FROM effective_agency_sales($1) s
