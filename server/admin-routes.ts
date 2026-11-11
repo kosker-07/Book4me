@@ -364,7 +364,9 @@ async function publicationHierarchy(ratePlanId: string, targetAgencyId: string, 
 // Read-only lists for management selectors; never expose password hashes.
 adminRouter.get("/api/admin/agencies", ...managers, h(async (req, res) => {
   const result = await pool.query(
-    `SELECT a.id, a.name, a.type, a.active, a.parent_agency_id, p.name AS parent_agency_name
+    `SELECT a.id, a.name, a.type, a.active, a.parent_agency_id, p.name AS parent_agency_name,
+           CASE WHEN $1::boolean OR a.id = $2 THEN a.marketplace_markup_percent::text ELSE NULL END AS marketplace_markup_percent,
+           CASE WHEN $1::boolean OR a.id = $2 THEN a.platform_fee_percent::text ELSE NULL END AS platform_fee_percent
        FROM agencies a LEFT JOIN agencies p ON p.id = a.parent_agency_id
       WHERE $1::boolean OR a.parent_agency_id = $2 OR a.id = $2
       ORDER BY a.name, a.id`,
@@ -431,13 +433,32 @@ adminRouter.patch("/api/admin/agencies/:id", authenticate, roles("system_admin",
       if (parent.type !== "master") throw httpError(400, "INVALID_PARENT");
     }
   }
-  if (b.active === undefined && b.parentAgencyId === undefined) throw httpError(400, "INVALID_AGENCY");
+  // DMC financial settings belong to the platform operator or the DMC itself, never a sub-agency.
+  const financialFields = ["marketplaceMarkupPercent", "platformFeePercent"] as const;
+  const hasFinancial = financialFields.some(k => b[k] !== undefined);
+  if (hasFinancial && (agency.type !== "master" ||
+      (req.auth!.role === "master_agency" && id !== req.auth!.agencyId)))
+    throw httpError(403, "FORBIDDEN");
+  const percentages: Record<string, string> = {};
+  for (const key of financialFields) {
+    if (b[key] === undefined) continue;
+    const value = b[key];
+    if ((typeof value !== "string" && typeof value !== "number") ||
+        !/^(?:100(?:\\.0{1,3})?|(?:\\d|[1-9]\\d)(?:\\.\\d{1,3})?)$/.test(String(value)))
+      throw httpError(400, "INVALID_PERCENTAGE", { field: key });
+    percentages[key] = String(value);
+  }
+  if (b.active === undefined && b.parentAgencyId === undefined && !hasFinancial) throw httpError(400, "INVALID_AGENCY");
   const row = await withTransaction(async client => {
     const before = await rowJson(client, "agencies", id);
     const result = (await client.query(
-      `UPDATE agencies SET active = COALESCE($2, active), parent_agency_id = CASE WHEN $3::boolean THEN $4 ELSE parent_agency_id END
-        WHERE id = $1 RETURNING id, name, type, active, parent_agency_id`,
-      [id, b.active ?? null, b.parentAgencyId !== undefined, b.parentAgencyId ?? null])).rows[0];
+      `UPDATE agencies SET active = COALESCE($2, active), parent_agency_id = CASE WHEN $3::boolean THEN $4 ELSE parent_agency_id END,
+          marketplace_markup_percent = COALESCE($5::numeric, marketplace_markup_percent),
+          platform_fee_percent = COALESCE($6::numeric, platform_fee_percent)
+        WHERE id = $1 RETURNING id, name, type, active, parent_agency_id,
+          marketplace_markup_percent::text, platform_fee_percent::text`,
+      [id, b.active ?? null, b.parentAgencyId !== undefined, b.parentAgencyId ?? null,
+       percentages.marketplaceMarkupPercent ?? null, percentages.platformFeePercent ?? null])).rows[0];
     await audit(client, req.auth!.sub, id, "agency.updated", "agency", id,
       { targetAgencyId: id, before, after: await rowJson(client, "agencies", id) });
     return result;
