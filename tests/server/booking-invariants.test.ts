@@ -1,0 +1,3 @@
+import test from "node:test";import assert from "node:assert/strict";import {assertBookingTransition,assertIdempotencyKey} from "../../server/booking-invariants";
+test("booking transitions",()=>{assert.doesNotThrow(()=>assertBookingTransition("draft","submitted"));assert.doesNotThrow(()=>assertBookingTransition("submitted","confirmed"));assert.throws(()=>assertBookingTransition("cancelled","confirmed"));assert.throws(()=>assertBookingTransition("draft","confirmed"))});
+test("idempotency key validation",()=>{assert.doesNotThrow(()=>assertIdempotencyKey("reservation_123456"));assert.throws(()=>assertIdempotencyKey("short"));assert.throws(()=>assertIdempotencyKey("unsafe key with spaces"))});
