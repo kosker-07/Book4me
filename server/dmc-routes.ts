@@ -39,7 +39,7 @@ dmcRouter.patch("/api/dmc/subagencies/:id",...access,h(async(req,res)=>{
  if(typeof body.active!=="boolean"||Object.keys(body).some(k=>k!=="active"))
   throw httpError(400,"INVALID_SUBAGENCY");
  const result=await withTransaction(async client=>{
-  const before=(await client.query("SELECT * FROM agencies WHERE id=$1 AND type='sub' AND parent_agency_id=$2 FOR UPDATE",[id,req.auth!.agencyId])).rows[0];
+  const before=(await client.query("SELECT * FROM agencies WHERE id=$1 AND type='sub' AND parent_agency_id=$2",[id,req.auth!.agencyId])).rows[0];
   if(!before)throw httpError(404,"NOT_FOUND");
   const updated=(await client.query("UPDATE agencies SET active=$3 WHERE id=$1 AND parent_agency_id=$2 RETURNING id,name,active",[id,req.auth!.agencyId,body.active])).rows[0];
   await audit(client,req.auth!.sub,id,"agency.updated","agency",id,{targetAgencyId:id,before,after:await rowJson(client,"agencies",id)});
