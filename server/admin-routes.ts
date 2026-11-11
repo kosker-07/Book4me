@@ -422,7 +422,12 @@ adminRouter.post("/api/admin/agencies", authenticate, roles("system_admin", "mas
 
 adminRouter.patch("/api/admin/agencies/:id", authenticate, roles("system_admin", "master_agency"), h(async (req, res) => {
   const id = uuidParam(req), b = req.body || {};
-  const agency = await hierarchyAgency(req, id);
+  const selfMarkup = req.auth!.role === "master_agency" && id === req.auth!.agencyId;
+  const agency = await hierarchyAgency(req, id, selfMarkup);
+  // A master DMC may edit its own marketplace markup, and nothing else.
+  if (selfMarkup && (b.marketplaceMarkupPercent === undefined ||
+      Object.keys(b).some(key => key !== "marketplaceMarkupPercent")))
+    throw httpError(403, "FORBIDDEN");
   if (req.auth!.role === "master_agency" && b.parentAgencyId !== undefined) throw httpError(403, "FORBIDDEN");
   if (b.active !== undefined && typeof b.active !== "boolean") throw httpError(400, "ACTIVE_REQUIRED");
   if (b.parentAgencyId !== undefined) {
