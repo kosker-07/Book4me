@@ -157,7 +157,10 @@ export function priceMarketplaceChain(
 ): MarketplacePriceChain {
   if (!Number.isSafeInteger(netMinor) || netMinor < 0) throw new Error("Invalid net amount");
   const validated = [platformMarginPercent, buyerMarkupPercent, platformFeePercent].map(v => {
-    const milli = parseMinor(v, 3);
+    // Reject precision beyond three decimals rather than silently rounding percentages.
+    const raw = String(v).trim();
+    if (!/^(?:\\d+)(?:\\.\\d{1,3})?$/.test(raw)) throw new Error("Invalid percentage precision");
+    const milli = parseMinor(raw, 3);
     if (milli < 0 || milli > 100000) throw new Error("Percentage out of range");
     const text = String(milli / 1000);
     return { milli, text };
