@@ -38,7 +38,7 @@ export function readPdfPreview(file:Buffer):ContractPreview {
   const fields:Record<string,string>={};
   for(const line of text.split(/\r?\n/)){
     const match=/^\s*(Hotel|Otel|Room|Oda|Board|Pansiyon|From|Başlangıç|To|Bitiş|Net Price|Net Fiyat|Allotment|Kontenjan)\s*:\s*(.+)\s*$/i.exec(line);
-    if(match)fields[match[1].toLocaleLowerCase("tr")]=match[2].trim();
+    if(match)fields[(match[1]??"").toLocaleLowerCase("tr")]=(match[2]??"").trim();
   }
   const get=(...keys:string[])=>keys.map(k=>fields[k]).find(Boolean)||"";
   const hotel=get("hotel","otel"),name=get("room","oda"),board=get("board","pansiyon"),from=get("from","başlangıç"),to=get("to","bitiş"),netPrice=get("net price","net fiyat"),allotment=get("allotment","kontenjan");
