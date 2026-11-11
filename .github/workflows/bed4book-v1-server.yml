@@ -5,9 +5,11 @@ on:
     branches:
       - main
       - feature/bed4book-v1-server-foundation
+      - feature/ui-liquid-glass-integration
       - "claude/**"
     paths:
       - "server/**"
+      - "web/**"
       - "tests/server/**"
       - "package.json"
       - "package-lock.json"
