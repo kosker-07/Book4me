@@ -33,6 +33,7 @@ export interface ProformaData {
   cancellationPolicy?: unknown;
   paymentTerms?: unknown;
   guests: { name: string; type: string; age: number | null; nationality: string }[];
+  /** Kept for callers; never printed: the contract code is the seller DMC's own label and the proforma is the buyer's document. */
   contractCode: string;
   contractCurrency: string;
   contractAmount: string;
@@ -81,7 +82,6 @@ export function renderProforma(p: ProformaData): Promise<Buffer> {
       ["Otel / Hotel", `${p.hotelName}, ${p.hotelLocation}`],
       ["Konaklama / Stay", `${trDate(p.checkIn)} – ${trDate(p.checkOut)} (${p.nights} gece / nights)`],
       ["Oda / Room", `${p.roomName} × ${p.rooms} · ${p.board}`],
-      ["Kontrat / Contract", p.contractCode],
       ["İptal ve ödeme / Cancellation and payment", ratePlanTermsText(p.cancellationPolicy, p.paymentTerms)],
       ["Oda dağılımı / Per-room occupancy", p.roomOccupancies?.map((r, i) => `Oda ${i + 1}: ${r.adults} yetişkin, ${r.children} çocuk${r.children ? ` (${r.childAges.join(", ")})` : ""}`).join("\n") || "Eski rezervasyon / Legacy booking"],
       ["Misafirler / Guests", p.guests.map(g => `${g.name} (${g.type === "child" ? `çocuk/child ${g.age}` : "yetişkin/adult"}, ${g.nationality})`).join("\n")],

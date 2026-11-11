@@ -197,6 +197,19 @@ test("D5 booking through a rule: created, seller identity hidden, draft refused 
   assert.equal(sellerDmc.body.agency_name, "BED4BOOK");
   for (const key of ["hotel_owner_agency_id", "agency_parent_id"]) assert.ok(!(key in sellerDmc.body));
 
+  // The proforma is the buyer's document: BED4BOOK is the seller and no contract label of the seller DMC is printed.
+  await pool.query("UPDATE hotel_contracts SET code = 'ALPHA-SECRET-CODE'");
+  const third = (await search(w.t.subB)).body.results.find((x: any) => x.hotel.id === w.hotel.h1);
+  const forProforma = await book(w.t.subB, third.quoteId);
+  assert.equal(forProforma.status, 201, JSON.stringify(forProforma.body));
+  const proforma = await fetch(base + "/api/agency/bookings/" + forProforma.body.id + "/proforma", { headers: { authorization: "Bearer " + w.t.subB } });
+  assert.equal(proforma.status, 200);
+  const { spawnSync } = await import("node:child_process");
+  const proformaText = spawnSync("pdftotext", ["-", "-"], { input: Buffer.from(await proforma.arrayBuffer()) }).stdout.toString("utf8");
+  assert.ok(proformaText.includes("BED4BOOK"), "proforma names the platform as seller");
+  for (const secret of [...secrets, "ALPHA-SECRET-CODE", "Kontrat / Contract"])
+    assert.ok(!proformaText.includes(secret), "proforma leaks seller: " + secret);
+
   // A draft made while the rule was on cannot be submitted after the rule is switched off.
   const second = (await search(w.t.subB)).body.results.find((x: any) => x.hotel.id === w.hotel.h2);
   const draft = await book(w.t.subB, second.quoteId, { draft: true });
