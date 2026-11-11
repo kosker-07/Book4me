@@ -13,6 +13,7 @@ import { signQuote, verifyQuote } from "./quotes";
 import { audit, authenticate, AuthedRequest, httpError, isPlatformWide, requireAgency, roles, sessionSecret, uuidParam } from "./http";
 import { adminRouter } from "./admin-routes";
 import { contractRouter } from "./contract-routes";
+import { distributionRouter } from "./distribution-routes";
 import { renderVoucher } from "./voucher";
 import { renderProforma } from "./proforma";
 import { LOGIN_WINDOW_MINUTES, loginThrottled, parseTrustProxy } from "./login-guard";
@@ -126,6 +127,7 @@ app.get("/api/me", authenticate, (req: AuthedRequest, res) => {
 
 app.use(adminRouter);
 app.use(contractRouter);
+app.use(distributionRouter);
 
 // A sub-agency sees only hotels explicitly published to that agency.
 app.get("/api/agency/hotels", authenticate, roles("sub_agency"), requireAgency, async (req: AuthedRequest, res, next) => {
@@ -133,7 +135,7 @@ app.get("/api/agency/hotels", authenticate, roles("sub_agency"), requireAgency, 
     const result = await pool.query(
       `SELECT DISTINCT h.id, h.name, h.location, h.category, h.description, h.amenities, h.images
        FROM hotels h
-       JOIN agency_hotel_sales s ON s.hotel_id = h.id
+       JOIN effective_agency_sales($1) s ON s.hotel_id = h.id
        WHERE s.agency_id = $1 AND s.active = true AND h.status = 'active'
        ORDER BY h.name`,
       [req.auth!.agencyId]
@@ -168,7 +170,7 @@ async function loadCandidates(db: { query: PoolClient["query"] }, agencyId: stri
             h.id AS hotel_id, h.name AS hotel_name, h.location, h.category,
             s.markup_type, s.markup_value::text AS markup_value,
             json_agg(json_build_object('date', d.stay_date::text, 'price', d.price::text) ORDER BY d.stay_date) AS nights
-       FROM agency_hotel_sales s
+       FROM effective_agency_sales($1) s
        JOIN agencies sa ON sa.id = s.agency_id AND sa.active
        JOIN rate_plans rp ON rp.id = s.rate_plan_id AND rp.active
        JOIN currencies cur ON cur.code = rp.currency AND cur.active
@@ -299,7 +301,7 @@ async function publishedSale(client: PoolClient, agencyId: string, ratePlanId: s
   const row = (await client.query(
     `SELECT s.markup_type, s.markup_value::text AS markup_value, rp.currency, cur.minor_units, h.id AS hotel_id, r.max_adults, r.max_children,
             hc.id AS contract_id, hc.code AS contract_code, hc.name AS contract_name, hc.seller_legal_name
-       FROM agency_hotel_sales s
+       FROM effective_agency_sales($1) s
        JOIN agencies sa ON sa.id = s.agency_id AND sa.active
        JOIN rate_plans rp ON rp.id = s.rate_plan_id AND rp.active
        JOIN currencies cur ON cur.code = rp.currency AND cur.active
@@ -607,7 +609,8 @@ async function bookingDetail(bookingId: string, scopeSql: string, scopeParams: u
             b.check_in::text, b.check_out::text, b.room_count, b.total, b.currency,
             b.guest_first_name, b.guest_last_name, b.guest_email, b.guest_phone, b.guest_nationality,
             b.adults, b.children, b.child_ages, b.room_occupancies, b.operation_note, b.created_at, b.updated_at,
-            h.name AS hotel_name, h.location AS hotel_location, r.name AS room_name, rp.board_name, rp.cancellation_policy, rp.payment_terms
+            h.name AS hotel_name, h.location AS hotel_location, r.name AS room_name, rp.board_name, rp.cancellation_policy, rp.payment_terms,
+            h.owner_agency_id AS hotel_owner_agency_id, a.parent_agency_id AS agency_parent_id
        FROM bookings b JOIN hotels h ON h.id = b.hotel_id JOIN agencies a ON a.id = b.agency_id
        JOIN rate_plans rp ON rp.id = b.rate_plan_id JOIN rooms r ON r.id = rp.room_id
       WHERE b.id = $1 AND ${scopeSql}`, [bookingId, ...scopeParams])).rows[0];
@@ -627,20 +630,24 @@ async function bookingDetail(bookingId: string, scopeSql: string, scopeParams: u
   return { ...b, nights, history, guests, priceSnapshot: snapshot };
 }
 
+// Agency-facing booking detail. The seller's legal name never leaves the platform. On a marketplace sale (the
+// hotel belongs to another DMC than the viewer's) the contract code and name are the seller's own labels and are
+// withheld too, so nothing identifies the seller DMC. Hierarchy columns are internal and never returned.
 async function visibleBooking(detail: any, req: AuthedRequest) {
-  if (req.auth!.role === "master_agency") {
-    const parent = (await pool.query("SELECT parent_agency_id FROM agencies WHERE id=$1", [detail.agency_id])).rows[0]?.parent_agency_id;
-    const { agency_id, priceSnapshot, ...safe } = detail;
-    const { seller_legal_name, ...snapshot } = priceSnapshot || {};
-    return { ...safe, priceSnapshot: priceSnapshot ? snapshot : null, agency_name: parent === req.auth!.agencyId ? detail.agency_name : "BED4BOOK" };
+  const { hotel_owner_agency_id: owner, agency_parent_id: parent, ...rest } = detail;
+  const role = req.auth!.role;
+  if (role !== "master_agency" && role !== "sub_agency") return rest;
+  const { agency_id, priceSnapshot, ...safe } = rest;
+  const viewerDmc = role === "master_agency" ? req.auth!.agencyId : parent;
+  let snapshot: any = null;
+  if (priceSnapshot) {
+    const { seller_legal_name, ...kept } = priceSnapshot;
+    snapshot = kept;
+    if (owner !== viewerDmc) { delete snapshot.contract_code; delete snapshot.contract_name; }
   }
-  if (req.auth!.role === "sub_agency") {
-    const { agency_id, priceSnapshot, ...safe } = detail;
-    if (!priceSnapshot) return { ...safe, priceSnapshot: null };
-    const { seller_legal_name, ...snapshot } = priceSnapshot;
-    return { ...safe, priceSnapshot: snapshot };
-  }
-  return detail;
+  if (role === "master_agency")
+    return { ...safe, priceSnapshot: snapshot, agency_name: parent === req.auth!.agencyId ? detail.agency_name : "BED4BOOK" };
+  return { ...safe, priceSnapshot: snapshot };
 }
 
 app.get("/api/agency/bookings/:id", authenticate, roles("sub_agency"), requireAgency, async (req: AuthedRequest, res, next) => {

@@ -1,6 +1,6 @@
 import {api,download,signIn,signOut,session,resetSession,errText} from './service.js';
 const $=id=>document.getElementById(id), node=(tag,text,cls)=>{const n=document.createElement(tag);if(text!==undefined)n.textContent=String(text);if(cls)n.className=cls;return n};
-const el=(tag,props={},children=[])=>{const n=node(tag,props.text,props.cls);for(const [k,v] of Object.entries(props)){if(k==='text'||k==='cls')continue;if(k==='testid')n.dataset.testid=v;else if(k==='onClick')n.addEventListener('click',v);else if(k==='onChange')n.addEventListener('change',v);else n[k]=v}for(const c of children)n.append(c);return n};
+const el=(tag,props={},children=[])=>{const n=node(tag,props.text,props.cls);for(const [k,v] of Object.entries(props)){if(k==='text'||k==='cls'||v===undefined)continue;if(k==='testid')n.dataset.testid=v;else if(k==='onClick')n.addEventListener('click',v);else if(k==='onChange')n.addEventListener('change',v);else n[k]=v}for(const c of children)n.append(c);return n};
 const btn=(label,fn,primary=false,testid)=>el('button',{text:label,cls:primary?'primary':'ghost',type:'button',testid,onClick:fn});
 const field=(label,name,type='text',value='',testid)=>el('label',{},[node('span',label),el(type==='textarea'?'textarea':'input',{name,type:type==='textarea'?undefined:type,value,testid,required:!['search','number'].includes(type)})]);
 const card=(title,content)=>el('section',{cls:'card'},[node('h2',title),content]);
@@ -20,10 +20,59 @@ const navAdmin=[['dashboard','Panel'],['bookings','Rezervasyonlar'],['hotels','O
 let page='',bookingRows=[],offers=[],searchRequest=null,searchRooms=[{adults:2,ages:[]}],quote=null,bookingKey=null,selectedBooking=null;
 const isAgency=()=>session.user?.role==='sub_agency';
 const bookingBase=()=>isAgency()?'/api/agency/bookings':'/api/backoffice/bookings';
+// Marketplace distribution rules (operator only): which seller DMC's hotels are open or closed to which buyer DMC's sub-agencies.
+async function distribution(){
+  if(!isOperator()){view().append(card('Yetki gerekli',node('p','Bu işlem için platform yöneticisi yetkisi gerekir.')));return}
+  const [rulesData,agenciesData,hotelsData]=await Promise.all([api('/api/admin/distribution-rules'),api('/api/admin/agencies'),api('/api/backoffice/hotels')]);
+  const rules=rulesData.items||[],masters=(agenciesData.items||[]).filter(a=>a.type==='master'),hotels=hotelsData.items||[];
+  view().append(card('Nasıl çalışır?',wrap(
+    node('p','Bir kural, satıcı DMC\'nin otellerini başka bir DMC\'nin alt acentelerine açar ya da kapatır. Kapalı kuralı her zaman açık kuralından üstündür.'),
+    node('p','Bir alt acenteye elle açılmış ya da kapatılmış yayın varsa o yayın geçerlidir; kural onu değiştirmez. Kuralla açılan satışlarda bu aşamada kâr payı uygulanmaz.'))));
+  const list=el('div',{cls:'scroll',testid:'dist-rules-list'}),table=el('table',{cls:'list'}),head=el('tr');
+  for(const x of ['Satıcı DMC','Alıcı','Otel','Karar','Durum','Not','İşlem'])head.append(node('th',x));
+  table.append(head);
+  const patch=async(id,body)=>{try{await api('/api/admin/distribution-rules/'+encodeURIComponent(id),{method:'PATCH',body});await go('distribution')}catch(e){fail(e)}};
+  for(const r of rules){
+    const tr=el('tr',{testid:'dist-rule-row'});
+    for(const x of [r.seller_name,r.buyer_name||'Tüm DMC\'ler',r.hotel_name||'Tüm oteller',r.effect==='allow'?'Açık':'Kapalı',r.active?'Aktif':'Pasif',r.note||'—'])tr.append(node('td',x));
+    const remove=btn('Sil',async()=>{
+      if(remove.dataset.armed!=='1'){remove.dataset.armed='1';remove.textContent='Silmek için tekrar basın';return}
+      try{await api('/api/admin/distribution-rules/'+encodeURIComponent(r.id),{method:'DELETE'});await go('distribution')}catch(e){fail(e)}
+    },false,'dist-rule-delete');
+    tr.append(el('td',{},[
+      btn(r.active?'Pasifleştir':'Etkinleştir',()=>patch(r.id,{active:!r.active}),false,'dist-rule-toggle'),
+      btn(r.effect==='allow'?'Kapalı yap':'Açık yap',()=>patch(r.id,{effect:r.effect==='allow'?'deny':'allow'}),false,'dist-rule-effect-toggle'),
+      remove]));
+    table.append(tr);
+  }
+  list.append(rules.length?table:node('p','Henüz dağıtım kuralı yok. Kural eklenene kadar DMC\'lerin otelleri yalnızca kendi alt acentelerine ve elle açılan yayınlara görünür.'));
+  view().append(card('Dağıtım kuralları ('+rules.length+')',list));
+  if(masters.length<2){view().append(card('Yeni kural',node('p','Kural tanımlamak için en az iki DMC gerekir.')));return}
+  const option=(v,t)=>el('option',{value:v,text:t});
+  const seller=el('select',{name:'sellerAgencyId',testid:'dist-rule-seller',required:true},masters.map(a=>option(a.id,a.name+(a.active?'':' (pasif)'))));
+  const buyer=el('select',{name:'buyerAgencyId',testid:'dist-rule-buyer'});
+  const hotel=el('select',{name:'hotelId',testid:'dist-rule-hotel'});
+  const effect=el('select',{name:'effect',testid:'dist-rule-effect'},[option('allow','Açık (satışa aç)'),option('deny','Kapalı (satışa kapat)')]);
+  const note=el('input',{name:'note',type:'text',maxLength:500,testid:'dist-rule-note'});
+  const refill=()=>{
+    buyer.replaceChildren(option('','Tüm DMC\'ler'),...masters.filter(a=>a.id!==seller.value).map(a=>option(a.id,a.name)));
+    hotel.replaceChildren(option('','Tüm oteller'),...hotels.filter(h=>h.owner_agency_id===seller.value).map(h=>option(h.id,h.name)));
+  };
+  seller.addEventListener('change',refill);refill();
+  const labeled=(text,control)=>el('label',{},[node('span',text),control]);
+  const form=el('form',{testid:'dist-rule-form'},[labeled('Satıcı DMC',seller),labeled('Alıcı DMC',buyer),labeled('Otel',hotel),labeled('Karar',effect),labeled('Not (isteğe bağlı)',note),
+    el('button',{text:'Kuralı kaydet',type:'submit',cls:'primary',testid:'dist-rule-save'})]);
+  form.onsubmit=async ev=>{ev.preventDefault();const raw=formValues(form);
+    try{await api('/api/admin/distribution-rules',{method:'POST',body:{sellerAgencyId:raw.sellerAgencyId,buyerAgencyId:raw.buyerAgencyId||null,hotelId:raw.hotelId||null,effect:raw.effect,note:raw.note||''}});message('Kural kaydedildi.');await go('distribution')}catch(e){fail(e)}};
+  view().append(card('Yeni kural',form));
+}
 function fail(e){if(e.status===401){resetSession();setAuth(false);message('Oturum sona erdi. Yeniden giriş yapın.');return}message(errText(e))}
 function setAuth(ok){show('login',!ok);show('app',ok);show('logout',ok);$('menuToggle').classList.toggle('hidden',!ok);$('userBadge').textContent=ok?(roleNames[session.user.role]||session.user.role):'';if(ok)nav()}
-function nav(){const root=$('navItems');root.replaceChildren();for(const [id,label] of(isAgency()?navAgency:session.user?.role==='system_admin'?[...navAdmin.slice(0,6),['platform-settings','Şirket bilgileri'],...navAdmin.slice(6)]:navAdmin)){const b=btn(label,()=>go(id));b.dataset.testid='nav-'+id;b.classList.toggle('active',id===page);root.append(b)}}
-async function go(id){page=id;$('sidebar').classList.remove('open');$('menuToggle').setAttribute('aria-expanded','false');nav();clear();message('');const title=(isAgency()?navAgency:navAdmin).find(x=>x[0]===id)?.[1]||id;$('pageTitle').textContent=title;try{if(id.startsWith('soon-'))return soon(title);if(id==='account')return account();if(id==='search')return search();if(id==='bookings')return await bookings();if(id==='dashboard')return await dashboard();if(id==='hotels')return await hotels();if(id==='markets')return await markets();if(id==='currencies')return await currencies();if(id==='agencies')return await agencies();if(id==='platform-settings')return await platformSettings();return soon(title)}catch(e){fail(e);view().append(node('div','Veri yüklenemedi.','card empty'))}}
+const isOperator=()=>['system_admin','back_office'].includes(session.user?.role);
+// Platform operator screens sit after "Acenteler ve kullanıcılar": company details (system admin only) and marketplace distribution.
+function adminNav(){const extra=[];if(session.user?.role==='system_admin')extra.push(['platform-settings','Şirket bilgileri']);if(isOperator())extra.push(['distribution','Pazar yeri dağıtımı']);return [...navAdmin.slice(0,6),...extra,...navAdmin.slice(6)]}
+function nav(){const root=$('navItems');root.replaceChildren();for(const [id,label] of(isAgency()?navAgency:adminNav())){const b=btn(label,()=>go(id));b.dataset.testid='nav-'+id;b.classList.toggle('active',id===page);root.append(b)}}
+async function go(id){page=id;$('sidebar').classList.remove('open');$('menuToggle').setAttribute('aria-expanded','false');nav();clear();message('');const title=(isAgency()?navAgency:adminNav()).find(x=>x[0]===id)?.[1]||id;$('pageTitle').textContent=title;try{if(id.startsWith('soon-'))return soon(title);if(id==='account')return account();if(id==='search')return search();if(id==='bookings')return await bookings();if(id==='dashboard')return await dashboard();if(id==='hotels')return await hotels();if(id==='markets')return await markets();if(id==='currencies')return await currencies();if(id==='agencies')return await agencies();if(id==='platform-settings')return await platformSettings();if(id==='distribution')return await distribution();return soon(title)}catch(e){fail(e);view().append(node('div','Veri yüklenemedi.','card empty'))}}
 async function platformSettings(){
   if(session.user?.role!=='system_admin')return;
   const data=await api('/api/admin/platform-settings');
