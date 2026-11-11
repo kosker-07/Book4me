@@ -1,3 +1,4 @@
+import { pdfText } from "../helpers/pdf-text";
 // Marketplace stage 1 — bulk distribution rules, against real PostgreSQL and the real API.
 // Three DMCs (A sells; B and C buy), one sub-agency each. A owns two hotels with one bookable rate plan each
 // and a third rate plan without cancellation/payment terms (never sellable by rule).
@@ -204,8 +205,7 @@ test("D5 booking through a rule: created, seller identity hidden, draft refused 
   assert.equal(forProforma.status, 201, JSON.stringify(forProforma.body));
   const proforma = await fetch(base + "/api/agency/bookings/" + forProforma.body.id + "/proforma", { headers: { authorization: "Bearer " + w.t.subB } });
   assert.equal(proforma.status, 201, "first request issues the proforma");
-  const { spawnSync } = await import("node:child_process");
-  const proformaText = spawnSync("pdftotext", ["-", "-"], { input: Buffer.from(await proforma.arrayBuffer()) }).stdout.toString("utf8");
+  const proformaText = await pdfText(Buffer.from(await proforma.arrayBuffer()));
   assert.ok(proformaText.includes("BED4BOOK"), "proforma names the platform as seller");
   for (const secret of [...secrets, "ALPHA-SECRET-CODE", "Kontrat / Contract"])
     assert.ok(!proformaText.includes(secret), "proforma leaks seller: " + secret);
