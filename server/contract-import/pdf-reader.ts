@@ -23,9 +23,9 @@ function extractText(file:Buffer):string {
     const content=bytes.toString("latin1");
     for(const block of content.matchAll(/\bBT\b([\s\S]*?)\bET\b/g)){
       const pieces:string[]=[];
-      for(const token of block[1].matchAll(/\(((?:\\.|[^\\)])*)\)\s*(?:Tj|'|")|\[((?:\((?:\\.|[^\\)])*\)|[^\]])*)\]\s*TJ/g)){
+      for(const token of (block[1]??"").matchAll(/\(((?:\\.|[^\\)])*)\)\s*(?:Tj|'|")|\[((?:\((?:\\.|[^\\)])*\)|[^\]])*)\]\s*TJ/g)){
         if(token[1]!==undefined)pieces.push(pdfString(token[1]));
-        else for(const part of token[2].matchAll(/\(((?:\\.|[^\\)])*)\)/g))pieces.push(pdfString(part[1]));
+        else for(const part of (token[2]??"").matchAll(/\(((?:\\.|[^\\)])*)\)/g))pieces.push(pdfString(part[1]??""));
       }
       if(pieces.length)chunks.push(pieces.join(""));
     }
