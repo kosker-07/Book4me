@@ -90,7 +90,7 @@ distributionRouter.patch("/api/admin/distribution-rules/:id", ...operators, h(as
   }
   if (b.platformMarginPercent !== undefined) {
     if (!validPercent(b.platformMarginPercent)) throw httpError(400, "INVALID_DISTRIBUTION_RULE");
-    values.push(b.platformMarginPercent); sets.push(`platform_margin_percent = ${values.length + 1}`);
+    values.push(b.platformMarginPercent); sets.push(`platform_margin_percent = $${values.length + 1}`);
   }
   if (b.note !== undefined) {
     if (typeof b.note !== "string" || b.note.length > NOTE_MAX) throw httpError(400, "INVALID_DISTRIBUTION_RULE");
