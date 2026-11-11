@@ -100,7 +100,7 @@ const rule = (token: string, body: object) => request("POST", "/api/admin/distri
 test("D1 no rule: another DMC's hotels are invisible; allow-all opens them to every other DMC, never to the seller's own subs", { skip }, async () => {
   const w = await seed();
   assert.equal((await hotelsSeen(w.t.subB)).size, 0);
-  const created = await rule(w.t.admin, { sellerAgencyId: w.dmc.a, effect: "allow", note: " open to all " });
+  const created = await rule(w.t.admin, { sellerAgencyId: w.dmc.a, effect: "allow", platformMarginPercent: 0, note: " open to all " });
   assert.equal(created.status, 201, JSON.stringify(created.body));
   assert.equal(created.body.buyer_agency_id, null);
   assert.equal(created.body.hotel_id, null);
@@ -121,14 +121,14 @@ test("D1 no rule: another DMC's hotels are invisible; allow-all opens them to ev
 
 test("D2 buyer-specific and hotel-specific allow rules open exactly their scope", { skip }, async () => {
   const w = await seed();
-  assert.equal((await rule(w.t.office, { sellerAgencyId: w.dmc.a, buyerAgencyId: w.dmc.b, hotelId: w.hotel.h1, effect: "allow" })).status, 201);
+  assert.equal((await rule(w.t.office, { sellerAgencyId: w.dmc.a, buyerAgencyId: w.dmc.b, hotelId: w.hotel.h1, effect: "allow", platformMarginPercent: 0 })).status, 201);
   assert.deepEqual([...(await hotelsSeen(w.t.subB))], [w.hotel.h1]);
   assert.equal((await hotelsSeen(w.t.subC)).size, 0, "a third DMC is not covered by a buyer-specific rule");
 });
 
 test("D3 deny beats allow; deactivating or deleting a rule takes effect immediately", { skip }, async () => {
   const w = await seed();
-  assert.equal((await rule(w.t.admin, { sellerAgencyId: w.dmc.a, effect: "allow" })).status, 201);
+  assert.equal((await rule(w.t.admin, { sellerAgencyId: w.dmc.a, effect: "allow", platformMarginPercent: 0 })).status, 201);
   const deny = await rule(w.t.admin, { sellerAgencyId: w.dmc.a, buyerAgencyId: w.dmc.c, hotelId: w.hotel.h2, effect: "deny" });
   assert.equal(deny.status, 201, JSON.stringify(deny.body));
   assert.deepEqual([...(await hotelsSeen(w.t.subC))], [w.hotel.h1], "specific deny closes hotel two for DMC C only");
@@ -139,7 +139,7 @@ test("D3 deny beats allow; deactivating or deleting a rule takes effect immediat
   assert.equal(off.body.active, false);
   assert.equal((await hotelsSeen(w.t.subC)).size, 2, "an inactive deny rule no longer closes anything");
 
-  const flipped = await request("PATCH", "/api/admin/distribution-rules/" + deny.body.id, w.t.admin, { active: true, effect: "allow" });
+  const flipped = await request("PATCH", "/api/admin/distribution-rules/" + deny.body.id, w.t.admin, { active: true, effect: "allow", platformMarginPercent: 0 });
   assert.equal(flipped.body.effect, "allow");
   const denyAll = await rule(w.t.admin, { sellerAgencyId: w.dmc.a, buyerAgencyId: w.dmc.c, effect: "deny" });
   assert.equal(denyAll.status, 201);
@@ -152,7 +152,7 @@ test("D3 deny beats allow; deactivating or deleting a rule takes effect immediat
 
 test("D4 a publication row decides on its own: inactive closes, active keeps its markup", { skip }, async () => {
   const w = await seed();
-  assert.equal((await rule(w.t.admin, { sellerAgencyId: w.dmc.a, effect: "allow" })).status, 201);
+  assert.equal((await rule(w.t.admin, { sellerAgencyId: w.dmc.a, effect: "allow", platformMarginPercent: 0 })).status, 201);
   const pub = await request("POST", "/api/admin/publications", w.t.admin, { ratePlanId: w.plan.p1, agencyId: w.sub.b, markupType: "percent", markupValue: 10 });
   assert.equal(pub.status, 201, JSON.stringify(pub.body));
   const priced = (await search(w.t.subB)).body.results.find((x: any) => x.hotel.id === w.hotel.h1);
@@ -167,7 +167,7 @@ test("D4 a publication row decides on its own: inactive closes, active keeps its
 test("D5 booking through a rule: created, seller identity hidden, draft refused once the rule is switched off", { skip }, async () => {
   const w = await seed();
   await pool.query("UPDATE hotel_contracts SET name = 'Alpha Private Contract', seller_legal_name = 'Alpha Legal Ltd'");
-  const allow = await rule(w.t.admin, { sellerAgencyId: w.dmc.a, buyerAgencyId: w.dmc.b, effect: "allow" });
+  const allow = await rule(w.t.admin, { sellerAgencyId: w.dmc.a, buyerAgencyId: w.dmc.b, effect: "allow", platformMarginPercent: 0 });
   assert.equal(allow.status, 201);
 
   const found = await search(w.t.subB);
@@ -224,7 +224,7 @@ test("D5 booking through a rule: created, seller identity hidden, draft refused 
 
 test("D6 only the platform operator manages rules; validation and audit", { skip }, async () => {
   const w = await seed();
-  const created = await rule(w.t.admin, { sellerAgencyId: w.dmc.a, effect: "allow" });
+  const created = await rule(w.t.admin, { sellerAgencyId: w.dmc.a, effect: "allow", platformMarginPercent: 0 });
   assert.equal(created.status, 201);
   for (const token of [w.t.masterA, w.t.masterB, w.t.subA, w.t.subB]) {
     assert.equal((await request("GET", "/api/admin/distribution-rules", token)).status, 403);
@@ -238,17 +238,20 @@ test("D6 only the platform operator manages rules; validation and audit", { skip
   assert.equal(listed.body.items[0].seller_name, "Seller DMC Alpha");
 
   const bad: [object, number, string][] = [
-    [{ sellerAgencyId: w.dmc.a, effect: "allow" }, 409, "DISTRIBUTION_RULE_EXISTS"],
+    [{ sellerAgencyId: w.dmc.b, effect: "allow" }, 400, "PLATFORM_MARGIN_REQUIRED"],
+    [{ sellerAgencyId: w.dmc.b, effect: "deny", platformMarginPercent: 1 }, 400, "INVALID_DISTRIBUTION_RULE"],
+    [{ sellerAgencyId: w.dmc.b, effect: "allow", platformMarginPercent: 1.2345 }, 400, "INVALID_DISTRIBUTION_RULE"],
+    [{ sellerAgencyId: w.dmc.a, effect: "allow", platformMarginPercent: 0 }, 409, "DISTRIBUTION_RULE_EXISTS"],
     [{ sellerAgencyId: w.dmc.a, effect: "deny" }, 409, "DISTRIBUTION_RULE_EXISTS"],
     [{ sellerAgencyId: w.dmc.a, effect: "open" }, 400, "INVALID_DISTRIBUTION_RULE"],
-    [{ effect: "allow" }, 400, "INVALID_DISTRIBUTION_RULE"],
-    [{ sellerAgencyId: w.sub.a, effect: "allow" }, 400, "SELLER_MUST_BE_MASTER"],
-    [{ sellerAgencyId: randomUUID(), effect: "allow" }, 400, "SELLER_MUST_BE_MASTER"],
-    [{ sellerAgencyId: w.dmc.a, buyerAgencyId: w.sub.b, effect: "allow" }, 400, "BUYER_MUST_BE_MASTER"],
-    [{ sellerAgencyId: w.dmc.a, buyerAgencyId: w.dmc.a, effect: "allow" }, 400, "BUYER_MUST_DIFFER_FROM_SELLER"],
-    [{ sellerAgencyId: w.dmc.b, hotelId: w.hotel.h1, effect: "allow" }, 400, "HOTEL_NOT_OWNED_BY_SELLER"],
-    [{ sellerAgencyId: w.dmc.a, buyerAgencyId: "not-a-uuid", effect: "allow" }, 400, "INVALID_DISTRIBUTION_RULE"],
-    [{ sellerAgencyId: w.dmc.a, buyerAgencyId: w.dmc.b, effect: "allow", note: "x".repeat(501) }, 400, "INVALID_DISTRIBUTION_RULE"]
+    [{ effect: "allow", platformMarginPercent: 0 }, 400, "INVALID_DISTRIBUTION_RULE"],
+    [{ sellerAgencyId: w.sub.a, effect: "allow", platformMarginPercent: 0 }, 400, "SELLER_MUST_BE_MASTER"],
+    [{ sellerAgencyId: randomUUID(), effect: "allow", platformMarginPercent: 0 }, 400, "SELLER_MUST_BE_MASTER"],
+    [{ sellerAgencyId: w.dmc.a, buyerAgencyId: w.sub.b, effect: "allow", platformMarginPercent: 0 }, 400, "BUYER_MUST_BE_MASTER"],
+    [{ sellerAgencyId: w.dmc.a, buyerAgencyId: w.dmc.a, effect: "allow", platformMarginPercent: 0 }, 400, "BUYER_MUST_DIFFER_FROM_SELLER"],
+    [{ sellerAgencyId: w.dmc.b, hotelId: w.hotel.h1, effect: "allow", platformMarginPercent: 0 }, 400, "HOTEL_NOT_OWNED_BY_SELLER"],
+    [{ sellerAgencyId: w.dmc.a, buyerAgencyId: "not-a-uuid", effect: "allow", platformMarginPercent: 0 }, 400, "INVALID_DISTRIBUTION_RULE"],
+    [{ sellerAgencyId: w.dmc.a, buyerAgencyId: w.dmc.b, effect: "allow", platformMarginPercent: 0, note: "x".repeat(501) }, 400, "INVALID_DISTRIBUTION_RULE"]
   ];
   for (const [body, status, error] of bad) {
     const r = await rule(w.t.admin, body);
@@ -275,7 +278,7 @@ test("D6 only the platform operator manages rules; validation and audit", { skip
 
 test("D7 an inactive buyer DMC or seller DMC gets nothing through a rule", { skip }, async () => {
   const w = await seed();
-  assert.equal((await rule(w.t.admin, { sellerAgencyId: w.dmc.a, effect: "allow" })).status, 201);
+  assert.equal((await rule(w.t.admin, { sellerAgencyId: w.dmc.a, effect: "allow", platformMarginPercent: 0 })).status, 201);
   await pool.query("UPDATE agencies SET active = false WHERE id = $1", [w.dmc.c]);
   assert.equal((await hotelsSeen(w.t.subC)).size, 0, "sub-agency of an inactive DMC");
   assert.equal((await hotelsSeen(w.t.subB)).size, 2);
