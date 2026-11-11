@@ -159,7 +159,7 @@ export function priceMarketplaceChain(
   const validated = [platformMarginPercent, buyerMarkupPercent, platformFeePercent].map(v => {
     const milli = parseMinor(v, 3);
     if (milli < 0 || milli > 100000) throw new Error("Percentage out of range");
-    const text = (milli / 1000).toFixed(3).replace(/\\.?0+$/, "");
+    const text = String(milli / 1000);
     return { milli, text };
   });
   const platform = validated[0]!, buyer = validated[1]!, fee = validated[2]!;
