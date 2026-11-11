@@ -55,3 +55,15 @@ Kapsam: BED4BOOK web uygulamasının mevcut ve yeni bütün ekranları.
 4. Masaüstü/tablet/mobil, klavye, kontrast ve reduced-motion kontrolleri geçer.
 5. Kullanıcı oturumları, yetkiler, fiyatlandırma, rezervasyon ve API davranışları değişmemiştir.
 6. Ürün sahibi gerçek uygulama ekran görüntülerini inceleyip onaylamıştır.
+
+## 8. Tema seçimi — Sistem / Gündüz / Gece (onaylı ek karar, 11.11.2026)
+- **Varsayılan: Sistemle Aynı (Otomatik).** Uygulama ilk açılışta işletim sistemi/tarayıcının `prefers-color-scheme` tercihini izler; sistem teması değiştiğinde görünüm otomatik güncellenir.
+- Kullanıcı üst menüdeki görünüm kontrolünden **Otomatik / Gündüz / Gece** seçeneklerinden birini manuel seçebilir.
+- **Gündüz (Light):** Açık/beyaz zemin, koyu metin, açık yarı saydam cam yüzeyler ve BED4BOOK kırmızı vurguları.
+- **Gece (Dark):** Siyah/antrasit zemin, beyaz/açık metin, koyu yarı saydam cam yüzeyler ve BED4BOOK kırmızı vurguları.
+- Manuel tema tercihi sayfa yenilendiğinde ve yeniden girişte korunmalıdır; kullanıcı tekrar Otomatik seçerse sistem ayarı geçerli olur. Tercih saklama mekanizması mevcut kullanıcı mimarisine uygun belirlenir; bu şartname veri modeli veya API değişikliğini zorunlu kılmaz.
+- Sayfa ilk yüklenirken yanlış tema parlaması (FOUC) önlenmeli; `prefers-color-scheme` değişiklikleri otomatik modda dinlenmelidir.
+- **Orijinal logo dosyası değişmez.** Açık temada kontrastı korumak için logo kendi koyu zeminli alanında gösterilir; açık renkli alternatif logo üretilmez.
+- Tema tokenları bütün bileşenlerde (menü, kart, tablo, form, modal, bildirim) tutarlı uygulanır; metin kontrastı ve görünür klavye odağı korunur.
+- Tema seçimi yalnızca sunum katmanını etkiler; fiyat, rezervasyon, yetki, API ve iş kurallarına müdahale etmez.
+- Kabul: Üç seçeneğin tamamı çalışır; ilk açılış sistem temasını izler; manuel seçim korunur; otomatik moda dönünce cihaz temasına uyum sağlanır; mobil ve masaüstünde logo bozulmaz.
