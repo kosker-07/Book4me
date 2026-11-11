@@ -27,14 +27,14 @@ async function distribution(){
   const rules=rulesData.items||[],masters=(agenciesData.items||[]).filter(a=>a.type==='master'),hotels=hotelsData.items||[];
   view().append(card('Nasıl çalışır?',wrap(
     node('p','Bir kural, satıcı DMC\'nin otellerini başka bir DMC\'nin alt acentelerine açar ya da kapatır. Kapalı kuralı her zaman açık kuralından üstündür.'),
-    node('p','Bir alt acenteye elle açılmış ya da kapatılmış yayın varsa o yayın geçerlidir; kural onu değiştirmez. Kuralla açılan satışlarda bu aşamada kâr payı uygulanmaz.'))));
+    node('p','Bir alt acenteye elle açılmış ya da kapatılmış yayın varsa o yayın geçerlidir; kural onu değiştirmez. Kuralla açılan satışlarda platform kârı ve alıcı DMC kârı uygulanır. Hizmet bedeli satış fiyatını değiştirmez.'))));
   const list=el('div',{cls:'scroll',testid:'dist-rules-list'}),table=el('table',{cls:'list'}),head=el('tr');
-  for(const x of ['Satıcı DMC','Alıcı','Otel','Karar','Durum','Not','İşlem'])head.append(node('th',x));
+  for(const x of ['Satıcı DMC','Alıcı','Otel','Karar','Platform kârı %','Durum','Not','İşlem'])head.append(node('th',x));
   table.append(head);
   const patch=async(id,body)=>{try{await api('/api/admin/distribution-rules/'+encodeURIComponent(id),{method:'PATCH',body});await go('distribution')}catch(e){fail(e)}};
   for(const r of rules){
     const tr=el('tr',{testid:'dist-rule-row'});
-    for(const x of [r.seller_name,r.buyer_name||'Tüm DMC\'ler',r.hotel_name||'Tüm oteller',r.effect==='allow'?'Açık':'Kapalı',r.active?'Aktif':'Pasif',r.note||'—'])tr.append(node('td',x));
+    for(const x of [r.seller_name,r.buyer_name||'Tüm DMC\'ler',r.hotel_name||'Tüm oteller',r.effect==='allow'?'Açık':'Kapalı',r.effect==='allow'?String(r.platform_margin_percent??0):'—',r.active?'Aktif':'Pasif',r.note||'—'])tr.append(node('td',x));
     const remove=btn('Sil',async()=>{
       if(remove.dataset.armed!=='1'){remove.dataset.armed='1';remove.textContent='Silmek için tekrar basın';return}
       try{await api('/api/admin/distribution-rules/'+encodeURIComponent(r.id),{method:'DELETE'});await go('distribution')}catch(e){fail(e)}
@@ -53,6 +53,7 @@ async function distribution(){
   const buyer=el('select',{name:'buyerAgencyId',testid:'dist-rule-buyer'});
   const hotel=el('select',{name:'hotelId',testid:'dist-rule-hotel'});
   const effect=el('select',{name:'effect',testid:'dist-rule-effect'},[option('allow','Açık (satışa aç)'),option('deny','Kapalı (satışa kapat)')]);
+  const margin=el('input',{name:'platformMarginPercent',type:'number',min:'0',max:'100',step:'0.001',value:'0',testid:'dist-rule-margin'});
   const note=el('input',{name:'note',type:'text',maxLength:500,testid:'dist-rule-note'});
   const refill=()=>{
     buyer.replaceChildren(option('','Tüm DMC\'ler'),...masters.filter(a=>a.id!==seller.value).map(a=>option(a.id,a.name)));
@@ -60,10 +61,10 @@ async function distribution(){
   };
   seller.addEventListener('change',refill);refill();
   const labeled=(text,control)=>el('label',{},[node('span',text),control]);
-  const form=el('form',{testid:'dist-rule-form'},[labeled('Satıcı DMC',seller),labeled('Alıcı DMC',buyer),labeled('Otel',hotel),labeled('Karar',effect),labeled('Not (isteğe bağlı)',note),
+  const form=el('form',{testid:'dist-rule-form'},[labeled('Satıcı DMC',seller),labeled('Alıcı DMC',buyer),labeled('Otel',hotel),labeled('Karar',effect),labeled('Platform kârı (%)',margin),labeled('Not (isteğe bağlı)',note),
     el('button',{text:'Kuralı kaydet',type:'submit',cls:'primary',testid:'dist-rule-save'})]);
   form.onsubmit=async ev=>{ev.preventDefault();const raw=formValues(form);
-    try{await api('/api/admin/distribution-rules',{method:'POST',body:{sellerAgencyId:raw.sellerAgencyId,buyerAgencyId:raw.buyerAgencyId||null,hotelId:raw.hotelId||null,effect:raw.effect,note:raw.note||''}});message('Kural kaydedildi.');await go('distribution')}catch(e){fail(e)}};
+    try{await api('/api/admin/distribution-rules',{method:'POST',body:{sellerAgencyId:raw.sellerAgencyId,buyerAgencyId:raw.buyerAgencyId||null,hotelId:raw.hotelId||null,effect:raw.effect,...(raw.effect==='allow'?{platformMarginPercent:Number(raw.platformMarginPercent)}:{}),note:raw.note||''}});message('Kural kaydedildi.');await go('distribution')}catch(e){fail(e)}};
   view().append(card('Yeni kural',form));
 }
 function fail(e){if(e.status===401){resetSession();setAuth(false);message('Oturum sona erdi. Yeniden giriş yapın.');return}message(errText(e))}
@@ -297,8 +298,15 @@ async function agencies(){
     for(const x of [a.name,a.type,a.type==='sub'?(a.parent_agency_name||'DMC atanmamış'):'—',a.active?'Aktif':'Pasif'])tr.append(node('td',x));
     tr.append(el('td',{},[btn('Düzenle',()=>{clear();view().append(editor('Acente düzenle','/api/admin/agencies/'+a.id,'PATCH',[
       choice('Aktif','active',[['true','Evet'],['false','Hayır']],String(a.active)),
+      ...(a.type==='master'&&(session.user.role==='system_admin'||session.user?.agencyId===a.id)?[
+        field('Pazar yeri DMC kârı (%)','marketplaceMarkupPercent','number',a.marketplace_markup_percent??'0'),
+        field('Platform hizmet bedeli (%)','platformFeePercent','number',a.platform_fee_percent??'0')
+      ]:[]),
       ...(session.user.role==='system_admin'&&a.type==='sub'?[choice('Bağlı olduğu DMC','parentAgencyId',[['','DMC atanmamış'],...agencyRows.filter(x=>x.type==='master').map(x=>[x.id,x.name])],a.parent_agency_id||'')]:[])
-    ],()=>go('agencies'),raw=>({...raw,active:raw.active==='true',...(raw.parentAgencyId!==undefined?{parentAgencyId:raw.parentAgencyId||null}:{})}))) }),btn(a.active?'Pasifleştir':'Etkinleştir',async()=>{
+    ],()=>go('agencies'),raw=>({...raw,active:raw.active==='true',
+        ...(raw.marketplaceMarkupPercent!==undefined?{marketplaceMarkupPercent:raw.marketplaceMarkupPercent}:{}),
+        ...(raw.platformFeePercent!==undefined?{platformFeePercent:raw.platformFeePercent}:{}),
+        ...(raw.parentAgencyId!==undefined?{parentAgencyId:raw.parentAgencyId||null}:{})}))) }),btn(a.active?'Pasifleştir':'Etkinleştir',async()=>{
       try{await api('/api/admin/agencies/'+encodeURIComponent(a.id),{method:'PATCH',body:{active:!a.active}});await go('agencies')}catch(e){fail(e)}
     })]));
     agencyTable.append(tr);
@@ -354,5 +362,4 @@ async function agencies(){
 
 function adminForm(url,method,fields,done){const form=el('form');for(const [label,name] of fields)form.append(field(label,name,name==='password'?'password':'text'));form.append(el('button',{text:'Kaydet',cls:'primary',type:'submit'}));form.onsubmit=async e=>{e.preventDefault();const body=Object.fromEntries(new FormData(form));for(const k of Object.keys(body))if(body[k]==='')delete body[k];try{await api(url,{method,body});message('Kaydedildi.');done()}catch(e){fail(e)}};return form}
 setAuth(false);
-// A reload keeps the user signed in: the session cookie is checked once on start.
-restoreSession().then(ok=>{if(ok){setAuth(true);go(isAgency()?'search':'dashboard')}});
+restoreSession().then(ok=>{if(ok){setAuth(true);go(isAgency()?"search":"dashboard")}});

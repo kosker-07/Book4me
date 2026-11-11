@@ -14,9 +14,12 @@ export const distributionRouter = Router();
 const operators = [authenticate, roles("system_admin", "back_office")] as const;
 const EFFECTS = ["allow", "deny"];
 const NOTE_MAX = 500;
+const validPercent = (v: unknown): v is number =>
+  typeof v === "number" && Number.isFinite(v) && v >= 0 && v <= 100 &&
+  Math.abs(v * 1000 - Math.round(v * 1000)) < 1e-7;
 
 const RULE_SQL = `SELECT d.id, d.seller_agency_id, s.name AS seller_name, d.buyer_agency_id, b.name AS buyer_name,
-                         d.hotel_id, ht.name AS hotel_name, d.effect, d.active, d.note, d.created_by, d.created_at, d.updated_at
+                         d.hotel_id, ht.name AS hotel_name, d.effect, d.active, d.platform_margin_percent::text AS platform_margin_percent, d.note, d.created_by, d.created_at, d.updated_at
                     FROM marketplace_distribution_rules d
                     JOIN agencies s ON s.id = d.seller_agency_id
                     LEFT JOIN agencies b ON b.id = d.buyer_agency_id
@@ -40,8 +43,13 @@ distributionRouter.get("/api/admin/distribution-rules", ...operators, h(async (_
 distributionRouter.post("/api/admin/distribution-rules", ...operators, h(async (req, res) => {
   const b = req.body || {};
   if (typeof b.sellerAgencyId !== "string" || !UUID_RE.test(b.sellerAgencyId) || !EFFECTS.includes(b.effect)
+      || (b.platformMarginPercent !== undefined && !validPercent(b.platformMarginPercent))
       || (b.active !== undefined && typeof b.active !== "boolean")
       || (b.note !== undefined && (typeof b.note !== "string" || b.note.length > NOTE_MAX)))
+    throw httpError(400, "INVALID_DISTRIBUTION_RULE");
+  if (b.effect === "allow" && b.platformMarginPercent === undefined)
+    throw httpError(400, "PLATFORM_MARGIN_REQUIRED");
+  if (b.effect === "deny" && b.platformMarginPercent !== undefined)
     throw httpError(400, "INVALID_DISTRIBUTION_RULE");
   const buyerId = optionalId(b.buyerAgencyId, "BUYER"), hotelId = optionalId(b.hotelId, "HOTEL");
   if (buyerId === b.sellerAgencyId) throw httpError(400, "BUYER_MUST_DIFFER_FROM_SELLER");
@@ -60,9 +68,9 @@ distributionRouter.post("/api/admin/distribution-rules", ...operators, h(async (
   try {
     const row = await withTransaction(async client => {
       const id = (await client.query(
-        `INSERT INTO marketplace_distribution_rules(seller_agency_id, buyer_agency_id, hotel_id, effect, active, note, created_by)
-         VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id`,
-        [b.sellerAgencyId, buyerId, hotelId, b.effect, b.active ?? true, (b.note ?? "").trim(), req.auth!.sub])).rows[0].id;
+        `INSERT INTO marketplace_distribution_rules(seller_agency_id, buyer_agency_id, hotel_id, effect, active, note, created_by, platform_margin_percent)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id`,
+        [b.sellerAgencyId, buyerId, hotelId, b.effect, b.active ?? true, (b.note ?? "").trim(), req.auth!.sub, b.effect === "allow" ? b.platformMarginPercent : 0])).rows[0].id;
       const after = await ruleById(client, id);
       await audit(client, req.auth!.sub, null, "distribution_rule.created", "distribution_rule", id,
         { targetAgencyId: b.sellerAgencyId, after });
@@ -86,6 +94,10 @@ distributionRouter.patch("/api/admin/distribution-rules/:id", ...operators, h(as
     if (typeof b.active !== "boolean") throw httpError(400, "INVALID_DISTRIBUTION_RULE");
     values.push(b.active); sets.push(`active = $${values.length + 1}`);
   }
+  if (b.platformMarginPercent !== undefined) {
+    if (!validPercent(b.platformMarginPercent)) throw httpError(400, "INVALID_DISTRIBUTION_RULE");
+    values.push(b.platformMarginPercent); sets.push(`platform_margin_percent = $${values.length + 1}`);
+  }
   if (b.note !== undefined) {
     if (typeof b.note !== "string" || b.note.length > NOTE_MAX) throw httpError(400, "INVALID_DISTRIBUTION_RULE");
     values.push(b.note.trim()); sets.push(`note = $${values.length + 1}`);
@@ -98,6 +110,11 @@ distributionRouter.patch("/api/admin/distribution-rules/:id", ...operators, h(as
   const row = await withTransaction(async client => {
     const before = await ruleById(client, id);
     if (!before) throw httpError(404, "NOT_FOUND");
+    const nextEffect = b.effect ?? before.effect;
+    if (nextEffect === "deny" && b.platformMarginPercent !== undefined)
+      throw httpError(400, "INVALID_DISTRIBUTION_RULE");
+    if (nextEffect === "allow" && before.effect === "deny" && b.platformMarginPercent === undefined)
+      throw httpError(400, "PLATFORM_MARGIN_REQUIRED");
     await client.query(`UPDATE marketplace_distribution_rules SET ${sets.join(", ")}, updated_at = now() WHERE id = $1`, [id, ...values]);
     const after = await ruleById(client, id);
     await audit(client, req.auth!.sub, null, "distribution_rule.updated", "distribution_rule", id,
