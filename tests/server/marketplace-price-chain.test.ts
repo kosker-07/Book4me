@@ -17,6 +17,11 @@ test("T1 unit: platform fee adds five percent of net, rounded per night", () => 
   assert.equal(platformFeeMinor(10000, "0"), 0);
   assert.throws(() => platformFeeMinor(10000, "100.001"));
   assert.throws(() => platformFeeMinor(10000, "-1"));
+  assert.throws(() => platformFeeMinor(10000, "1.2345"));
+  assert.throws(() => platformFeeMinor(10000, "101"));
+  assert.equal(platformFeeMinor(10000, 5), 500);
+  assert.equal(platformFeeMinor(10000, "5.000"), 500);
+  assert.equal(platformFeeMinor(10000, "8"), 800);
 });
 
 test("marketplace: per-night rounding differs from rounding the stay total", () => {
@@ -29,7 +34,7 @@ test("marketplace: zero percentages preserve the original net", () => {
   const p = priceMarketplaceChain(12345, 0, 0);
   assert.equal(p.saleMinor, 12345);
   assert.equal(p.buyerCostMinor, 12345);
-  assert.equal(p.platformFeeMinor, 0);
+  assert.equal(platformFeeMinor(12345, 0), 0);
 });
 
 test("marketplace: rejects negative, out-of-range, overprecision and unsafe inputs", () => {
