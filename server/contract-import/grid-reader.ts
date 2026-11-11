@@ -62,6 +62,12 @@ function key(label:string):string|null{
  if(/^(DOUBLE|DBL)$/.test(v))return "dbl";
  if(/^(SINGLE|SNG)$/.test(v))return "sgl";
  if(/^(DOUBLE\s*\+\s*EXTRA BED|DBL\s*\+\s*EXB)$/.test(v))return "dbl_exb";
+ if(v==="ROOM")return "room";
+ const pax=/^([234])\s*(?:PAX|AD|ADL)$/.exec(v);if(pax)return "pax"+pax[1];
+ const single=/^(?:SINGLE|SNG)\s*\+\s*(\d+)\s*(?:CHD|CHILD)$/.exec(v);
+ if(single)return "sgl_chd_"+single[1];
+ const family=/^(\d+)\s*(?:AD|ADL|ADULT)\s*\+\s*(\d+)\s*(?:CHD|CHILD)$/.exec(v);
+ if(family)return "adl"+family[1]+"_chd_"+family[2];
  if(/CHD|CHILD/.test(v)&&/ADL|AD|ADULT|DBL|SNG/.test(v))return "child_"+v.toLowerCase().replace(/[^a-z0-9]+/g,"_").replace(/^_|_$/g,"");
  return null;
 }
@@ -77,6 +83,9 @@ function parse(s:Sheet,warnings:GridWarning[]):GridHotel|null{
   if(/^currency/i.test(a))currency=/USD/i.test(b)?"USD":/GBP/i.test(b)?"GBP":/TRY|TL/i.test(b)?"TRY":"EUR";
  }
  if(!name)name=ids.filter(r=>r<first).map(r=>cell(s,r,1)).find(v=>/CRYSTAL/i.test(v))??s.name;
+ const lines=name.split(/\r?\n/).map(x=>x.trim()).filter(Boolean);
+ if(lines.length>1){name=lines[0]??name;const last=lines[lines.length-1]??"";if(/^(KEMER|BELEK|SIDE|ALANYA|ANTALYA|LARA|BODRUM|KUNDU)$/i.test(last))region=last;}
+ name=name.trim();region=region.trim();
  const periods:{col:number;from:string;to:string;min_stay:number|null}[]=[];
  for(const r of ids.filter(r=>r<first)){
   const dates=[...(s.rows.get(r)?.entries()??[])].filter(([c,v])=>c>1&&asDate(v));
@@ -86,7 +95,17 @@ function parse(s:Sheet,warnings:GridWarning[]):GridHotel|null{
    for(const [c,v] of dates){const from=asDate(v),to=asDate(cell(s,r+1,c));if(from&&to)periods.push({col:c,from,to,min_stay:Number(cell(s,r+2,c))||null});}
   }else{
    for(let j=0;j+1<dates.length;j+=2){const from=asDate(dates[j]?.[1]??""),to=asDate(dates[j+1]?.[1]??"");if(from&&to)periods.push({col:dates[j]?.[0]??0,from,to,min_stay:null});}
-  }if(periods.length)break;
+  }if(periods.length){
+   if(!vertical){
+    for(const p of periods){
+     const a=cell(s,r+1,p.col+1),b=cell(s,r+1,p.col+2);
+     if(!a&&!b)continue;
+     const from=asDate(a),to=asDate(b);
+     if(from&&to)(p as typeof p & {additional_ranges?:{from:string;to:string}[]}).additional_ranges=[{from,to}];
+     else warnings.push({sheet:s.name,row:r+1,code:"INVALID_EXTRA_PERIOD",message:"Ek tarih aralığı okunamadı: "+a+" / "+b});
+    }
+   }break;
+  }
  }if(!periods.length)return null;
  const rooms:GridRoom[]=[];
  for(let i=0;i<blocks.length;i++){
@@ -111,6 +130,9 @@ function parse(s:Sheet,warnings:GridWarning[]):GridHotel|null{
     target.prices[occupancy]=n;
     if(median>0&&(n>3*median||n*3<median))warnings.push({sheet:s.name,row:r,code:"PRICE_OUTLIER",message:label+": "+n});
    }
+  }for(const p of room.periods){
+   if(p.prices.dbl===undefined&&p.prices.pax2===undefined&&p.prices.room===undefined)
+    warnings.push({sheet:s.name,row:start,code:"NO_BASE_PRICE",message:room.name+": dbl/pax2/room fiyatı bulunamadı"});
   }rooms.push(room);
  }return {name,region,concept,currency,sheet:s.name,rooms};
 }
