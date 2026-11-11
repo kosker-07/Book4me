@@ -133,3 +133,42 @@ export function convertMinor(amountMinor: number, fromDigits: number, fromEurPer
   const den = to * 10n ** BigInt(fromDigits);
   return Number((2n * num + den) / (2n * den));
 }
+
+
+/** Stage-2 marketplace pricing. All monetary operations use existing minor-unit
+ * half-up helpers. Both quote and booking paths must call this same function.
+ * Percentages are applied sequentially, never added together.
+ */
+export interface MarketplacePriceChain {
+  netMinor: number;
+  platformMarginPercent: string;
+  platformMarginMinor: number;
+  buyerCostMinor: number;
+  buyerMarkupPercent: string;
+  buyerMarkupMinor: number;
+  saleMinor: number;
+  platformFeePercent: string;
+  platformFeeMinor: number;
+}
+export function priceMarketplaceChain(
+  netMinor: number, platformMarginPercent: string | number,
+  buyerMarkupPercent: string | number, platformFeePercent: string | number,
+  digits = 2
+): MarketplacePriceChain {
+  if (!Number.isSafeInteger(netMinor) || netMinor < 0) throw new Error("Invalid net amount");
+  const validated = [platformMarginPercent, buyerMarkupPercent, platformFeePercent].map(v => {
+    const milli = parseMinor(v, 3);
+    if (milli < 0 || milli > 100000) throw new Error("Percentage out of range");
+    return { milli, text: normalizeDecimal(v, 0, 3) };
+  });
+  const [platform, buyer, fee] = validated;
+  const platformMarginMinor = nightlySellMinor(netMinor, { type: "percent", value: platform.text }, digits) - netMinor;
+  const buyerCostMinor = netMinor + platformMarginMinor;
+  const buyerMarkupMinor = nightlySellMinor(buyerCostMinor, { type: "percent", value: buyer.text }, digits) - buyerCostMinor;
+  const platformFeeMinor = nightlySellMinor(netMinor, { type: "percent", value: fee.text }, digits) - netMinor;
+  return {
+    netMinor, platformMarginPercent: platform.text, platformMarginMinor, buyerCostMinor,
+    buyerMarkupPercent: buyer.text, buyerMarkupMinor, saleMinor: buyerCostMinor + buyerMarkupMinor,
+    platformFeePercent: fee.text, platformFeeMinor
+  };
+}
