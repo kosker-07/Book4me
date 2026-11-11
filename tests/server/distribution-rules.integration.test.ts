@@ -203,7 +203,7 @@ test("D5 booking through a rule: created, seller identity hidden, draft refused 
   const forProforma = await book(w.t.subB, third.quoteId);
   assert.equal(forProforma.status, 201, JSON.stringify(forProforma.body));
   const proforma = await fetch(base + "/api/agency/bookings/" + forProforma.body.id + "/proforma", { headers: { authorization: "Bearer " + w.t.subB } });
-  assert.equal(proforma.status, 200);
+  assert.equal(proforma.status, 201, "first request issues the proforma");
   const { spawnSync } = await import("node:child_process");
   const proformaText = spawnSync("pdftotext", ["-", "-"], { input: Buffer.from(await proforma.arrayBuffer()) }).stdout.toString("utf8");
   assert.ok(proformaText.includes("BED4BOOK"), "proforma names the platform as seller");

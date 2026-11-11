@@ -372,8 +372,10 @@ test("N17 proforma: pending/approved only, numbered, stored once, from the snaps
   if (hasPdftotext) {
     const dir = mkdtempSync(join(tmpdir(), "proforma-")), file = join(dir, "p.pdf"); writeFileSync(file, first.buf);
     const text = execFileSync("pdftotext", ["-layout", file, "-"]).toString("utf8").replace(/\s+/g, " ");
-    for (const s of ["PROFORMA", "Not a tax invoice", "Vergi faturası değildir", `PF-${year}-000001`, "BED4BOOK", "140.00 GBP", "168.00 EUR", "UK-MARKET", "Lead Guest (yetişkin/adult, GB)", "half-up"])
+    for (const s of ["PROFORMA", "Not a tax invoice", "Vergi faturası değildir", `PF-${year}-000001`, "BED4BOOK", "140.00 GBP", "168.00 EUR", "Lead Guest (yetişkin/adult, GB)", "half-up"])
       assert.ok(text.includes(s), `proforma must contain "${s}"; got ${text}`);
+    // The contract code is the seller DMC's own label; the buyer's proforma never prints it.
+    for (const s of ["UK-MARKET", "Kontrat / Contract"]) assert.ok(!text.includes(s), `proforma must not contain "${s}"`);
     assert.ok(!text.includes("Hotel One Turizm A.Ş."), "DMC legal name must not appear on buyer proforma");
   }
   // access scope
