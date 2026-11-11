@@ -15,6 +15,8 @@ import { adminRouter } from "./admin-routes";
 import { contractRouter } from "./contract-routes";
 import { distributionRouter } from "./distribution-routes";
 import { dmcRouter } from "./dmc-routes";
+import { mailRouter } from "./mail-routes";
+import { startMailWorker } from "./mail/worker";
 import { renderVoucher } from "./voucher";
 import { renderProforma } from "./proforma";
 import { LOGIN_WINDOW_MINUTES, loginThrottled, parseTrustProxy } from "./login-guard";
@@ -32,7 +34,8 @@ app.use((_req, res, next) => {
   next();
 });
 app.use(requestContext);
-app.use(express.json({ limit: "1mb" }));
+// Webhook signatures are computed over the exact raw bytes, so keep them for /api/webhooks/ only.
+app.use(express.json({ limit: "1mb", verify: (req: any, _res, buf) => { if (String(req.url).startsWith("/api/webhooks/")) req.rawBody = buf; } }));
 
 // Temporary same-origin admin sign-in page; assets are copied into dist-server/server/assets.
 app.get("/giris", (_req, res) => {
@@ -141,6 +144,7 @@ app.use(adminRouter);
 app.use(contractRouter);
 app.use(distributionRouter);
 app.use(dmcRouter);
+app.use(mailRouter);
 
 // A sub-agency sees only hotels explicitly published to that agency.
 app.get("/api/agency/hotels", authenticate, roles("sub_agency"), requireAgency, async (req: AuthedRequest, res, next) => {
@@ -973,6 +977,7 @@ if (require.main === module) {
     console.error(`Yönetici başlangıç adımı başarısız: ${error?.message || "bilinmeyen hata"}`);
   }).finally(() => {
     app.listen(port, () => console.log(`BED4BOOK API listening on :${port}`));
+    startMailWorker();
   });
 }
 export default app;
