@@ -1,8 +1,8 @@
 # BED4BOOK ürün geliştirme şartnamesi eki
 
-Taslak v0.3 | 11 Kasım 2026 | Ürün kapsamı, öncelik sırası ve iş kuralları
+Taslak v0.4 | 11 Kasım 2026 | Ürün kapsamı, öncelik sırası ve iş kuralları
 
-v0.1 ve v0.2'nin yerine geçer. v0.1'deki on paketin hiçbiri çıkarılmadı; sıra değişti, altı yeni paket eklendi ve ortak otel kataloğu kuralı ürün sahibinin kararıyla yeniden yazıldı. v0.3'te ürün sahibinin 11 Kasım 2026'da verdiği on karar ilgili paketlere işlendi.
+v0.1 ve v0.2'nin yerine geçer. v0.1'deki on paketin hiçbiri çıkarılmadı; sıra değişti, altı yeni paket eklendi ve ortak otel kataloğu kuralı ürün sahibinin kararıyla yeniden yazıldı. v0.3'te ürün sahibinin 11 Kasım 2026'da verdiği on karar ilgili paketlere işlendi. v0.4'te fiyat kıyası, otel bazında sıra gösterimi olarak yeniden yazıldı.
 
 ## Yön
 
@@ -44,7 +44,7 @@ Durum, 11 Kasım 2026 itibarıyla staging dalındaki koda dayanır. Demo ekranı
 | G05 | DMC pazar yeri ve dağıtım | B | Toplu dağıtım kuralları yayında (PR #6). Fiyat zinciri geliştiriliyor (PR #7). |
 | G01 | Otomatik otel eşleştirme | B | İç kimlikler var; farklı DMC kayıtlarının aynı otel olarak gruplanması yok. |
 | G06 | Kazanç ve hesaplaşma | B | Proforma var; cari ve mutabakat yok. |
-| G08 | İş analitiği ve anonim kıyaslama | B | Sınırlı panel var. |
+| G08 | İş analitiği ve otel bazında fiyat sırası | B | Sınırlı panel var; fiyat sırası yok. |
 | G02 | Tedarik ve satış bağlantıları | C | İç web API'si var; gerçek dış bağlantı yok. |
 | G09 | Rebooking | C | Ana şartnamede tanımlı; prototip düzeyinde. |
 | G10 | RateRelay | C | Ana şartnamede tanımlı; prototip düzeyinde. |
@@ -166,13 +166,16 @@ Kabul ölçütü: Aynı oteli yükleyen DMC sayısından bağımsız olarak alı
 
 Kabul ölçütü: Tahakkuk, ödeme ve iade toplamları işlem ve dönem kayıtlarıyla tutarlıdır.
 
-## G08 İş analitiği ve anonim kıyaslama
+## G08 İş analitiği ve otel bazında fiyat sırası
 
-- G08-01 DMC ve platform; kendi satışını, net katkısını, iptalini, ürün dönüşümünü ve işlem süresini yetkisine göre izler. Bu bölüm B aşamasında teslim edilir.
-- G08-02 Anonim pazar kıyası, platformda en az iki bağımsız DMC olduğunda açılır. Toplulaştırılmış ve gerektiğinde gecikmeli endekslerle verilir; başka DMC'nin kimliği, ham teklifi veya alış fiyatı gösterilmez.
-- G08-03 Gecikme ve filtre politikası belirlenmeden dış kıyas yayınlanmaz. İki katılımcılı bir kıyasta her DMC, ortalamadan diğerinin fiyatını hesaplayabilir; bu risk kabul edilmiştir ve kıyas açılmadan önce yeniden değerlendirilir. Dar sorgularla tek bir DMC'nin fiyatını çıkarmaya imkân veren sonuçlar gizlenir.
+- G08-01 DMC ve platform; kendi satışını, net katkısını, iptalini, ürün dönüşümünü ve işlem süresini yetkisine göre izler.
+- G08-02 Fiyat kıyası DMC'leri değil otelleri karşılaştırır: bir otel yalnız kendisiyle kıyaslanır (Rixos ile Rixos, Rixos Park ile Rixos Park). Kıyas, DMC'nin kendi yüklediği ve en az bir başka DMC'nin de yüklediği oteller için yapılır; DMC'nin yüklemediği otel hakkında hiçbir bilgi verilmez.
+- G08-03 DMC yalnız kendi ürününün sırasını görür: aynı otelin eşdeğer ürünleri (aynı oda, pansiyon, tarih ve koşullar) arasında fiyatının kaçıncı olduğu — "1.", "2.", "5." gibi. Başka DMC'nin kimliği, fiyatı veya teklifi gösterilmez.
+- G08-04 Sıra, DMC fiyat yükledikten veya güncelledikten sonra kendiliğinden hesaplanır ve ilgili otelin, odanın ve dönemin yanında görünür. DMC ayrıca talep açmaz.
+- G08-05 Bu özellik platform operatörünün yetkisindedir. Operatör hangi DMC'nin kullanacağını açar veya kapatır; kapalı DMC sıra bilgisi görmez. Varsayılan kapalıdır.
+- G08-06 Operatör tüm otellerde tüm DMC'lerin sırasını ve fiyatlarını görür.
 
-Kabul ölçütü: Az katılımcılı veya dar filtreli veride rakip fiyatı çıkarılamaz.
+Kabul ölçütü: Yetkisi açık DMC, fiyat yükledikten sonra kendi ürününün sırasını görür; hiçbir ekrandan, dışa aktarmadan veya API yanıtından başka DMC'nin adı ya da fiyatı çıkarılamaz. Yetkisi kapalı DMC ve otelini yüklememiş DMC hiçbir sıra bilgisi alamaz.
 
 ---
 
@@ -248,7 +251,7 @@ Pilot öncesinde başlangıç değerleri kaydedilir. Ölçülecekler: kontrat y�
 | D04 Limit aşımı | A | DMC onayına düşer; kendiliğinden onaylanmaz; onaysız cari açılmaz. | G16-01 |
 | D05 Oran değişikliği | B | Tüm otellerde en geç bir saat içinde geçerli olur; platform ve DMC payı için aynıdır. | G05-05 |
 | D06 Eşleştirme | B | Tam otomatik; sorulmaz. Aynı otelin tüm kayıtları tek grup olur. | G01-03 |
-| D07 Anonim analiz | B | En az iki DMC ile açılır. | G08-02, G08-03 |
+| D07 Fiyat kıyası | B | Otel otelle kıyaslanır; aynı oteli en az iki DMC yüklemişse yapılır. DMC yalnız kendi ürününün sırasını görür. Yetkiyi operatör verir. | G08-02 – G08-06 |
 | D08 İlk bağlantı | C | Henüz bağlantı yok; sistem bağlantıya hazır kurulur. | G02-04 |
 | D09 Rebooking kazancı | C | Operatöre aittir. DMC kullanmak isterse %50 – %50 paylaşılır. | G09-05 |
 | D10 RateRelay | C | Asgari avantaj 10 USD; eşit teklif olamaz; teklif geri çekilemez ve değiştirilemez; müdahale yalnız operatörde. | G10-05, G10-06 |
@@ -260,7 +263,7 @@ Pilot öncesinde başlangıç değerleri kaydedilir. Ölçülecekler: kontrat y�
 | Konu | Aşama | Netleştirilecek |
 | --- | --- | --- |
 | A01 Fiyat zinciri kapsamı | B | Platform payının kural bazında mı, DMC bazında mı tanımlanacağı (şu an kural bazında geliştiriliyor). |
-| A02 Analiz gecikmesi | B | Kıyas verisinin ne kadar gecikmeli gösterileceği ve dar filtre sınırı. |
+| A02 Sıra ayrıntısı | B | Sıranın yanında toplam teklif sayısının ("5 teklif içinde 2.") veya en iyi fiyata olan farkın gösterilip gösterilmeyeceği. Şimdilik yalnız sıra gösterilir. |
 | A03 Güvenli kapanış | C | RateRelay ve Rebooking'de iptal son zamanından düşülecek güvenlik payı. |
 | A04 RateRelay katılımı | C | Kaynak DMC'nin kendi rezervasyonuna teklif verip veremeyeceği. |
 
@@ -273,6 +276,7 @@ Pilot öncesinde başlangıç değerleri kaydedilir. Ölçülecekler: kontrat y�
 - G06'nın Rebooking ve RateRelay kazanç paylaşımı C aşamasına, G08'in anonim kıyası yeterli katılımcı koşuluna bağlandı.
 - G09 ve G10 özetlendi; ayrıntılı kuralları kaynak belgede aynen geçerlidir.
 - v0.3: on ticari karar verildi ve paketlere işlendi; dört konu açık kaldı.
+- v0.4: G08 kıyası DMC karşılaştırması olmaktan çıkarıldı; otel bazında, yalnız kendi ürününün sırasını gösteren ve operatör yetkisine bağlı bir özellik oldu.
 
 ### Esas alınan belgeler
 
