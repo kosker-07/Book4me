@@ -2,10 +2,10 @@
 -- Existing booking_nights remain readable; nullable columns mark legacy/manual publications.
 ALTER TABLE booking_nights
   ADD COLUMN IF NOT EXISTS marketplace_platform_margin_percent numeric(6,3),
-  ADD COLUMN IF NOT EXISTS marketplace_platform_margin numeric(14,2),
-  ADD COLUMN IF NOT EXISTS marketplace_buyer_cost numeric(14,2),
+  ADD COLUMN IF NOT EXISTS marketplace_platform_margin numeric(14,3),
+  ADD COLUMN IF NOT EXISTS marketplace_buyer_cost numeric(14,3),
   ADD COLUMN IF NOT EXISTS marketplace_buyer_markup_percent numeric(6,3),
-  ADD COLUMN IF NOT EXISTS marketplace_buyer_markup numeric(14,2);
+  ADD COLUMN IF NOT EXISTS marketplace_buyer_markup numeric(14,3);
 
 -- Booked amounts must never be edited after insertion.
 CREATE OR REPLACE FUNCTION b4b_prevent_marketplace_price_change() RETURNS trigger LANGUAGE plpgsql AS $$
