@@ -14,6 +14,7 @@ import { audit, authenticate, AuthedRequest, clearSessionCookie, httpError, isPl
 import { adminRouter } from "./admin-routes";
 import { contractRouter } from "./contract-routes";
 import { distributionRouter } from "./distribution-routes";
+import { dmcRouter } from "./dmc-routes";
 import { renderVoucher } from "./voucher";
 import { renderProforma } from "./proforma";
 import { LOGIN_WINDOW_MINUTES, loginThrottled, parseTrustProxy } from "./login-guard";
@@ -139,6 +140,7 @@ app.get("/api/me", authenticate, (req: AuthedRequest, res) => {
 app.use(adminRouter);
 app.use(contractRouter);
 app.use(distributionRouter);
+app.use(dmcRouter);
 
 // A sub-agency sees only hotels explicitly published to that agency.
 app.get("/api/agency/hotels", authenticate, roles("sub_agency"), requireAgency, async (req: AuthedRequest, res, next) => {
