@@ -159,7 +159,7 @@ export function priceMarketplaceChain(
   const validated = [platformMarginPercent, buyerMarkupPercent, platformFeePercent].map(v => {
     // Reject precision beyond three decimals rather than silently rounding percentages.
     const raw = String(v).trim();
-    if (!/^(?:\\d+)(?:\\.\\d{1,3})?$/.test(raw)) throw new Error("Invalid percentage precision");
+    if (!/^(?:\d+)(?:\.\d{1,3})?$/.test(raw)) throw new Error("Invalid percentage precision");
     const milli = parseMinor(raw, 3);
     if (milli < 0 || milli > 100000) throw new Error("Percentage out of range");
     const text = String(milli / 1000);
