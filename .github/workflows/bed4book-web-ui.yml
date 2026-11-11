@@ -68,7 +68,18 @@ jobs:
       - name: Install Playwright with Chromium (not saved to package.json)
         run: |
           npm install --no-save --no-audit --no-fund playwright@1.49.1
-          npx playwright install --with-deps chromium
+          # GitHub hosted Ubuntu already includes Chromium runtime libraries.
+          # Avoid --with-deps: apt mirrors intermittently fail DNS resolution.
+          for attempt in 1 2 3; do
+            if npx playwright install chromium; then
+              break
+            fi
+            if [ "$attempt" -eq 3 ]; then
+              echo "::error::Chromium download failed after 3 attempts"
+              exit 1
+            fi
+            sleep $((attempt * 10))
+          done
       - run: npm run db:migrate
       - run: npm run build:server
       - name: Start the compiled server (bootstraps the e2e admin)
