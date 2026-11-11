@@ -12,7 +12,7 @@ const PASSWORD = process.env.ADMIN_PASSWORD;
 assert.ok(EMAIL && PASSWORD, "ADMIN_EMAIL and ADMIN_PASSWORD are required");
 
 // Admin pages that load data from the API; each must open without an error.
-const ADMIN_PAGES = ["dashboard", "bookings", "hotels", "markets", "agencies", "currencies", "platform-settings", "account"];
+const ADMIN_PAGES = ["dashboard", "bookings", "hotels", "markets", "agencies", "currencies", "platform-settings", "distribution", "account"];
 
 function watchErrors(page, allowConsole) {
   const errors = [];
