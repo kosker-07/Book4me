@@ -2,7 +2,7 @@
 -- tenant_id = the DMC (master agency). tenant_id NULL = platform mail (bed4book.com addresses, platform business only).
 -- Sub-agencies use their parent DMC's settings. There is deliberately no fallback from a DMC to platform mail.
 
-CREATE TABLE tenant_mail_settings (
+CREATE TABLE IF NOT EXISTS tenant_mail_settings (
   tenant_id uuid PRIMARY KEY REFERENCES agencies(id),
   provider text NOT NULL DEFAULT 'resend' CHECK (provider = 'resend'),
   credentials_enc text NOT NULL,
@@ -16,7 +16,7 @@ CREATE TABLE tenant_mail_settings (
   updated_at timestamptz NOT NULL DEFAULT now()
 );
 
-CREATE TABLE email_outbox (
+CREATE TABLE IF NOT EXISTS email_outbox (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   tenant_id uuid REFERENCES agencies(id),
   kind text NOT NULL,
@@ -35,11 +35,11 @@ CREATE TABLE email_outbox (
   created_at timestamptz NOT NULL DEFAULT now(),
   sent_at timestamptz
 );
-CREATE UNIQUE INDEX email_outbox_idem_idx ON email_outbox ((COALESCE(tenant_id::text, 'platform')), idempotency_key) WHERE idempotency_key IS NOT NULL;
-CREATE INDEX email_outbox_due_idx ON email_outbox (status, next_attempt_at);
-CREATE INDEX email_outbox_tenant_idx ON email_outbox (tenant_id, created_at DESC);
+CREATE UNIQUE INDEX IF NOT EXISTS email_outbox_idem_idx ON email_outbox ((COALESCE(tenant_id::text, 'platform')), idempotency_key) WHERE idempotency_key IS NOT NULL;
+CREATE INDEX IF NOT EXISTS email_outbox_due_idx ON email_outbox (status, next_attempt_at);
+CREATE INDEX IF NOT EXISTS email_outbox_tenant_idx ON email_outbox (tenant_id, created_at DESC);
 
-CREATE TABLE email_inbox (
+CREATE TABLE IF NOT EXISTS email_inbox (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   tenant_id uuid REFERENCES agencies(id),
   provider_email_id text NOT NULL,
@@ -54,10 +54,10 @@ CREATE TABLE email_inbox (
   body_status text NOT NULL DEFAULT 'pending' CHECK (body_status IN ('pending','fetched','failed')),
   received_at timestamptz NOT NULL DEFAULT now()
 );
-CREATE UNIQUE INDEX email_inbox_dedupe_idx ON email_inbox ((COALESCE(tenant_id::text, 'platform')), provider_email_id);
-CREATE INDEX email_inbox_tenant_idx ON email_inbox (tenant_id, received_at DESC);
+CREATE UNIQUE INDEX IF NOT EXISTS email_inbox_dedupe_idx ON email_inbox ((COALESCE(tenant_id::text, 'platform')), provider_email_id);
+CREATE INDEX IF NOT EXISTS email_inbox_tenant_idx ON email_inbox (tenant_id, received_at DESC);
 
-CREATE TABLE inbound_attachments (
+CREATE TABLE IF NOT EXISTS inbound_attachments (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   inbox_id uuid NOT NULL REFERENCES email_inbox(id) ON DELETE CASCADE,
   filename text NOT NULL,
@@ -66,4 +66,4 @@ CREATE TABLE inbound_attachments (
   sha256 text NOT NULL,
   data bytea NOT NULL
 );
-CREATE INDEX inbound_attachments_inbox_idx ON inbound_attachments (inbox_id);
+CREATE INDEX IF NOT EXISTS inbound_attachments_inbox_idx ON inbound_attachments (inbox_id);
