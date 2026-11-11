@@ -1,3 +1,4 @@
+import { pdfText } from "../helpers/pdf-text";
 import { VALID_TERMS } from "./fixtures/rate-plan-terms";
 import test, { before, after, beforeEach } from "node:test";
 import assert from "node:assert/strict";
@@ -133,21 +134,23 @@ test("two-DMC agency/user isolation, parent enforcement, platform role denial an
   assert.equal(voucherResponse.status,200);
   const voucherBytes = Buffer.from(await voucherResponse.arrayBuffer());
   assert.equal(voucherResponse.headers.get("content-type"),"application/pdf");
-  const {spawnSync} = await import("node:child_process");
-  const pdfText = spawnSync("pdftotext",["-","-"],{input:voucherBytes}).stdout.toString("utf8");
-  for (const secret of [ma,"DMC A"]) assert.ok(!pdfText.includes(secret),"voucher leaks seller");
+  const voucherText = await pdfText(voucherBytes);
+  for (const secret of [ma,"DMC A"]) assert.ok(!voucherText.includes(secret),"voucher leaks seller");
   const ownPublication = await request("POST","/api/admin/publications",a,{ratePlanId:rp,agencyId:sa,markupType:"percent",markupValue:10});
   assert.equal(ownPublication.status,201,JSON.stringify(ownPublication.body));
   const ownUserId = randomUUID();
   await pool.query("INSERT INTO users(id,email,password_hash,role,agency_id) VALUES ($1,'hierarchy-own@test.local',$2,'sub_agency',$3)",[ownUserId,hashPassword(PW),sa]);
   const ownToken = issueSession({sub:ownUserId,role:"sub_agency",agencyId:sa,ver:0},process.env.SESSION_SECRET!);
+  // T1: direct publication adds 5% of the nightly net to the buyer sale price.
+  assert.equal((await request("PATCH","/api/admin/agencies/"+ma,admin,{platformFeePercent:5})).status,200);
   const ownSearch = await request("POST","/api/agency/searches",ownToken,{
-    checkIn,checkOut,rooms:1,adults:2,children:0,childAges:[],
+    checkIn,checkOut,rooms:2,adults:2,children:0,childAges:[],
     roomOccupancies:[{adults:2,children:0,childAges:[]}],nationalities:["TR"]
   });
   assert.equal(ownSearch.status,200);
   const ownQuote = ownSearch.body.results.find((x:any)=>x.hotel.id===hotel);
   assert.ok(ownQuote?.quoteId);
+  assert.equal(Number(ownQuote.total),460,"T1 direct sale search must include 5% nightly net fee");
   const ownBooking = await request("POST","/api/agency/bookings",ownToken,{
     quoteId:ownQuote.quoteId,
     guest:{firstName:"Test",lastName:"Guest",adults:2,children:0,childAges:[],email:"guest@test.local",phone:"+905551112233",nationality:"TR"},

@@ -1,0 +1,3 @@
+import test from "node:test";import assert from "node:assert/strict";import {mayChangePlatformFee,mayChangeOwnMarketplaceMarkup,buyerFacingSupplierName} from "../../server/marketplace-invariants";
+test("platform fee operator-only",()=>{assert.equal(mayChangePlatformFee("system_admin"),true);assert.equal(mayChangePlatformFee("back_office"),true);assert.equal(mayChangePlatformFee("master_agency"),false);assert.equal(mayChangePlatformFee("sub_agency"),false)});
+test("DMC own markup only",()=>{assert.equal(mayChangeOwnMarketplaceMarkup("master_agency","a","a"),true);assert.equal(mayChangeOwnMarketplaceMarkup("master_agency","a","b"),false);assert.equal(mayChangeOwnMarketplaceMarkup("sub_agency","a","a"),false);assert.equal(buyerFacingSupplierName(),"BED4BOOK")});
