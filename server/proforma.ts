@@ -3,7 +3,7 @@ import { ratePlanTermsText } from "./rate-plan-terms";
 // Amounts come only from the booking's immutable price snapshot; nothing is re-priced or re-converted.
 import PDFDocument from "pdfkit";
 import { existsSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { join, resolve as pathResolve } from "node:path";
 
 const FONT_REGULAR = join(__dirname, "assets", "fonts", "DejaVuSans.ttf");
 const FONT_BOLD = join(__dirname, "assets", "fonts", "DejaVuSans-Bold.ttf");
@@ -61,7 +61,7 @@ export function renderProforma(p: ProformaData): Promise<Buffer> {
     doc.registerFont("regular", FONT_REGULAR);
     doc.registerFont("bold", FONT_BOLD);
 
-    const logoPath = resolve(process.cwd(), "web", "assets", "bed4book-logo.png");
+    const logoPath = pathResolve(process.cwd(), "web", "assets", "bed4book-logo.png");
     if (existsSync(logoPath)) {
       try { doc.image(logoPath, 50, 50, { width: 150 }); doc.y = 110; }
       catch (error) { console.warn("BED4BOOK PDF logo unavailable:", error); doc.font("bold").fontSize(26).fillColor("#000000").text("BED4BOOK"); }
