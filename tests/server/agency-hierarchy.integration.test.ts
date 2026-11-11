@@ -73,6 +73,11 @@ test("two-DMC agency/user isolation, parent enforcement, platform role denial an
   assert.equal((await request("PATCH","/api/admin/agencies/"+mb,a,{marketplaceMarkupPercent:10})).status,404);
   assert.equal((await request("PATCH","/api/admin/agencies/"+ma,a,{marketplaceMarkupPercent:10,active:false})).status,403);
   assert.equal((await request("PATCH","/api/admin/agencies/"+ma,a,{active:false})).status,403);
+  // Platform fee is operator-only and does not permit master self-service.
+  assert.equal((await request("PATCH","/api/admin/agencies/"+ma,a,{platformFeePercent:5})).status,403);
+  assert.equal((await request("PATCH","/api/admin/agencies/"+mb,a,{platformFeePercent:5})).status,404);
+  assert.equal((await request("PATCH","/api/admin/agencies/"+ma,admin,{platformFeePercent:"2.5"})).status,200);
+  assert.equal((await pool.query("SELECT platform_fee_percent::text AS value FROM agencies WHERE id=$1",[ma])).rows[0].value,"2.500");
   const hotel = randomUUID(), room = randomUUID(), rp = randomUUID();
   await pool.query("INSERT INTO hotels(id,owner_agency_id,name,location,status) VALUES ($1,$2,'Hierarchy Hotel','Antalya','active')",[hotel,ma]);
   await pool.query("INSERT INTO rooms(id,hotel_id,name) VALUES ($1,$2,'Room')",[room,hotel]);
