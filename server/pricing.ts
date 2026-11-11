@@ -165,6 +165,7 @@ export function priceMarketplaceChain(
   const platformMarginMinor = nightlySellMinor(netMinor, { type: "percent", value: platform.text }, digits) - netMinor;
   const buyerCostMinor = netMinor + platformMarginMinor;
   const buyerMarkupMinor = nightlySellMinor(buyerCostMinor, { type: "percent", value: buyer.text }, digits) - buyerCostMinor;
+  // The fee is a separate DMC-to-sub accounting item; it never contributes to saleMinor.
   const platformFeeMinor = nightlySellMinor(netMinor, { type: "percent", value: fee.text }, digits) - netMinor;
   return {
     netMinor, platformMarginPercent: platform.text, platformMarginMinor, buyerCostMinor,
