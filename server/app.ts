@@ -135,7 +135,7 @@ app.get("/api/agency/hotels", authenticate, roles("sub_agency"), requireAgency, 
     const result = await pool.query(
       `SELECT DISTINCT h.id, h.name, h.location, h.category, h.description, h.amenities, h.images
        FROM hotels h
-       JOIN effective_agency_sales s ON s.hotel_id = h.id
+       JOIN effective_agency_sales($1) s ON s.hotel_id = h.id
        WHERE s.agency_id = $1 AND s.active = true AND h.status = 'active'
        ORDER BY h.name`,
       [req.auth!.agencyId]
@@ -170,7 +170,7 @@ async function loadCandidates(db: { query: PoolClient["query"] }, agencyId: stri
             h.id AS hotel_id, h.name AS hotel_name, h.location, h.category,
             s.markup_type, s.markup_value::text AS markup_value,
             json_agg(json_build_object('date', d.stay_date::text, 'price', d.price::text) ORDER BY d.stay_date) AS nights
-       FROM effective_agency_sales s
+       FROM effective_agency_sales($1) s
        JOIN agencies sa ON sa.id = s.agency_id AND sa.active
        JOIN rate_plans rp ON rp.id = s.rate_plan_id AND rp.active
        JOIN currencies cur ON cur.code = rp.currency AND cur.active
@@ -301,7 +301,7 @@ async function publishedSale(client: PoolClient, agencyId: string, ratePlanId: s
   const row = (await client.query(
     `SELECT s.markup_type, s.markup_value::text AS markup_value, rp.currency, cur.minor_units, h.id AS hotel_id, r.max_adults, r.max_children,
             hc.id AS contract_id, hc.code AS contract_code, hc.name AS contract_name, hc.seller_legal_name
-       FROM effective_agency_sales s
+       FROM effective_agency_sales($1) s
        JOIN agencies sa ON sa.id = s.agency_id AND sa.active
        JOIN rate_plans rp ON rp.id = s.rate_plan_id AND rp.active
        JOIN currencies cur ON cur.code = rp.currency AND cur.active

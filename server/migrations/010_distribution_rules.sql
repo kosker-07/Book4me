@@ -2,7 +2,7 @@
 -- The platform operator opens (allow) or closes (deny) a seller DMC's inventory to the sub-agencies of
 -- another DMC, for all of the seller's hotels or for one hotel, and for one buyer DMC or for every other DMC.
 --
--- Precedence, evaluated per (sub-agency, rate plan) by the effective_agency_sales view:
+-- Precedence, evaluated per (sub-agency, rate plan) by effective_agency_sales(agency):
 --   1. An agency_hotel_sales row decides on its own: active = open with its markup, inactive = closed.
 --   2. Otherwise the plan is open when an active allow rule matches and no active deny rule matches.
 --      Deny always beats allow.
@@ -53,7 +53,7 @@ CREATE TRIGGER marketplace_distribution_rules_check BEFORE INSERT OR UPDATE OF s
   ON marketplace_distribution_rules FOR EACH ROW EXECUTE FUNCTION enforce_distribution_rule();
 
 -- SQL twin of validateRatePlanTerms (server/validation.ts). A publication is refused without valid terms;
--- a rule opens plans without that step, so the view applies the same requirement itself.
+-- a rule opens plans without that step, so effective_agency_sales applies the same requirement itself.
 CREATE OR REPLACE FUNCTION b4b_json_int_between(v jsonb, lo integer, hi integer) RETURNS boolean
 LANGUAGE sql IMMUTABLE AS $$
   SELECT CASE WHEN v IS NULL OR jsonb_typeof(v) <> 'number' THEN false
@@ -73,11 +73,15 @@ LANGUAGE sql IMMUTABLE AS $$
     false)
 $$;
 
--- What a sub-agency may be sold: its own publication rows as they are, plus rule-based rows.
-CREATE OR REPLACE VIEW effective_agency_sales AS
-  SELECT s.agency_id, s.hotel_id, s.rate_plan_id, s.markup_type, s.markup_value, s.active,
-         'publication'::text AS source
+-- What one sub-agency may be sold: its own publication rows as they are, plus rule-based rows.
+-- A function rather than a view on purpose: a view would pin the column types of agency_hotel_sales and
+-- make earlier migrations (005 alters markup_value) impossible to re-run by hand.
+CREATE OR REPLACE FUNCTION effective_agency_sales(p_agency_id uuid)
+RETURNS TABLE (agency_id uuid, hotel_id uuid, rate_plan_id uuid, markup_type text, markup_value numeric, active boolean, source text)
+LANGUAGE sql STABLE AS $$
+  SELECT s.agency_id, s.hotel_id, s.rate_plan_id, s.markup_type::text, s.markup_value::numeric, s.active, 'publication'::text
     FROM agency_hotel_sales s
+   WHERE s.agency_id = p_agency_id
   UNION ALL
   SELECT b.id, h.id, rp.id, 'percent'::text, 0::numeric, true, 'distribution_rule'::text
     FROM agencies b
@@ -85,7 +89,7 @@ CREATE OR REPLACE VIEW effective_agency_sales AS
     JOIN hotels h ON h.owner_agency_id <> bp.id
     JOIN rooms r ON r.hotel_id = h.id
     JOIN rate_plans rp ON rp.room_id = r.id
-   WHERE b.type = 'sub'
+   WHERE b.id = p_agency_id AND b.type = 'sub'
      AND rate_plan_terms_valid(rp.cancellation_policy, rp.payment_terms)
      AND NOT EXISTS (SELECT 1 FROM agency_hotel_sales x WHERE x.agency_id = b.id AND x.rate_plan_id = rp.id)
      AND EXISTS (SELECT 1 FROM marketplace_distribution_rules a
@@ -95,4 +99,5 @@ CREATE OR REPLACE VIEW effective_agency_sales AS
      AND NOT EXISTS (SELECT 1 FROM marketplace_distribution_rules d
                       WHERE d.active AND d.effect = 'deny' AND d.seller_agency_id = h.owner_agency_id
                         AND (d.buyer_agency_id IS NULL OR d.buyer_agency_id = bp.id)
-                        AND (d.hotel_id IS NULL OR d.hotel_id = h.id));
+                        AND (d.hotel_id IS NULL OR d.hotel_id = h.id))
+$$;

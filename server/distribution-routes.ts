@@ -1,7 +1,7 @@
 // Marketplace distribution rules (stage 1). Platform operator only: system_admin and back_office.
 // A rule opens (allow) or closes (deny) one seller DMC's inventory to the sub-agencies of another DMC —
 // all of the seller's hotels or one hotel, one buyer DMC or every other DMC. Rules are evaluated by the
-// effective_agency_sales view (migration 010); nothing here is ever visible to a DMC or a sub-agency.
+// effective_agency_sales function (migration 010); nothing here is ever visible to a DMC or a sub-agency.
 import { Router } from "express";
 import type { PoolClient } from "pg";
 import { pool, withTransaction } from "./db";
