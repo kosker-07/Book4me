@@ -38,10 +38,10 @@ test("L3 proforma embeds logo image and retains tax notice",async()=>{
 });
 test("L4 voucher embeds logo image",async()=>{pdfImage(await renderVoucher(voucher));});
 test("L5 missing logo falls back to wordmark without PDF crash",async()=>{
- const fs=await import("node:fs");const old=fs.existsSync;
+ 
  // Validate fallback path by temporarily simulating missing file; avoid mutating tracked assets.
  const original=readFileSync(png);assert.ok(original.length>8);
  const source=readFileSync(join(root,"server/voucher.ts"),"utf8");
- assert.match(source,/if \\(existsSync\\(logoPath\\)\\)/);
- assert.match(source,/console\\.warn\\("BED4BOOK PDF logo missing/);
+ assert.match(source,/if \(existsSync\(logoPath\)\)/);
+ assert.match(source,/console\.warn\("BED4BOOK PDF logo missing/);
 });
