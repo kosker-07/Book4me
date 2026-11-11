@@ -110,4 +110,34 @@ await run("mobile admin login and menu", { ...devices["iPhone 13"] }, async page
   assert.equal(await page.getByText("Veri yüklenemedi.").count(), 0);
 });
 
+
+// 4) Appearance: system preference, explicit override, persistence across reload and logout.
+await run("theme system light dark persistence", { viewport: { width: 1280, height: 800 }, colorScheme: "light" }, async page => {
+  await page.goto(BASE + "/app/");
+  const selector = page.locator("#themeMode");
+  await selector.waitFor();
+  assert.equal(await selector.inputValue(), "auto");
+  assert.equal(await page.locator("html").getAttribute("data-theme"), "auto");
+  assert.equal(await page.locator("html").evaluate(n => getComputedStyle(n).colorScheme), "light");
+  await selector.selectOption("dark");
+  assert.equal(await page.locator("html").getAttribute("data-theme"), "dark");
+  assert.equal(await page.locator("html").evaluate(n => getComputedStyle(n).colorScheme), "dark");
+  await page.reload();
+  assert.equal(await selector.inputValue(), "dark", "manual theme survives reload");
+  assert.equal(await page.locator("html").getAttribute("data-theme"), "dark");
+  await signIn(page, EMAIL, PASSWORD);
+  await page.locator("#app").waitFor({ state: "visible" });
+  assert.equal(await selector.inputValue(), "dark", "theme survives login");
+  await page.locator("#logout").click();
+  await page.locator("#login").waitFor({ state: "visible" });
+  assert.equal(await selector.inputValue(), "dark", "theme survives logout");
+  await selector.selectOption("light");
+  assert.equal(await page.locator("html").evaluate(n => getComputedStyle(n).colorScheme), "light");
+  await selector.selectOption("auto");
+  assert.equal(await page.locator("html").evaluate(n => getComputedStyle(n).colorScheme), "light");
+  await page.emulateMedia({ colorScheme: "dark" });
+  assert.equal(await page.locator("html").evaluate(n => getComputedStyle(n).colorScheme), "dark", "auto tracks system changes");
+  assert.equal(await page.evaluate(() => localStorage.getItem("b4b-theme")), "auto");
+});
+
 console.log("all browser checks passed");
