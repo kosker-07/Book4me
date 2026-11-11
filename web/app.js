@@ -1,4 +1,4 @@
-import {api,download,signIn,signOut,session,resetSession,errText} from './service.js';
+import {api,download,signIn,signOut,restoreSession,session,resetSession,errText} from './service.js';
 const $=id=>document.getElementById(id), node=(tag,text,cls)=>{const n=document.createElement(tag);if(text!==undefined)n.textContent=String(text);if(cls)n.className=cls;return n};
 const el=(tag,props={},children=[])=>{const n=node(tag,props.text,props.cls);for(const [k,v] of Object.entries(props)){if(k==='text'||k==='cls'||v===undefined)continue;if(k==='testid')n.dataset.testid=v;else if(k==='onClick')n.addEventListener('click',v);else if(k==='onChange')n.addEventListener('change',v);else n[k]=v}for(const c of children)n.append(c);return n};
 const btn=(label,fn,primary=false,testid)=>el('button',{text:label,cls:primary?'primary':'ghost',type:'button',testid,onClick:fn});
@@ -354,3 +354,5 @@ async function agencies(){
 
 function adminForm(url,method,fields,done){const form=el('form');for(const [label,name] of fields)form.append(field(label,name,name==='password'?'password':'text'));form.append(el('button',{text:'Kaydet',cls:'primary',type:'submit'}));form.onsubmit=async e=>{e.preventDefault();const body=Object.fromEntries(new FormData(form));for(const k of Object.keys(body))if(body[k]==='')delete body[k];try{await api(url,{method,body});message('Kaydedildi.');done()}catch(e){fail(e)}};return form}
 setAuth(false);
+// A reload keeps the user signed in: the session cookie is checked once on start.
+restoreSession().then(ok=>{if(ok){setAuth(true);go(isAgency()?'search':'dashboard')}});
