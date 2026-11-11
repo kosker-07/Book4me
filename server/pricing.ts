@@ -181,7 +181,7 @@ export function priceMarketplaceChain(
 export function platformFeeMinor(netMinor: number, percent: string | number, digits = 2): number {
   if (!Number.isSafeInteger(netMinor) || netMinor < 0) throw new Error("Invalid net amount");
   const raw = String(percent).trim();
-  if (!/^(?:\\d+)(?:\\.\\d{1,3})?$/.test(raw)) throw new Error("Invalid percentage precision");
+  if (!/^(?:\d+)(?:\.\d{1,3})?$/.test(raw)) throw new Error("Invalid percentage precision");
   const milli = parseMinor(raw, 3);
   if (milli < 0 || milli > 100000) throw new Error("Percentage out of range");
   return nightlySellMinor(netMinor, { type: "percent", value: String(milli / 1000) }, digits) - netMinor;
