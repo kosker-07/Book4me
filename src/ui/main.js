@@ -2,12 +2,13 @@
 const UI = B4M.ui;
 B4M.boot = () => {
   B4M.app.init();
+  B4M.auth.restore();
   let l = ""; try { l = localStorage.getItem("b4m-lang") || ""; } catch (e) { }
   if (!l) l = "tr";
   I.set(l);
   UI.bind(document);
   try { const r = B4M.jobs.runIfDue(); if (r) B4M.db.commit(); } catch (e) { console.error(e); }
-  window.addEventListener("hashchange", () => { B4M.auth.logout(); UI.render(); });
+  window.addEventListener("hashchange", () => { UI.render(); });
   /* fiyat listesi: sürükle-bırak */
   document.addEventListener("dragover", ev => { if (ev.target.closest && ev.target.closest("#ixdrop")) { ev.preventDefault(); ev.target.closest("#ixdrop").classList.add("on"); } });
   document.addEventListener("dragleave", ev => { const d = ev.target.closest && ev.target.closest("#ixdrop"); if (d) d.classList.remove("on"); });
