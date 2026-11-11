@@ -24,7 +24,7 @@ export function zipMember(zip: Buffer, target: string): Buffer | null {
   return null;
 }
 const decode=(s:string)=>s.replace(/&(?:amp|lt|gt|quot|apos);/g,m=>({ "&amp;":"&","&lt;":"<","&gt;":">","&quot;":'"',"&apos;":"'"}[m]||m));
-const texts=(xml:string)=>[...xml.matchAll(/<t(?:\\s[^>]*)?>([\\s\\S]*?)<\\/t>/g)].map(m=>decode(m[1]));
+const texts=(xml:string)=>[...xml.matchAll(/<t(?:\s[^>]*)?>([\s\S]*?)<\/t>/g)].map(m=>decode(m[1]));
 export type ContractPreview = {hotel:string;rooms:{name:string;board:string;from:string;to:string;netPrice:string;allotment:number}[];errors:{row:number;field:string;message:string}[]};
 export function readExcelPreview(file:Buffer):ContractPreview {
  if(file.length>10*1024*1024)throw Error("FILE_TOO_LARGE");
@@ -32,15 +32,15 @@ export function readExcelPreview(file:Buffer):ContractPreview {
  const sheet=zipMember(file,"xl/worksheets/sheet1.xml");
  if(!sheet)throw Error("UNSUPPORTED_FORMAT");
  const shared=zipMember(file,"xl/sharedStrings.xml");
- const strings=shared?[...shared.toString().matchAll(/<si(?:\\s[^>]*)?>([\\s\\S]*?)<\\/si>/g)].map(m=>texts(m[1]).join("")):[];
- const rows=[...sheet.toString().matchAll(/<row\\b([^>]*)>([\\s\\S]*?)<\\/row>/g)].map((m,i)=>{
+ const strings=shared?[...shared.toString().matchAll(/<si(?:\s[^>]*)?>([\s\S]*?)<\/si>/g)].map(m=>texts(m[1]).join("")):[];
+ const rows=[...sheet.toString().matchAll(/<row\b([^>]*)>([\s\S]*?)<\/row>/g)].map((m,i)=>{
   const cells:Record<string,string>={};
-  for(const c of m[2].matchAll(/<c\\b([^>]*)(?:\\/>|>([\\s\\S]*?)<\\/c>)/g)){
-   const ref=/\\br="([A-Z]+)\\d+"/.exec(c[1])?.[1];if(!ref)continue;
-   const raw=/<v>([\\s\\S]*?)<\\/v>/.exec(c[2]||"")?.[1];
-   cells[ref]=/\\bt="s"/.test(c[1])?strings[Number(raw)]||"":/\\bt="inlineStr"/.test(c[1])?texts(c[2]||"").join(""):raw||"";
+  for(const c of m[2].matchAll(/<c\b([^>]*)(?:\/>|>([\s\S]*?)<\/c>)/g)){
+   const ref=/\br="([A-Z]+)\d+"/.exec(c[1])?.[1];if(!ref)continue;
+   const raw=/<v>([\s\S]*?)<\/v>/.exec(c[2]||"")?.[1];
+   cells[ref]=/\bt="s"/.test(c[1])?strings[Number(raw)]||"":/\bt="inlineStr"/.test(c[1])?texts(c[2]||"").join(""):raw||"";
   }
-  return {row:Number(/\\br="(\\d+)"/.exec(m[1])?.[1]||i+1),cells};
+  return {row:Number(/\br="(\d+)"/.exec(m[1])?.[1]||i+1),cells};
  });
  const first=rows[0];if(!first)throw Error("UNSUPPORTED_FORMAT");
  const headers=Object.entries(first.cells).map(([col,value])=>[col,value.trim().toLowerCase()] as const);
@@ -53,8 +53,8 @@ export function readExcelPreview(file:Buffer):ContractPreview {
   if(!Object.values(row.cells).some(Boolean))continue;
   hotel ||=val("hotel");
   for(const field of ["hotel","room","board","from","to","netPrice","allotment"])if(!val(field))errors.push({row:row.row,field,message:"Required value missing"});
-  if(!/^\\d+(?:\\.\\d{1,2})?$/.test(val("netPrice")))errors.push({row:row.row,field:"netPrice",message:"Invalid price"});
-  if(!/^\\d+$/.test(val("allotment")))errors.push({row:row.row,field:"allotment",message:"Invalid allotment"});
+  if(!/^\d+(?:\.\d{1,2})?$/.test(val("netPrice")))errors.push({row:row.row,field:"netPrice",message:"Invalid price"});
+  if(!/^\d+$/.test(val("allotment")))errors.push({row:row.row,field:"allotment",message:"Invalid allotment"});
   out.push({name:val("room"),board:val("board"),from:val("from"),to:val("to"),netPrice:val("netPrice"),allotment:Number(val("allotment"))});
  }
  return {hotel,rooms:out,errors};
