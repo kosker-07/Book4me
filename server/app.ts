@@ -782,6 +782,31 @@ app.get("/api/backoffice/hotels", ...backoffice, async (req: AuthedRequest, res,
   } catch (error) { next(error); }
 });
 
+// Hotel room inventory overview. Platform operators see all hotels; DMCs see only their own.
+// Deliberately read-only: changing inventory or prices requires separate validated workflows.
+app.get("/api/backoffice/hotels/:id/rooms", ...backoffice, async (req: AuthedRequest, res, next) => {
+  try {
+    const hotelId = uuidParam(req, "HOTEL_NOT_FOUND");
+    const platform = isPlatformWide(req.auth!.role);
+    const hotel = await pool.query(
+      `SELECT h.id, h.name, h.location, h.status, h.owner_agency_id
+         FROM hotels h
+        WHERE h.id = $1 AND ($2::boolean OR h.owner_agency_id = $3)`,
+      [hotelId, platform, req.auth!.agencyId]
+    );
+    if (!hotel.rowCount) return res.status(404).json({ error: "HOTEL_NOT_FOUND" });
+    const rooms = await pool.query(
+      `SELECT r.id, r.hotel_id, r.name, r.description, r.max_adults, r.max_children, r.active,
+              COUNT(DISTINCT rp.id)::integer AS rate_plan_count
+         FROM rooms r LEFT JOIN rate_plans rp ON rp.room_id = r.id
+        WHERE r.hotel_id = $1
+        GROUP BY r.id
+        ORDER BY r.name, r.id`, [hotelId]
+    );
+    res.json({ hotel: hotel.rows[0], items: rooms.rows });
+  } catch (error) { next(error); }
+});
+
 // Status changes. approve/reject (pending only): Back Office, system admin, master agency (own hotels).
 // cancel (draft, pending or approved): Back Office and system admin only. Master agency has no cancel right.
 app.patch("/api/backoffice/bookings/:id/status", ...backoffice, async (req: AuthedRequest, res, next) => {
