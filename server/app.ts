@@ -5,7 +5,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { pool, withTransaction } from "./db";
 import { bootstrapAdmin } from "./bootstrap-admin";
 import { BROWSER_SESSION_MAX_SECONDS, hashPassword, issueSession, verifyPassword } from "./security";
-import { Candidate, chooseWinners, convertMinor, formatMinor, Markup, nightlySellMinor, normalizeDecimal, parseMinor, priceCandidate, priceMarketplaceChain } from "./pricing";
+import { Candidate, chooseWinners, convertMinor, formatMinor, Markup, nightlySellMinor, normalizeDecimal, parseMinor, priceCandidate, priceMarketplaceChain, platformFeeMinor } from "./pricing";
 import { ContractEligibility, evaluateContract, NationalityRule, rulesByContract } from "./eligibility";
 import { comparisonRates, FxRate, loadFreshRates } from "./fx";
 import { FieldErrors, nightsBetween, validateGuest, validateNationalities, validateOccupancy, validateOtherGuests, validateStay } from "./validation";
@@ -168,7 +168,7 @@ interface CandidateRow {
   room_id: string; room_name: string; max_adults: number; max_children: number;
   hotel_id: string; hotel_name: string; location: string; category: string | null;
   markup_type: "percent" | "fixed"; markup_value: string;
-  source: string; platform_margin_percent: string; buyer_markup_percent: string; nights: { date: string; price: string }[];
+  source: string; platform_margin_percent: string; buyer_markup_percent: string; platform_fee_percent: string; nights: { date: string; price: string }[];
 }
 
 /** Published, active, bookable rate plans with allotment for every night, whose contract is active and valid
@@ -186,6 +186,8 @@ async function loadCandidates(db: { query: PoolClient["query"] }, agencyId: stri
               ELSE '0' END AS platform_margin_percent,
             CASE WHEN s.source = 'distribution_rule' THEN coalesce(parent.marketplace_markup_percent, buyer.marketplace_markup_percent)::text
               ELSE '0' END AS buyer_markup_percent,
+            CASE WHEN s.source = 'publication' AND h.owner_agency_id = buyer.parent_agency_id
+              THEN coalesce(parent.platform_fee_percent, 0)::text ELSE '0' END AS platform_fee_percent,
             json_agg(json_build_object('date', d.stay_date::text, 'price', d.price::text) ORDER BY d.stay_date) AS nights
        FROM effective_agency_sales($1) s
        JOIN agencies sa ON sa.id = s.agency_id AND sa.active
@@ -202,7 +204,7 @@ async function loadCandidates(db: { query: PoolClient["query"] }, agencyId: stri
        JOIN inventory_daily d ON d.rate_plan_id = rp.id
             AND d.stay_date >= $2::date AND d.stay_date < $3::date AND d.allotment - d.reserved >= $4
       WHERE s.agency_id = $1 AND s.active
-      GROUP BY rp.id, cur.minor_units, hc.id, r.id, h.id, s.markup_type, s.markup_value, s.source, buyer.parent_agency_id, buyer.id, parent.marketplace_markup_percent, buyer.marketplace_markup_percent, h.owner_agency_id
+      GROUP BY rp.id, cur.minor_units, hc.id, r.id, h.id, s.markup_type, s.markup_value, s.source, buyer.parent_agency_id, buyer.id, parent.marketplace_markup_percent, buyer.marketplace_markup_percent, parent.platform_fee_percent, h.owner_agency_id
      HAVING count(*) = $5`,
     [agencyId, checkIn, checkOut, rooms, nights]
   );
@@ -234,6 +236,7 @@ const toCandidate = (row: CandidateRow): Candidate => ({
   cancellationPolicy: row.cancellation_policy, paymentTerms: row.payment_terms, salesConditions: row.sales_conditions,
   currency: row.currency.trim(), minorUnits: row.minor_units,
   markup: { type: row.markup_type, value: row.markup_value },
+  platformFeePercent: row.platform_fee_percent,
   nights: row.nights.map(n => ({ date: n.date, netPrice: n.price }))
 });
 
@@ -275,7 +278,7 @@ app.post("/api/agency/searches", authenticate, roles("sub_agency"), requireAgenc
             date: n.date,
             netPrice: formatMinor(priceMarketplaceChain(
               parseMinor(n.price, r.minor_units), r.platform_margin_percent,
-              r.buyer_markup_percent, 0, r.minor_units).saleMinor, r.minor_units)
+              r.buyer_markup_percent, r.minor_units).saleMinor, r.minor_units)
           }));
           candidate.markup = { type: "percent", value: "0" };
         }
@@ -339,8 +342,8 @@ async function publishedSale(client: PoolClient, agencyId: string, ratePlanId: s
               ELSE '0' END AS platform_margin_percent,
             CASE WHEN s.source = 'distribution_rule' THEN parent.marketplace_markup_percent::text
               ELSE '0' END AS buyer_markup_percent,
-            CASE WHEN s.source = 'distribution_rule' AND buyer.type = 'master'
-              THEN buyer.platform_fee_percent::text ELSE '0' END AS platform_fee_percent
+            CASE WHEN s.source = 'publication' AND h.owner_agency_id = buyer.parent_agency_id
+              THEN coalesce(parent.platform_fee_percent, 0)::text ELSE '0' END AS platform_fee_percent
        FROM effective_agency_sales($1) s
        JOIN agencies sa ON sa.id = s.agency_id AND sa.active
        JOIN agencies buyer ON buyer.id = s.agency_id
@@ -395,8 +398,8 @@ async function revalidateFx(client: PoolClient, contractCurrency: string, fxRate
 /** Shared pricing for both booking and draft paths; publications retain their original markup. */
 function saleNightMinor(netMinor: number, sale: Sale): number {
   return sale.source === "distribution_rule"
-    ? priceMarketplaceChain(netMinor, sale.platformMarginPercent, sale.buyerMarkupPercent, 0, sale.minorUnits).saleMinor
-    : nightlySellMinor(netMinor, sale.markup, sale.minorUnits);
+    ? priceMarketplaceChain(netMinor, sale.platformMarginPercent, sale.buyerMarkupPercent, sale.minorUnits).saleMinor
+    : nightlySellMinor(netMinor, sale.markup, sale.minorUnits) + platformFeeMinor(netMinor, sale.platformFeePercent, sale.minorUnits);
 }
 
 /** Atomically decrements every night and writes the nightly price snapshot. Throws 409 on any failure. */
@@ -418,7 +421,7 @@ async function reserveNights(client: PoolClient, bookingId: string, ratePlanId: 
   if (totalMinor !== expectedTotalMinor) throw httpError(409, "PRICE_CHANGED");
   for (const n of nights) {
     const breakdown = sale.source === "distribution_rule"
-      ? priceMarketplaceChain(n.netMinor, sale.platformMarginPercent, sale.buyerMarkupPercent, sale.platformFeePercent, digits)
+      ? priceMarketplaceChain(n.netMinor, sale.platformMarginPercent, sale.buyerMarkupPercent, digits)
       : null;
     await client.query(
       `INSERT INTO booking_nights(booking_id, stay_date, inventory_id, rooms, net_price, markup_type, markup_value, sell_price, currency,
@@ -432,8 +435,8 @@ async function reserveNights(client: PoolClient, bookingId: string, ratePlanId: 
        breakdown ? formatMinor(breakdown.buyerCostMinor, digits) : null,
        breakdown?.buyerMarkupPercent ?? null,
        breakdown ? formatMinor(breakdown.buyerMarkupMinor, digits) : null,
-       breakdown?.platformFeePercent ?? null,
-       breakdown ? formatMinor(breakdown.platformFeeMinor, digits) : null]);
+       sale.source === "publication" ? sale.platformFeePercent : null,
+       sale.source === "publication" ? formatMinor(platformFeeMinor(n.netMinor, sale.platformFeePercent, digits), digits) : null]);
   }
   return totalMinor;
 }
