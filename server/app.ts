@@ -35,7 +35,7 @@ app.use(express.json({ limit: "1mb" }));
 
 // Temporary same-origin admin sign-in page; assets are copied into dist-server/server/assets.
 app.get("/giris", (_req, res) => {
-  res.setHeader("Content-Security-Policy", "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'; object-src 'none'; img-src 'none'");
+  res.setHeader("Content-Security-Policy", "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'; object-src 'none'; img-src 'self'");
   res.type("html").sendFile(path.join(__dirname, "assets", "giris.html"));
 });
 
