@@ -51,27 +51,8 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - name: Install pdftotext (voucher content verification)
-        run: |
-          if command -v pdftotext >/dev/null 2>&1; then
-            echo "pdftotext already available"
-          else
-            for attempt in 1 2 3; do
-              # Replace the Azure mirror before apt resolves packages.
-              if [ -f /etc/apt/apt-mirrors.txt ]; then
-                sudo sed -i 's/azure\.archive\.ubuntu\.com/archive.ubuntu.com/g' /etc/apt/apt-mirrors.txt
-              fi
-              if sudo apt-get update -q && sudo apt-get install -y -q poppler-utils; then
-                break
-              fi
-              if [ "$attempt" -eq 3 ]; then
-                echo "::error::pdftotext installation failed after 3 attempts"
-                exit 1
-              fi
-              sleep $((attempt * 10))
-            done
-          fi
-          pdftotext -v
+      - name: Install PDF text parser (npm only, pinned)
+        run: npm install --no-save --no-audit --no-fund pdfjs-dist@4.10.38
       - name: Apply migrations to a clean database (migration runner)
         run: npm run db:migrate
       - name: Second runner pass must apply nothing
@@ -145,27 +126,8 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - name: Install pdftotext (voucher content verification)
-        run: |
-          if command -v pdftotext >/dev/null 2>&1; then
-            echo "pdftotext already available"
-          else
-            for attempt in 1 2 3; do
-              # Replace the Azure mirror before apt resolves packages.
-              if [ -f /etc/apt/apt-mirrors.txt ]; then
-                sudo sed -i 's/azure\.archive\.ubuntu\.com/archive.ubuntu.com/g' /etc/apt/apt-mirrors.txt
-              fi
-              if sudo apt-get update -q && sudo apt-get install -y -q poppler-utils; then
-                break
-              fi
-              if [ "$attempt" -eq 3 ]; then
-                echo "::error::pdftotext installation failed after 3 attempts"
-                exit 1
-              fi
-              sleep $((attempt * 10))
-            done
-          fi
-          pdftotext -v
+      - name: Install PDF text parser (npm only, pinned)
+        run: npm install --no-save --no-audit --no-fund pdfjs-dist@4.10.38
       - name: Mutation check (throwaway database, created and dropped by the script)
         env:
           ADMIN_URL: postgres://bed4book:bed4book@localhost:5432/postgres
