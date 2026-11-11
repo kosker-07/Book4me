@@ -25,9 +25,9 @@ function extractText(file:Buffer):string {
       const pieces:string[]=[];
       for(const token of (block[1]??"").matchAll(/\(((?:\\.|[^\\)])*)\)\s*(?:Tj|'|")|\[((?:\((?:\\.|[^\\)])*\)|[^\]])*)\]\s*TJ/g)){
         if(token[1]!==undefined)pieces.push(pdfString(token[1]));
-        else for(const part of (token[2]??"").matchAll(/\(((?:\\.|[^\\)])*)\)/g))pieces.push(pdfString(part[1]??""));
+        else pieces.push([...(token[2]??"").matchAll(/\(((?:\\.|[^\\)])*)\)/g)].map(part=>pdfString(part[1]??"")).join(""));
       }
-      if(pieces.length)chunks.push(pieces.join(""));
+      if(pieces.length)chunks.push(pieces.join("\n"));
     }
   }
   return chunks.join("\n");
