@@ -8,10 +8,18 @@ export const dmcRouter = Router();
 const access=[authenticate,roles("master_agency")] as const;
 
 dmcRouter.get("/api/dmc/subagencies",...access,h(async(req,res)=>{
+ const search=typeof req.query.search==="string"?req.query.search.trim():"";
  const result=await pool.query(
-  "SELECT id,name,active,parent_agency_id FROM agencies WHERE type='sub' AND parent_agency_id=$1 ORDER BY name,id",
-  [req.auth!.agencyId]);
+  "SELECT id,name,active,parent_agency_id FROM agencies WHERE type='sub' AND parent_agency_id=$1 AND ($2::text = '' OR name ILIKE '%' || $2 || '%') ORDER BY name,id",
+  [req.auth!.agencyId,search]);
  res.json({items:result.rows});
+}));
+
+dmcRouter.get("/api/dmc/subagencies/:id",...access,h(async(req,res)=>{
+ const id=uuidParam(req);
+ const result=await pool.query("SELECT id,name,active,parent_agency_id FROM agencies WHERE id=$1 AND type='sub' AND parent_agency_id=$2",[id,req.auth!.agencyId]);
+ if(!result.rows[0])throw httpError(404,"NOT_FOUND");
+ res.json(result.rows[0]);
 }));
 
 dmcRouter.post("/api/dmc/subagencies",...access,h(async(req,res)=>{
