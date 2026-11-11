@@ -161,7 +161,7 @@ export function priceMarketplaceChain(
     if (milli < 0 || milli > 100000) throw new Error("Percentage out of range");
     return { milli, text: normalizeDecimal(v, 0, 3) };
   });
-  const [platform, buyer, fee] = validated;
+  const platform = validated[0]!, buyer = validated[1]!, fee = validated[2]!;
   const platformMarginMinor = nightlySellMinor(netMinor, { type: "percent", value: platform.text }, digits) - netMinor;
   const buyerCostMinor = netMinor + platformMarginMinor;
   const buyerMarkupMinor = nightlySellMinor(buyerCostMinor, { type: "percent", value: buyer.text }, digits) - buyerCostMinor;
