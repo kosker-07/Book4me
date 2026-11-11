@@ -11,3 +11,7 @@ test("10MB maximum enforced",()=>{
 test("invalid ZIP workbook rejected",()=>{
  assert.throws(()=>readGridPreview(Buffer.from("PKgarbage")),/INVALID_XLSX/);
 });
+
+test("invalid workbook with date-like content is not accepted",()=>{
+ assert.throws(()=>readGridPreview(Buffer.from("PK\\x03\\x04")),/INVALID_XLSX/);
+});
