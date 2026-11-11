@@ -1,11 +1,19 @@
 import { inflateRawSync } from "node:zlib";
 
 export type GridWarning = { sheet: string; row: number; code: string; message: string };
-export type GridPeriod = { from: string; to: string; min_stay: number | null; allotment: number; prices: Record<string,number> };
+type GridDateRange = { from: string; to: string };
+export type GridPeriod = GridDateRange & {
+  extra_ranges: GridDateRange[];
+  min_stay: number | null;
+  release_days: number | null;
+  allotment: number;
+  prices: Record<string, number>;
+};
 export type GridRoom = { name: string; periods: GridPeriod[] };
-export type GridHotel = { name: string; region: string; concept: string; currency: string; sheet: string; rooms: GridRoom[] };
+export type GridHotel = { name: string; region: string; concept: string; currency: string; sheet: string; notes: string[]; rooms: GridRoom[] };
 export type GridPreview = { hotels: GridHotel[]; skipped: {sheet:string;reason:string}[]; warnings: GridWarning[] };
 type Sheet = { name:string; rows:Map<number,Map<number,string>> };
+type SheetPeriod = Omit<GridPeriod, "allotment" | "prices"> & { col: number };
 const decode=(s:string)=>s.replace(/&(?:amp|lt|gt|quot|apos);/g,m=>({"&amp;":"&","&lt;":"<","&gt;":">","&quot;":'"',"&apos;":"'"}[m]??m));
 const texts=(s:string)=>[...s.matchAll(/<t(?:\s[^>]*)?>([\s\S]*?)<\/t>/g)].map(m=>decode(m[1]??"")).join("");
 const attr=(s:string,k:string)=>new RegExp("\\b"+k+"=\"([^\"]*)\"").exec(s)?.[1]??"";
@@ -50,7 +58,10 @@ function parseSheets(file:Buffer):Sheet[]{
 }
 const cell=(s:Sheet,r:number,c:number)=>s.rows.get(r)?.get(c)??"";
 function asDate(v:string):string|null{
- if(/^\d{4}-\d{2}-\d{2}$/.test(v))return v;
+ if (/^\d{4}-\d{2}-\d{2}$/.test(v)) {
+  const day = new Date(v + "T00:00:00Z");
+  return Number.isFinite(day.getTime()) && day.toISOString().slice(0, 10) === v ? v : null;
+ }
  if(/^\d{5}(?:\.0+)?$/.test(v)){const d=new Date(Date.UTC(1899,11,30)+Number(v)*86400000);return d.toISOString().slice(0,10);}
  const m=/^(\d{1,2})[./](\d{1,2})[./](\d{4})$/.exec(v);
  if(!m)return null;const d=Number(m[1]??0),mo=Number(m[2]??0),y=Number(m[3]??0),x=new Date(Date.UTC(y,mo-1,d));
@@ -86,31 +97,95 @@ function parse(s:Sheet,warnings:GridWarning[]):GridHotel|null{
  const lines=name.split(/\r?\n/).map(x=>x.trim()).filter(Boolean);
  if(lines.length>1){name=lines[0]??name;const last=lines[lines.length-1]??"";if(/^(KEMER|BELEK|SIDE|ALANYA|ANTALYA|LARA|BODRUM|KUNDU)$/i.test(last))region=last;}
  name=name.trim();region=region.trim();
- const periods:{col:number;from:string;to:string;min_stay:number|null}[]=[];
- for(const r of ids.filter(r=>r<first)){
-  const dates=[...(s.rows.get(r)?.entries()??[])].filter(([c,v])=>c>1&&asDate(v));
-  if(dates.length<2)continue;
-  const vertical=dates.filter(([c])=>asDate(cell(s,r+1,c))).length>=Math.max(2,dates.length-1);
-  if(vertical){
-   for(const [c,v] of dates){const from=asDate(v),to=asDate(cell(s,r+1,c));if(from&&to)periods.push({col:c,from,to,min_stay:Number(cell(s,r+2,c))||null});}
-  }else{
-   for(let j=0;j+1<dates.length;j+=2){const from=asDate(dates[j]?.[1]??""),to=asDate(dates[j+1]?.[1]??"");if(from&&to)periods.push({col:dates[j]?.[0]??0,from,to,min_stay:null});}
-  }if(periods.length){
-   if(!vertical){
-    for(const p of periods){
-     const a=cell(s,r+1,p.col+1),b=cell(s,r+1,p.col+2);
-     if(!a&&!b)continue;
-     const from=asDate(a),to=asDate(b);
-     if(from&&to)(p as typeof p & {additional_ranges?:{from:string;to:string}[]}).additional_ranges=[{from,to}];
-     else warnings.push({sheet:s.name,row:r+1,code:"INVALID_EXTRA_PERIOD",message:"Ek tarih aralığı okunamadı: "+a+" / "+b});
+ const periods: SheetPeriod[] = [];
+ for (const r of ids.filter(row => row < first)) {
+  const dates = [...(s.rows.get(r)?.entries() ?? [])].flatMap(([col, raw]) => {
+   const day = col > 1 ? asDate(raw) : null;
+   return day ? [{ col, day }] : [];
+  });
+  if (dates.length < 2) continue;
+
+  // In Sejour the period letter sits above the start column of each pair.
+  const pairedHeadings = dates.length % 2 === 0 && dates.every(({ col }, index) => {
+   const heading = cell(s, r - 1, col);
+   return index % 2 === 0 ? /^[A-Z]+$/i.test(heading) : heading === "";
+  });
+  const vertical = !pairedHeadings
+   && dates.filter(({ col }) => asDate(cell(s, r + 1, col))).length >= Math.max(2, dates.length - 1);
+  if (vertical) {
+   for (const { col, day: from } of dates) {
+    const to = asDate(cell(s, r + 1, col));
+    if (to) periods.push({ col, from, to, extra_ranges: [], min_stay: null, release_days: null });
+   }
+  } else {
+   for (let j = 0; j + 1 < dates.length; j += 2) {
+    const start = dates[j];
+    const end = dates[j + 1];
+    if (!start || !end) continue;
+    const rawFrom = cell(s, r + 1, start.col);
+    const rawTo = cell(s, r + 1, end.col);
+    const extra_ranges: GridDateRange[] = [];
+    if (rawFrom || rawTo) {
+     const from = asDate(rawFrom);
+     const to = asDate(rawTo);
+     if (from && to && from <= to) {
+      extra_ranges.push({ from, to });
+     } else {
+      warnings.push({
+       sheet: s.name,
+       row: r + 1,
+       code: "INVALID_EXTRA_PERIOD",
+       message: `Ek tarih aralığı okunamadı: ${rawFrom} / ${rawTo}`,
+      });
+     }
     }
-   }break;
+    periods.push({
+     col: start.col,
+     from: start.day,
+     to: end.day,
+     extra_ranges,
+     min_stay: null,
+     release_days: null,
+    });
+   }
   }
- }if(!periods.length)return null;
+  if (periods.length) break;
+ }
+ if (!periods.length) return null;
+
+ const notes: string[] = [];
+ const conditionRows = new Set<number>();
+ for (const r of ids) {
+  const label = cell(s, r, 1);
+  if (/^other\s+conditions\s*:?$/i.test(label)) {
+   conditionRows.add(r);
+   const note = cell(s, r, 2) || cell(s, r, periods[0]?.col ?? 2);
+   if (note) notes.push(note);
+   continue;
+  }
+  const field = /^release\s+days?\s*:?$/i.test(label) ? "release_days"
+   : /^min(?:imum)?\.?\s+stay\s*:?$/i.test(label) ? "min_stay" : null;
+  if (!field) continue;
+  conditionRows.add(r);
+  for (const period of periods) {
+   const raw = cell(s, r, period.col);
+   const days = Number(raw);
+   if (raw && Number.isSafeInteger(days) && days >= 0) period[field] = days;
+  }
+ }
+
  const rooms:GridRoom[]=[];
  for(let i=0;i<blocks.length;i++){
   const start=blocks[i]??0,end=blocks[i+1]??(Math.max(...ids)+1);
-  const room:GridRoom={name:cell(s,start,1),periods:periods.map(p=>({from:p.from,to:p.to,min_stay:p.min_stay,allotment:0,prices:{}}))};
+  const room: GridRoom = {
+   name: cell(s, start, 1),
+   periods: periods.map(({ col: _col, extra_ranges, ...period }) => ({
+    ...period,
+    extra_ranges: extra_ranges.map(range => ({ ...range })),
+    allotment: 0,
+    prices: {},
+   })),
+  };
   for(let j=0;j<periods.length;j++){
    const p=periods[j],target=room.periods[j];if(!p||!target)continue;
    const raw=cell(s,start+1,p.col);
@@ -118,6 +193,7 @@ function parse(s:Sheet,warnings:GridWarning[]):GridHotel|null{
    target.allotment=[...raw.matchAll(/\d+/g)].reduce((sum,m)=>sum+Number(m[0]??0),0);
   }
   for(let r=start+2;r<end;r++){
+   if (conditionRows.has(r)) continue;
    const label=cell(s,r,1);if(!label)continue;
    const values=periods.map(p=>cell(s,r,p.col));if(!values.some(Boolean))continue;
    const occupancy=key(label);if(!occupancy){warnings.push({sheet:s.name,row:r,code:"UNKNOWN_OCCUPANCY",message:label});continue;}
@@ -134,7 +210,7 @@ function parse(s:Sheet,warnings:GridWarning[]):GridHotel|null{
    if(p.prices.dbl===undefined&&p.prices.pax2===undefined&&p.prices.room===undefined)
     warnings.push({sheet:s.name,row:start,code:"NO_BASE_PRICE",message:room.name+": dbl/pax2/room fiyatı bulunamadı"});
   }rooms.push(room);
- }return {name,region,concept,currency,sheet:s.name,rooms};
+ }return {name,region,concept,currency,sheet:s.name,notes,rooms};
 }
 export function readGridPreview(file:Buffer):GridPreview{
  const warnings:GridWarning[]=[],hotels:GridHotel[]=[],skipped:GridPreview["skipped"]=[];
