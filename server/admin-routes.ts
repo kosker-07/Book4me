@@ -444,7 +444,7 @@ adminRouter.patch("/api/admin/agencies/:id", authenticate, roles("system_admin",
     if (b[key] === undefined) continue;
     const value = b[key];
     if ((typeof value !== "string" && typeof value !== "number") ||
-        !/^(?:100(?:\\.0{1,3})?|(?:\\d|[1-9]\\d)(?:\\.\\d{1,3})?)$/.test(String(value)))
+        !/^(?:100(?:\.0{1,3})?|(?:\d|[1-9]\d)(?:\.\d{1,3})?)$/.test(String(value)))
       throw httpError(400, "INVALID_PERCENTAGE", { field: key });
     percentages[key] = String(value);
   }
