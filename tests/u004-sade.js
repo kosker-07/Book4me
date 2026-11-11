@@ -26,7 +26,7 @@ const as = (B, id) => { B.auth.logout(); B.auth.start(B.db.get("users", id)); };
   const ev = f => pg.evaluate(f), run = (a, p) => pg.evaluate(([a, p]) => B4M.ui.run(a, p), [a, p]), txt = () => pg.textContent("#app");
   const login = async e => { await pg.evaluate(() => { const b = document.querySelector("button[data-a=logout]"); if (b) b.click(); }); await pg.fill("#lg_e", e); await pg.fill("#lg_p", "book4me"); await pg.click("button[data-a=login]"); };
   await login("admin@book4me-ai.com");
-  ok(await ev(() => document.querySelectorAll(".sidenav .gh").length) == 7, "Back Office menüsü 7 başlık");
+  ok(await ev(() => document.querySelectorAll(".sidenav .gh").length) == 12, "Back Office menüsü 12 başlık (gerçek sistem menüsü)");
   const reach = await ev(() => { const T = B4M.vHQ.tabs().map(x => x[0]).filter(k => k != "pw"), seen = new Set(); B4M.vNav.H.forEach(g => g[1].forEach(l => l[1].forEach(sb => seen.add(sb[0])))); return T.filter(k => !seen.has(k)); });
   ok(!reach.length, "eski 21 sekmenin hepsine menüden ulaşılıyor " + reach.join(","));
   ok(await ev(() => B4M.vNav.S.reduce((s, g) => s + g[1].length, 0)) == 30, "DMC menüsü 30 giriş (6 grup; 41 ekranın hepsi korunuyor)");
