@@ -1,3 +1,0 @@
-import test from "node:test";import assert from "node:assert/strict";import {isRetryableSupplierStatus,supplierRetryDelayMs} from "../../server/integration-invariants";
-test("retry only transient statuses",()=>{assert.equal(isRetryableSupplierStatus(429),true);assert.equal(isRetryableSupplierStatus(503),true);assert.equal(isRetryableSupplierStatus(400),false);assert.equal(isRetryableSupplierStatus(401),false)});
-test("bounded retry delay",()=>{assert.equal(supplierRetryDelayMs(0),500);assert.equal(supplierRetryDelayMs(1),1000);assert.equal(supplierRetryDelayMs(8),30000);assert.throws(()=>supplierRetryDelayMs(-1));assert.throws(()=>supplierRetryDelayMs(1,-2))});

@@ -16,6 +16,7 @@ import { contractRouter } from "./contract-routes";
 import { contractImportRouter } from "./contract-import-routes";
 import { distributionRouter } from "./distribution-routes";
 import { dmcRouter } from "./dmc-routes";
+import { reportRouter } from "./report-routes";
 import { mailRouter } from "./mail-routes";
 import { startMailWorker } from "./mail/worker";
 import { markRead, startReminderWorker } from "./booking-reminders";
@@ -157,6 +158,7 @@ app.use(contractRouter);
 app.use(contractImportRouter);
 app.use(distributionRouter);
 app.use(dmcRouter);
+app.use(reportRouter);
 app.use(mailRouter);
 
 // A sub-agency sees only hotels explicitly published to that agency.
