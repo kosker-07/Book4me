@@ -7,6 +7,7 @@ if (skip && process.env.CI) throw new Error("DATABASE_URL required in CI");
 
 let pool: any, decideApproval: any, registerApprovalHandler: any, pgRunStore: any;
 const executed: string[] = [];
+const flaky = { fail: true };
 
 before(async () => {
   if (skip) return;
@@ -14,6 +15,7 @@ before(async () => {
   ({ decideApproval, registerApprovalHandler } = await import("../../server/ai/approvals"));
   ({ pgRunStore } = await import("../../server/ai/store"));
   registerApprovalHandler("test.refund", async (_db: any, a: any) => { executed.push(a.id); return "refunded " + a.payload.amount; });
+  registerApprovalHandler("test.flaky", async (_db: any, a: any) => { if (flaky.fail) throw new Error("downstream unavailable"); executed.push(a.id); return "done"; });
 });
 after(async () => { if (!skip) await pool.end(); });
 
@@ -92,4 +94,27 @@ test("AI6 audit is append-only: UPDATE and DELETE are refused", { skip }, async 
   await assert.rejects(pool.query("UPDATE ai_audit SET action='edited' WHERE id=$1", [r.id]), /append-only/);
   await assert.rejects(pool.query("DELETE FROM ai_audit WHERE id=$1", [r.id]), /append-only/);
   assert.equal(Number((await pool.query("SELECT count(*) AS n FROM ai_audit WHERE run_id=$1", [runId])).rows[0].n), 1);
+});
+
+test("AI7 a rejection that lands during the last approval wins: the action never runs", { skip }, async () => {
+  const { id } = await queued({ required: 2 }), u1 = await user(), u2 = await user(), u3 = await user();
+  await decideApproval(pool, id, u1, "approve");
+  // A concurrent reject has written its vote but not yet closed the item.
+  await pool.query("INSERT INTO approval_votes(approval_id, user_id, decision) VALUES ($1,$2,'reject')", [id, u3]);
+  assert.equal((await decideApproval(pool, id, u2, "approve")).state, "rejected");
+  assert.equal(executed.includes(id), false);
+  assert.equal((await row(id)).state, "rejected");
+});
+
+test("AI8 a failing action reopens the item with the reason; the next approval retries it exactly once", { skip }, async () => {
+  const { id } = await queued({ action: "test.flaky" }), u = await user();
+  flaky.fail = true;
+  await assert.rejects(decideApproval(pool, id, u, "approve"), /downstream unavailable/);
+  const r = await row(id);
+  assert.equal(r.state, "pending"); assert.match(r.result, /^FAILED: downstream unavailable/);
+  flaky.fail = false;
+  assert.equal((await decideApproval(pool, id, u, "approve")).state, "approved");
+  assert.equal((await decideApproval(pool, id, await user(), "approve")).state, "approved");
+  assert.equal(executed.filter(x => x === id).length, 1);
+  assert.deepEqual(await row(id), { state: "approved", result: "done" });
 });
