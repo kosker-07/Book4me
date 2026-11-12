@@ -1,5 +1,8 @@
 import { inflateRawSync } from "node:zlib";
 
+// Decompression caps: a small workbook must not expand into gigabytes (zip bomb).
+const MAX_ENTRY_BYTES=50*1024*1024, MAX_TOTAL_BYTES=120*1024*1024;
+
 export type GridWarning = { sheet: string; row: number; code: string; message: string };
 type GridDateRange = { from: string; to: string };
 export type GridPeriod = GridDateRange & {
@@ -20,14 +23,15 @@ const attr=(s:string,k:string)=>new RegExp("\\b"+k+"=\"([^\"]*)\"").exec(s)?.[1]
 function entries(file:Buffer):Map<string,Buffer>{
  if(file.length>10485760)throw Error("FILE_TOO_LARGE");
  if(file.subarray(0,2).toString()!=="PK")throw Error("INVALID_XLSX");
- const out=new Map<string,Buffer>();let p=0;
+ const out=new Map<string,Buffer>();let p=0,total=0;
  while(p+30<=file.length&&file.readUInt32LE(p)===0x04034b50){
   const flags=file.readUInt16LE(p+6),method=file.readUInt16LE(p+8),size=file.readUInt32LE(p+18),nl=file.readUInt16LE(p+26),el=file.readUInt16LE(p+28);
   const start=p+30+nl+el;if(flags&8||start+size>file.length)throw Error("INVALID_XLSX");
   const name=file.subarray(p+30,p+30+nl).toString();
   if(name.startsWith("xl/")&&(name.endsWith(".xml")||name.endsWith(".rels"))){
    if(method!==0&&method!==8)throw Error("INVALID_XLSX");
-   out.set(name,method===0?file.subarray(start,start+size):inflateRawSync(file.subarray(start,start+size)));
+   const part=method===0?file.subarray(start,start+size):inflateRawSync(file.subarray(start,start+size),{maxOutputLength:MAX_ENTRY_BYTES});
+   total+=part.length;if(total>MAX_TOTAL_BYTES)throw Error("FILE_TOO_LARGE");out.set(name,part);
   }p=start+size;
  }
  if(!out.has("xl/workbook.xml"))throw Error("INVALID_XLSX");return out;
@@ -57,6 +61,15 @@ function parseSheets(file:Buffer):Sheet[]{
  }return result;
 }
 const cell=(s:Sheet,r:number,c:number)=>s.rows.get(r)?.get(c)??"";
+/** Currency cell -> ISO code. Unknown text gives "???" so the import shows INVALID_CURRENCY instead of guessing EUR. */
+export function currencyOf(v:string):string{
+ const u=v.toUpperCase().trim();if(!u)return "EUR";
+ if(/(^|[^A-Z])(TRY|TL)([^A-Z]|$)|₺/.test(u))return "TRY";
+ if(/(^|[^A-Z])EUR(O)?([^A-Z]|$)|€/.test(u))return "EUR";
+ if(/(^|[^A-Z])USD([^A-Z]|$)|\$/.test(u))return "USD";
+ if(/(^|[^A-Z])GBP([^A-Z]|$)|£/.test(u))return "GBP";
+ return /^[A-Z]{3}$/.test(u)?u:"???";
+}
 function asDate(v:string):string|null{
  if (/^\d{4}-\d{2}-\d{2}$/.test(v)) {
   const day = new Date(v + "T00:00:00Z");
@@ -91,7 +104,7 @@ function parse(s:Sheet,warnings:GridWarning[]):GridHotel|null{
   if(/^hotel\s*name/i.test(a))name=b;
   if(/^region/i.test(a))region=b;
   if(/^concept/i.test(a))concept=b;
-  if(/^currency/i.test(a))currency=/USD/i.test(b)?"USD":/GBP/i.test(b)?"GBP":/TRY|TL/i.test(b)?"TRY":"EUR";
+  if(/^currency/i.test(a))currency=currencyOf(b);
  }
  if(!name)name=ids.filter(r=>r<first).map(r=>cell(s,r,1)).find(v=>/CRYSTAL/i.test(v))??s.name;
  const lines=name.split(/\r?\n/).map(x=>x.trim()).filter(Boolean);

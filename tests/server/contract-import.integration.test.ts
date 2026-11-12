@@ -77,6 +77,12 @@ test("X5 the same file cannot be imported twice by the same DMC; a confirmed pre
   assert.equal((await call("POST", `/api/contracts/import/${pre.body.importId}/confirm`, w.t.masterA, terms)).status, 409);
   const again = await call("POST", "/api/contracts/import/preview", w.t.masterA, PENINSULA);
   assert.equal(again.status, 409); assert.equal(again.body.error, "DUPLICATE_IMPORT");
+  await pool.query("DELETE FROM contract_imports WHERE owner_agency_id=$1", [w.dmcA]);
+  await pool.query("TRUNCATE hotels CASCADE");
+  const p1 = await call("POST", "/api/contracts/import/preview", w.t.masterA, PENINSULA), p2 = await call("POST", "/api/contracts/import/preview", w.t.masterA, PENINSULA);
+  assert.equal((await call("POST", `/api/contracts/import/${p1.body.importId}/confirm`, w.t.masterA, terms)).status, 200);
+  const late = await call("POST", `/api/contracts/import/${p2.body.importId}/confirm`, w.t.masterA, terms);
+  assert.deepEqual([late.status, late.body.error], [409, "DUPLICATE_IMPORT"], "two open previews of one file: only one can be confirmed");
   const other = await call("POST", "/api/contracts/import/preview", w.t.masterB, PENINSULA);
   assert.equal(other.status, 201, "another DMC may load the same hotel's contract");
 });
@@ -118,8 +124,11 @@ test("X8 re-import keeps reserved stock: a new allotment never drops below rooms
   await pool.query("UPDATE inventory_daily SET reserved = 10 WHERE rate_plan_id=$1 AND stay_date='2021-11-01'", [plan]);
   await pool.query("UPDATE contract_imports SET status='preview', confirmed_at=NULL");
   await pool.query("UPDATE inventory_daily SET allotment = 10 WHERE rate_plan_id=$1", [plan]);
-  const again = await call("POST", `/api/contracts/import/${pre.body.importId}/confirm`, w.t.masterA, terms);
+  const newTerms = { cancellationPolicy: { ...terms.cancellationPolicy, freeUntilDays: 21 }, paymentTerms: { dueDaysBeforeCheckIn: 30 } };
+  const again = await call("POST", `/api/contracts/import/${pre.body.importId}/confirm`, w.t.masterA, newTerms);
   assert.equal(again.status, 200, JSON.stringify(again.body));
+  const t = (await pool.query("SELECT cancellation_policy, payment_terms FROM rate_plans WHERE id=$1", [plan])).rows[0];
+  assert.deepEqual([t.cancellation_policy.freeUntilDays, t.payment_terms.dueDaysBeforeCheckIn], [21, 30], "re-import applies the newly confirmed terms");
   const night = (await pool.query("SELECT allotment, reserved FROM inventory_daily WHERE rate_plan_id=$1 AND stay_date='2021-11-01'", [plan])).rows[0];
   assert.ok(night.allotment >= night.reserved);
   assert.equal(await count("SELECT count(*) AS n FROM rate_plans"), 4, "no duplicate rate plans on re-import (4 priced rooms)");

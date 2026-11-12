@@ -51,8 +51,10 @@ export async function fetchReceivedEmail(apiKey: string, emailId: string, fetchI
   if (!response.ok) throw new MailProviderError(`RESEND_RECEIVE_${response.status}`, response.status >= 500 || response.status === 429);
   const body = await response.json() as any;
   const list = await fetchImpl(`${RESEND_API}/emails/receiving/${encodeURIComponent(emailId)}/attachments`, { headers });
+  // A failed attachment listing must not look like "no attachments": the inbox row is marked failed instead.
+  if (!list.ok) throw new MailProviderError(`RESEND_ATTACHMENTS_${list.status}`, list.status >= 500 || list.status === 429);
   const attachments: ReceivedAttachment[] = [];
-  if (list.ok) {
+  {
     const parsed = await list.json() as any;
     for (const a of (parsed?.data ?? [])) {
       if (a && typeof a.filename === "string" && typeof a.download_url === "string")

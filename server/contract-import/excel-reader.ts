@@ -16,7 +16,7 @@ export function zipMember(zip: Buffer, target: string): Buffer | null {
     if (start + size > zip.length) throw new Error("INVALID_XLSX");
     if (name === target) {
       if (method === 0) return zip.subarray(start, start + size);
-      if (method === 8) return inflateRawSync(zip.subarray(start, start + size));
+      if (method === 8) return inflateRawSync(zip.subarray(start, start + size), { maxOutputLength: 50 * 1024 * 1024 });
       throw new Error("UNSUPPORTED_ZIP_COMPRESSION");
     }
     offset = start + size;

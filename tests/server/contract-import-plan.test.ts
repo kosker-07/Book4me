@@ -2,7 +2,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import path from "node:path";
-import { readGridPreview } from "../../server/contract-import/grid-reader";
+import { currencyOf, readGridPreview } from "../../server/contract-import/grid-reader";
+import { deflateRawSync } from "node:zlib";
 import { nights, planHotel, roomPrice, rowCount } from "../../server/contract-import/plan";
 
 const fixture = (name: string) => readFileSync(path.join(__dirname, "fixtures", name));
@@ -56,4 +57,21 @@ test("X3 plan rules: room price falls back to per-person x2, bad ranges and miss
   assert.deepEqual(p.errors.map(e => e.code).sort(), ["INVALID_DATE_RANGE", "NO_ROOM_PRICE"]);
   assert.deepEqual(p.warnings.map(e => e.code), ["OVERLAPPING_PERIOD_LAST_WINS"]);
   assert.deepEqual([p.validFrom, p.validTo], ["2027-01-01", "2027-01-04"]);
+});
+
+test("X9 review fixes: impossible dates rejected, unknown currency not guessed, zip bomb refused", () => {
+  assert.equal(nights("2027-02-30", "2027-03-02"), null);
+  assert.equal(nights("2027-02-28", "2027-02-31"), null);
+  assert.deepEqual(nights("2028-02-28", "2028-02-29"), ["2028-02-28", "2028-02-29"], "leap day is real");
+  assert.deepEqual(["EUR", "Euro", "€", "USD", "$", "GBP", "£", "TL", "TRY", "", "CHF", "Swiss francs"].map(currencyOf),
+    ["EUR", "EUR", "EUR", "USD", "USD", "GBP", "GBP", "TRY", "TRY", "EUR", "CHF", "???"]);
+  const p = planHotel({ name: "X", region: "", concept: "", currency: "???", sheet: "s", notes: [], rooms: [] });
+  assert.ok(p.errors.some(e => e.code === "INVALID_CURRENCY"));
+  // 60 MB of zeros deflates to a few KB; one ZIP entry named xl/workbook.xml.
+  const data = deflateRawSync(Buffer.alloc(60 * 1024 * 1024)), name = Buffer.from("xl/workbook.xml");
+  const header = Buffer.alloc(30); header.writeUInt32LE(0x04034b50, 0); header.writeUInt16LE(8, 8);
+  header.writeUInt32LE(data.length, 18); header.writeUInt32LE(60 * 1024 * 1024, 22); header.writeUInt16LE(name.length, 26);
+  const bomb = Buffer.concat([header, name, data]);
+  assert.ok(bomb.length < 1024 * 1024);
+  assert.throws(() => readGridPreview(bomb));
 });
