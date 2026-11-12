@@ -21,6 +21,8 @@ import { financeRouter } from "./finance-routes";
 import { reportRouter } from "./report-routes";
 import { mailRouter } from "./mail-routes";
 import { startMailWorker } from "./mail/worker";
+import { startOwnerDigestWorker } from "./ai/owner-notify";
+import { ownerAssistantRouter } from "./ai/owner-routes";
 import { registerPlatformApprovalHandlers } from "./ai/tools/handlers";
 import { markRead, startReminderWorker } from "./booking-reminders";
 import { renderVoucher } from "./voucher";
@@ -165,6 +167,7 @@ app.use(dmcRouter);
 app.use(financeRouter);
 app.use(reportRouter);
 app.use(mailRouter);
+app.use(ownerAssistantRouter);
 
 // A sub-agency sees only hotels explicitly published to that agency.
 app.get("/api/agency/hotels", authenticate, roles("sub_agency"), requireAgency, async (req: AuthedRequest, res, next) => {
@@ -1061,6 +1064,7 @@ if (require.main === module) {
   }).finally(() => {
     app.listen(port, () => console.log(`BED4BOOK API listening on :${port}`));
     startMailWorker();
+    startOwnerDigestWorker();
     startReminderWorker(pool);
   });
 }
