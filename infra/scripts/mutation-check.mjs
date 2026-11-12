@@ -45,7 +45,7 @@ const M = [
   { id: "M25", what: "Kredi onayı beklerken stok düş", expect: ["C1"], edits: [["server/app.ts",
     "      if (!asDraft && !awaitingApproval) await reserveNights(", "      if (!asDraft) await reserveNights("]] },
   { id: "M12", what: "Draft iptalinde stok iadesi yap", expect: ["B2"], edits: [["server/booking-transition.ts",
-    "const CONSUMES_INVENTORY = new Set([\"pending\", \"approved\"]);", "const CONSUMES_INVENTORY = new Set([\"draft\", \"pending\", \"approved\"]);"]] },
+    "export const CONSUMES_INVENTORY = new Set([\"pending\", \"approved\"]);", "export const CONSUMES_INVENTORY = new Set([\"draft\", \"pending\", \"approved\"]);"]] },
   { id: "M13", what: "Onaysız rezervasyona voucher üret", expect: ["A2", "A3"], edits: [["server/app.ts",
     "  if (b.status !== \"approved\") throw httpError(409, \"VOUCHER_REQUIRES_APPROVED_BOOKING\", { status: b.status });", ""]] },
   { id: "M14", what: "Ana acenteye başka otel yönetimi aç", expect: ["C1"], edits: [["server/admin-routes.ts",
