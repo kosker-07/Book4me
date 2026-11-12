@@ -1,4 +1,5 @@
 import type { Db } from "./store";
+import { randomUUID } from "node:crypto";
 import { runPlatformAgent } from "./agents/runner";
 import type { PlatformAgentId } from "./agents/registry";
 import { pool } from "../db";
@@ -31,10 +32,11 @@ export async function queuePlatformInbox(db: Db, inboxId: string): Promise<boole
 
 /** One atomic claim, with disabled agents remaining queued. */
 export async function processNextAiJob(db: Db, execute: typeof runPlatformAgent = runPlatformAgent): Promise<boolean> {
-  const claimed=(await db.query(`UPDATE ai_jobs j SET state='running', attempts=attempts+1
+  const token=randomUUID();
+  const claimed=(await db.query(`UPDATE ai_jobs j SET state='running', attempts=j.attempts+1, lease_token=$1, lease_expires_at=now()+interval '15 minutes'
     WHERE id=(SELECT j2.id FROM ai_jobs j2 JOIN ai_agents a ON a.id=j2.agent_id
-      WHERE j2.state='queued' AND a.enabled=true ORDER BY j2.created_at,j2.id LIMIT 1)
-      AND state='queued' RETURNING id,agent_id,kind,ref_id`)).rows[0];
+      WHERE a.enabled=true AND j2.attempts<3 AND (j2.state='queued' OR (j2.state='running' AND j2.lease_expires_at<now())) ORDER BY j2.created_at,j2.id LIMIT 1)
+      AND (j.state='queued' OR (j.state='running' AND j.lease_expires_at<now())) RETURNING j.id,j.agent_id,j.kind,j.ref_id`,[token])).rows[0];
   if(!claimed)return false;
   try{
     const email=(await db.query(`SELECT id,subject,from_address,to_address,text_body
@@ -50,11 +52,11 @@ export async function processNextAiJob(db: Db, execute: typeof runPlatformAgent 
       }))}),names);
     const result=await execute(db,claimed.agent_id as PlatformAgentId,{trigger:"inbound_email",prompt});
     const state=result.status==="done"?"done":result.status==="disabled"?"queued":"failed";
-    await db.query("UPDATE ai_jobs SET state=$2,run_id=$3,last_error=$4 WHERE id=$1",
-      [claimed.id,state,result.runId,state==="failed"?result.status:null]);
+    await db.query("UPDATE ai_jobs SET state=$3,run_id=$4,last_error=$5,lease_token=NULL,lease_expires_at=NULL WHERE id=$1 AND lease_token=$2",
+      [claimed.id,token,state,result.runId,state==="failed"?result.status:null]);
   }catch(e){
-    await db.query("UPDATE ai_jobs SET state='failed',last_error=$2 WHERE id=$1",
-      [claimed.id,String((e as Error).message||e).slice(0,500)]);
+    await db.query("UPDATE ai_jobs SET state='failed',last_error=$3,lease_token=NULL,lease_expires_at=NULL WHERE id=$1 AND lease_token=$2",
+      [claimed.id,token,String((e as Error).message||e).slice(0,500)]);
   }
   return true;
 }
