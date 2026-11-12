@@ -58,10 +58,13 @@ test("AP4: disabling an agent persists and prevents activation",{skip},async()=>
   const bad=await req("/api/ai/agents/support",admin,"PATCH",{daily_token_budget:5000001});
   assert.equal(bad.status,400);
 });
-test("AP5: pending approval appears and disappears after rejection",{skip},async()=>{
+test("AP5: pending approval appears and disappears after approval",{skip},async()=>{
+  registerApprovalHandler("ap5Once",async()=> "approved");
+  await db.query("UPDATE approval_queue SET action='ap5Once' WHERE id=$1",[approval]);
   const before=await req("/api/ai/approvals?state=pending",admin);
   assert.equal(before.status,200);assert.ok(before.body.items.some((a:any)=>a.id===approval));
-  await req("/api/ai/approvals/"+approval+"/reject",admin,"POST",{});
+  const approved=await req("/api/ai/approvals/"+approval+"/approve",admin,"POST",{});
+  assert.equal(approved.status,200);assert.equal(approved.body.state,"approved");
   const after=await req("/api/ai/approvals?state=pending",admin);
   assert.ok(!after.body.items.some((a:any)=>a.id===approval));
 });
