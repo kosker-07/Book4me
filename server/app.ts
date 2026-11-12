@@ -18,6 +18,7 @@ import { contractImportRouter } from "./contract-import-routes";
 import { distributionRouter } from "./distribution-routes";
 import { dmcRouter } from "./dmc-routes";
 import { financeRouter } from "./finance-routes";
+import { aiCenterRouter } from "./ai/center-routes";
 import { reportRouter } from "./report-routes";
 import { mailRouter } from "./mail-routes";
 import { startMailWorker } from "./mail/worker";
@@ -163,6 +164,7 @@ app.use(contractImportRouter);
 app.use(distributionRouter);
 app.use(dmcRouter);
 app.use(financeRouter);
+app.use(aiCenterRouter);
 app.use(reportRouter);
 app.use(mailRouter);
 
