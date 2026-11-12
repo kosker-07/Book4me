@@ -12,7 +12,12 @@ export interface HotelPlan { name: string; region: string; concept: string; curr
 
 const DAY = 86_400_000;
 const isoDay = (ms: number) => new Date(ms).toISOString().slice(0, 10);
-const parseDay = (s: string) => /^\d{4}-\d{2}-\d{2}$/.test(s) ? Date.parse(s + "T00:00:00Z") : NaN;
+/** Strict calendar date: 2027-02-30 is rejected, not rolled into March. */
+const parseDay = (s: string) => {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return NaN;
+  const t = Date.parse(s + "T00:00:00Z");
+  return Number.isNaN(t) || isoDay(t) !== s ? NaN : t;
+};
 
 export function roomPrice(p: GridPeriod): number | null {
   const v = p.prices.dbl ?? (p.prices.pp_dbl !== undefined ? p.prices.pp_dbl * 2 : undefined);

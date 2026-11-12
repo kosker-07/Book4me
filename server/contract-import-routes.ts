@@ -115,6 +115,10 @@ contractImportRouter.post("/api/contracts/import/:id/confirm", ...managers, h(as
           // A trigger attaches every new rate plan to the hotel's default contract; move it to this import's contract.
           await client.query("UPDATE contract_rate_plans SET contract_id = $2 WHERE rate_plan_id = $1", [plan.id, contract.id]);
           ratePlans++;
+        } else {
+          // Re-import of the same contract: the terms confirmed now apply to its rate plans too.
+          await client.query("UPDATE rate_plans SET cancellation_policy = $2::jsonb, payment_terms = $3::jsonb WHERE id = $1",
+            [plan.id, JSON.stringify(b.cancellationPolicy), JSON.stringify(b.paymentTerms)]);
         }
         await client.query(
           `INSERT INTO inventory_daily(rate_plan_id, stay_date, price, allotment)
