@@ -49,11 +49,14 @@ test("IN3: disabled agent remains queued and resumes when enabled",{skip},async(
 });
 test("IN4: worker prompt excludes private mail and attachment content",{skip},async()=>{
   await queuePlatformInbox(db,platformId);
+  await db.query("UPDATE email_inbox SET text_body=$2 WHERE id=$1",[platformId,"Hello Private DMC net price 123 EUR"]);
   await db.query("UPDATE ai_agents SET enabled=true WHERE id='support'");
   let prompt="";
   const fake=async (_db:any,_id:any,input:any):Promise<RunResult>=>{prompt=input.prompt;return {runId:null,status:"done",text:"",approvals:[]}};
   await processNextAiJob(db,fake);
   assert.ok(prompt.includes("Hello"));
   assert.ok(!prompt.includes("Confidential"));
+  assert.ok(!prompt.includes("Private DMC"));
+  assert.ok(!prompt.includes("123 EUR"));
   assert.ok(!prompt.includes("support@private.example"));
 });
