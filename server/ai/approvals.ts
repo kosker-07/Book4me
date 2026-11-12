@@ -3,7 +3,7 @@
 import type { Db } from "./store";
 
 export interface Approval { id: string; agent_id: string; tenant_id: string | null; action: string; payload: any; risk: "medium" | "high"; required_approvals: number; state: string }
-export type ApprovalHandler = (db: Db, approval: Approval) => Promise<string | void>;
+export type ApprovalHandler = (db: Db, approval: Approval, approverId: string) => Promise<string | void>;
 const handlers = new Map<string, ApprovalHandler>();
 export const registerApprovalHandler = (action: string, handler: ApprovalHandler) => { handlers.set(action, handler); };
 
@@ -30,7 +30,7 @@ export async function decideApproval(db: Db, id: string, userId: string, decisio
   if (approvals < required) return { state: "pending", approvals, required };
   const claimed = (await db.query("UPDATE approval_queue SET state = 'approved', decided_at = $2 WHERE id = $1 AND state = 'pending' RETURNING id", [id, now])).rows[0];
   if (!claimed) return { state: "approved", approvals, required };
-  const result = await handler!(db, a);
+  const result = await handler!(db, a, userId);
   await db.query("UPDATE approval_queue SET result = $2 WHERE id = $1", [id, typeof result === "string" ? result.slice(0, 500) : null]);
   return { state: "approved", approvals, required };
 }
