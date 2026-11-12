@@ -3,6 +3,15 @@ import { runPlatformAgent } from "./agents/runner";
 import type { PlatformAgentId } from "./agents/registry";
 import { pool } from "../db";
 
+/** Defense in depth: prevent known DMC names and sensitive pricing terms entering prompts. */
+export function redactInboundPrompt(value: string, dmcNames: string[]): string {
+  let result = value.replace(/\b(?:net\s*(?:price|rate)|margin|platform\s*fee)\b[^\n,;}]*?/gi, "[REDACTED]");
+  for (const name of dmcNames.filter(n => n.length >= 3)) {
+    const escaped = name.replace(/[.*+?^$\x7b\x7d()|[\]\\]/g, "\\export const MAIL_AGENTS:");
+    result = result.replace(new RegExp(escaped, "gi"), "[REDACTED_DMC]");
+  }
+  return result;
+}
 export const MAIL_AGENTS: Record<string, PlatformAgentId> = {
   reservations: "reservations", accounting: "accounting", contracts: "contracts", support: "support"
 };
@@ -34,10 +43,11 @@ export async function processNextAiJob(db: Db, execute: typeof runPlatformAgent 
     const attachments=(await db.query(`SELECT filename,content_type,size_bytes FROM inbound_attachments
       WHERE inbox_id=$1 ORDER BY id`,[claimed.ref_id])).rows;
     // Never pass attachment contents, storage references, or DMC-private messages to the model.
-    const prompt=JSON.stringify({email:{id:email.id,from:email.from_address,to:email.to_address,
+    const names=(await db.query("SELECT name FROM agencies WHERE type='master'")).rows.map(r=>String(r.name));
+    const prompt=redactInboundPrompt(JSON.stringify({email:{id:email.id,from:email.from_address,to:email.to_address,
       subject:email.subject,text:email.text_body},attachments:attachments.map(a=>({
         name:a.filename,type:a.content_type,size:a.size_bytes
-      }))});
+      }))}),names);
     const result=await execute(db,claimed.agent_id as PlatformAgentId,{trigger:"inbound_email",prompt});
     const state=result.status==="done"?"done":result.status==="disabled"?"queued":"failed";
     await db.query("UPDATE ai_jobs SET state=$2,run_id=$3,last_error=$4 WHERE id=$1",
