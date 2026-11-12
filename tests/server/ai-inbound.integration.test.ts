@@ -111,3 +111,19 @@ test("IN9: exhausted crashed job becomes visible failed, not stuck running",{ski
   assert.equal(row.state,"failed");assert.equal(row.last_error,"AI_JOB_RETRY_EXHAUSTED");
   assert.equal(row.lease_token,null);
 });
+
+test("IN10: two simultaneous workers claim a queued email at most once",{skip},async()=>{
+  await queuePlatformInbox(db,platformId);
+  await db.query("UPDATE ai_agents SET enabled=true WHERE id='support'");
+  let executions=0;
+  const fake=async (_db:any,_id:any,_input:any):Promise<RunResult>=>{
+    executions++;
+    await new Promise(resolve=>setTimeout(resolve,40));
+    return {runId:null,status:"done",text:"",approvals:[]};
+  };
+  await Promise.all([processNextAiJob(db,fake),processNextAiJob(db,fake)]);
+  assert.equal(executions,1);
+  const row=(await db.query("SELECT state,attempts FROM ai_jobs WHERE ref_id=$1",[platformId])).rows[0];
+  assert.equal(row.state,"done");
+  assert.equal(row.attempts,1);
+});
