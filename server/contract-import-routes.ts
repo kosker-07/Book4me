@@ -51,7 +51,9 @@ contractImportRouter.post("/api/contracts/import/preview", ...managers, raw, h(a
   const sha = createHash("sha256").update(file).digest("hex");
   const done = (await pool.query("SELECT id FROM contract_imports WHERE owner_agency_id = $1 AND file_sha256 = $2 AND status = 'confirmed'", [owner, sha])).rows[0];
   if (done) throw httpError(409, "DUPLICATE_IMPORT", { importId: done.id });
-  const fileName = String(req.headers["x-file-name"] ?? "").slice(0, 200);
+  let fileName = String(req.headers["x-file-name"] ?? "");
+  try { fileName = decodeURIComponent(fileName); } catch { /* keep as sent */ }
+  fileName = fileName.slice(0, 200);
   const id = (await pool.query(
     "INSERT INTO contract_imports(owner_agency_id, uploaded_by, file_name, file_sha256, preview) VALUES ($1,$2,$3,$4,$5) RETURNING id",
     [owner, req.auth!.sub, fileName, sha, JSON.stringify({ plans, skipped: grid.skipped, readerWarnings: grid.warnings })])).rows[0].id;
