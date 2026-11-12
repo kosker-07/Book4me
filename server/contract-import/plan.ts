@@ -7,7 +7,8 @@ export const MAX_NIGHTS_PER_RANGE = 731;
 export const MAX_ROWS_PER_IMPORT = 300_000;
 
 export interface PlanIssue { room: string; from: string; to: string; code: string }
-export interface RoomPlan { name: string; dates: string[]; prices: string[]; allotments: number[]; occupancyPrices: Record<string, number>[] }
+export interface RoomPlan { name: string; dates: string[]; prices: string[]; allotments: number[]; occupancy: (Record<string, number> | null)[];
+  minStays: (number | null)[]; releases: (number | null)[]; occupancyPrices: Record<string, number>[] }
 export interface HotelPlan { name: string; region: string; concept: string; currency: string; rooms: RoomPlan[]; errors: PlanIssue[]; warnings: PlanIssue[]; validFrom: string | null; validTo: string | null }
 
 const DAY = 86_400_000;
@@ -20,7 +21,7 @@ const parseDay = (s: string) => {
 };
 
 export function roomPrice(p: GridPeriod): number | null {
-  const v = p.prices.dbl ?? (p.prices.pp_dbl !== undefined ? p.prices.pp_dbl * 2 : undefined);
+  const v = p.prices.dbl ?? (p.prices.pp_dbl !== undefined ? p.prices.pp_dbl * 2 : undefined) ?? p.prices.pax2;
   return typeof v === "number" && Number.isFinite(v) && v > 0 ? Math.round(v * 100) / 100 : null;
 }
 
@@ -36,24 +37,29 @@ export function nights(from: string, to: string): string[] | null {
 export function planHotel(h: GridHotel): HotelPlan {
   const plan: HotelPlan = { name: h.name.trim(), region: h.region.trim(), concept: h.concept.trim(), currency: h.currency.trim().toUpperCase(), rooms: [], errors: [], warnings: [], validFrom: null, validTo: null };
   for (const room of h.rooms) {
-    const byDate = new Map<string, { price: number; allotment: number }>();
+    const byDate = new Map<string, { price: number; allotment: number; occupancy: Record<string, number>; minStay: number | null; release: number | null }>();
     const occupancyPrices: Record<string, number>[] = [];
     for (const p of room.periods) {
       const price = roomPrice(p);
       if (price === null) { plan.errors.push({ room: room.name, from: p.from, to: p.to, code: "NO_ROOM_PRICE" }); continue; }
       const allotment = Number.isInteger(p.allotment) && p.allotment >= 0 ? p.allotment : 0;
+      const minStay = Number.isInteger(p.min_stay) && p.min_stay! >= 1 && p.min_stay! <= 60 ? p.min_stay : null;
+      const release = Number.isInteger(p.release_days) && p.release_days! >= 0 && p.release_days! <= 365 ? p.release_days : null;
       occupancyPrices.push(p.prices);
       for (const r of [{ from: p.from, to: p.to }, ...p.extra_ranges]) {
         const days = nights(r.from, r.to);
         if (!days) { plan.errors.push({ room: room.name, from: r.from, to: r.to, code: "INVALID_DATE_RANGE" }); continue; }
         let overlap = false;
-        for (const d of days) { if (byDate.has(d)) overlap = true; byDate.set(d, { price, allotment }); }
+        for (const d of days) { if (byDate.has(d)) overlap = true; byDate.set(d, { price, allotment, occupancy: p.prices, minStay, release }); }
         if (overlap) plan.warnings.push({ room: room.name, from: r.from, to: r.to, code: "OVERLAPPING_PERIOD_LAST_WINS" });
       }
     }
     if (!byDate.size) continue;
     const dates = [...byDate.keys()].sort();
-    plan.rooms.push({ name: room.name.trim(), dates, prices: dates.map(d => byDate.get(d)!.price.toFixed(2)), allotments: dates.map(d => byDate.get(d)!.allotment), occupancyPrices });
+    const at = (d: string) => byDate.get(d)!;
+    plan.rooms.push({ name: room.name.trim(), dates, prices: dates.map(d => at(d).price.toFixed(2)), allotments: dates.map(d => at(d).allotment),
+      occupancy: dates.map(d => Object.keys(at(d).occupancy).length ? at(d).occupancy : null), minStays: dates.map(d => at(d).minStay),
+      releases: dates.map(d => at(d).release), occupancyPrices });
     const first = dates[0]!, last = dates[dates.length - 1]!;
     if (!plan.validFrom || first < plan.validFrom) plan.validFrom = first;
     if (!plan.validTo || last > plan.validTo) plan.validTo = last;
