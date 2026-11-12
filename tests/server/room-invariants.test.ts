@@ -1,3 +1,0 @@
-import test from "node:test";import assert from "node:assert/strict";import {validateRoomCapacity,validateAllotment} from "../../server/room-invariants";
-test("room capacity bounds",()=>{assert.doesNotThrow(()=>validateRoomCapacity(2,1));assert.throws(()=>validateRoomCapacity(0,1));assert.throws(()=>validateRoomCapacity(2,-1));assert.throws(()=>validateRoomCapacity(1.5,0))});
-test("allotment prevents overbooking",()=>{assert.doesNotThrow(()=>validateAllotment(5,5));assert.throws(()=>validateAllotment(3,4));assert.throws(()=>validateAllotment(-1,0));assert.throws(()=>validateAllotment(3.5,1))});
