@@ -34,8 +34,8 @@ financeRouter.get("/api/finance/ledger", ...managers, h(async (req, res) => {
   const s = await scopeOf(req), d = dates(req);
   const rows = (await pool.query(
     `SELECT e.id AS entry_id, e.kind, e.reverses_id, e.description, e.currency, e.posted_at, b.booking_no,
-            l.party_kind, l.party_agency_id, ${PARTY} AS party_name, l.debit::text, l.credit::text
-       FROM ledger_entries e JOIN ledger_lines l ON l.entry_id = e.id
+            l.party_kind, l.party_agency_id, ${PARTY} AS party_name, round(l.debit, cur.minor_units)::text AS debit, round(l.credit, cur.minor_units)::text AS credit
+       FROM ledger_entries e JOIN ledger_lines l ON l.entry_id = e.id JOIN currencies cur ON cur.code = e.currency
        LEFT JOIN agencies pa ON pa.id = l.party_agency_id LEFT JOIN bookings b ON b.id = e.booking_id
       WHERE e.book_owner_id IS NOT DISTINCT FROM $1 AND ($2::uuid IS NULL OR l.party_agency_id = $2)
         AND ($3::date IS NULL OR e.posted_at >= $3::date) AND ($4::date IS NULL OR e.posted_at < $4::date + 1)
@@ -54,9 +54,10 @@ financeRouter.get("/api/finance/balances", ...managers, h(async (req, res) => {
   const s = await scopeOf(req);
   const rows = (await pool.query(
     `SELECT l.party_kind, l.party_agency_id, ${PARTY} AS party_name, e.currency,
-            sum(l.debit)::text AS debit, sum(l.credit)::text AS credit, (sum(l.debit) - sum(l.credit))::text AS balance
-       FROM ledger_entries e JOIN ledger_lines l ON l.entry_id = e.id LEFT JOIN agencies pa ON pa.id = l.party_agency_id
+            round(sum(l.debit), cur.minor_units)::text AS debit, round(sum(l.credit), cur.minor_units)::text AS credit,
+            round(sum(l.debit) - sum(l.credit), cur.minor_units)::text AS balance
+       FROM ledger_entries e JOIN ledger_lines l ON l.entry_id = e.id JOIN currencies cur ON cur.code = e.currency LEFT JOIN agencies pa ON pa.id = l.party_agency_id
       WHERE e.book_owner_id IS NOT DISTINCT FROM $1 AND ($2::uuid IS NULL OR l.party_agency_id = $2)
-      GROUP BY l.party_kind, l.party_agency_id, pa.name, e.currency ORDER BY party_name, e.currency`, [s.book, s.onlyParty])).rows;
+      GROUP BY l.party_kind, l.party_agency_id, pa.name, e.currency, cur.minor_units ORDER BY party_name, e.currency`, [s.book, s.onlyParty])).rows;
   res.json({ book: s.book ?? "operator", items: rows.map(r => ({ ...r, currency: String(r.currency).trim() })) });
 }));
