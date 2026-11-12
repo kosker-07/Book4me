@@ -1,6 +1,7 @@
 // Inbound mail: the webhook is verified first (Svix signature), then only metadata arrives; the body and
 // attachments are fetched with the receiving API using the owner's own key (platform key or the DMC's key).
 import { createHash } from "node:crypto";
+import { recordOwnerNotification } from "../ai/owner-notify";
 import { functionForAddress } from "./addresses";
 import { fetchReceivedEmail, ReceivedEmail } from "./provider";
 import type { Db } from "./outbox";
@@ -56,6 +57,10 @@ export async function handleInbound(deps: InboundDeps, tenantId: string | null, 
     }
   } catch {
     await deps.db.query("UPDATE email_inbox SET body_status = 'failed' WHERE id = $1", [row.id]);
+  }
+  if (tenantId === null && fn === "security") {
+    await recordOwnerNotification(deps.db,"security-email:"+row.id,{kind:"alert",function:"security"},
+      "New BED4BOOK security mailbox message: "+String(d.subject??"").slice(0,200));
   }
   return { stored: true, deduplicated: false };
 }
