@@ -5,6 +5,7 @@
 // Env: BASE_URL, ADMIN_EMAIL, ADMIN_PASSWORD (the server bootstraps this admin).
 import { chromium, devices } from "playwright";
 import assert from "node:assert/strict";
+import { fileURLToPath } from "node:url";
 
 const BASE = process.env.BASE_URL || "http://127.0.0.1:3999";
 const EMAIL = process.env.ADMIN_EMAIL;
@@ -154,7 +155,7 @@ await run("excel contract import preview and confirm", { viewport: { width: 1280
   await page.getByTestId("nav-contract-import").click();
   await page.getByTestId("import-form").waitFor({ state: "visible" });
   await page.locator("select[name=ownerAgencyId]").selectOption({ label: dmcName });
-  await page.getByTestId("import-file").setInputFiles(new URL("../server/fixtures/SEJOUR - SEJOUR KONTRAT EXCELI ORNEK FORMAT PENINSULA.xlsx", import.meta.url).pathname);
+  await page.getByTestId("import-file").setInputFiles(fileURLToPath(new URL("../server/fixtures/SEJOUR - SEJOUR KONTRAT EXCELI ORNEK FORMAT PENINSULA.xlsx", import.meta.url)));
   await page.getByTestId("import-preview-btn").click();
   await page.getByTestId("import-preview").waitFor({ state: "visible" });
   assert.ok((await page.getByTestId("import-preview").textContent()).includes("XANADU RESORT HOTEL"));
