@@ -28,7 +28,7 @@ beforeEach(async()=>{
   await db.query("TRUNCATE agencies,users,ai_runs,ai_audit,approval_queue,approval_votes CASCADE");
   const master=randomUUID(), child=randomUUID();admin=randomUUID();bo=randomUUID();dmc=randomUUID();sub=randomUUID();approval=randomUUID();
   await db.query("INSERT INTO agencies(id,name,type) VALUES($1,'Test DMC','master')",[master]);
-  await db.query("INSERT INTO agencies(id,name,type,parent_id) VALUES($1,'Test subagency','sub',$2)",[child,master]);
+  await db.query("INSERT INTO agencies(id,name,type,parent_agency_id) VALUES($1,'Test subagency','sub',$2)",[child,master]);
   for(const [id,role,agency] of [[admin,"system_admin",null],[bo,"back_office",null],[dmc,"master_agency",master],[sub,"sub_agency",child]]){
     await db.query("INSERT INTO users(id,email,password_hash,role,agency_id) VALUES($1,$2,'x',$3,$4)",[id,id+"@test.local",role,agency]);
   }
