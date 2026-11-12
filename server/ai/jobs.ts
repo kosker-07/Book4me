@@ -31,6 +31,15 @@ export async function queuePlatformInbox(db: Db, inboxId: string): Promise<boole
 }
 
 /** One atomic claim, with disabled agents remaining queued. */
+export async function renewAiJobLease(db: Db, jobId: string, token: string): Promise<boolean> {
+  const updated=await db.query(`UPDATE ai_jobs
+    SET lease_expires_at=now()+interval '15 minutes'
+    WHERE id=$1 AND lease_token=$2 AND state='running'
+      AND lease_expires_at>now() RETURNING id`,[jobId,token]);
+  return updated.rows.length===1;
+}
+
+/** A worker owns its job while heartbeats succeed; the lease is a crash detector, not a deadline. */
 export async function processNextAiJob(db: Db, execute: typeof runPlatformAgent = runPlatformAgent): Promise<boolean> {
   const token=randomUUID();
   const claimed=(await db.query(`UPDATE ai_jobs j SET state='running', attempts=j.attempts+1, lease_token=$1, lease_expires_at=now()+interval '15 minutes'
@@ -38,6 +47,17 @@ export async function processNextAiJob(db: Db, execute: typeof runPlatformAgent 
       WHERE a.enabled=true AND j2.attempts<3 AND (j2.state='queued' OR (j2.state='running' AND j2.lease_expires_at<now())) ORDER BY j2.created_at,j2.id LIMIT 1)
       AND (j.state='queued' OR (j.state='running' AND j.lease_expires_at<now())) RETURNING j.id,j.agent_id,j.kind,j.ref_id`,[token])).rows[0];
   if(!claimed)return false;
+  let leaseHealthy=true;
+  let renewing=false;
+  const heartbeat=setInterval(()=>{
+    if(renewing)return;
+    renewing=true;
+    void renewAiJobLease(db,claimed.id,token)
+      .then(ok=>{if(!ok)leaseHealthy=false})
+      .catch(()=>{leaseHealthy=false})
+      .finally(()=>{renewing=false});
+  },60000);
+  heartbeat.unref();
   try{
     const email=(await db.query(`SELECT id,subject,from_address,to_address,text_body
       FROM email_inbox WHERE id=$1 AND tenant_id IS NULL`,[claimed.ref_id])).rows[0];
@@ -51,20 +71,35 @@ export async function processNextAiJob(db: Db, execute: typeof runPlatformAgent 
         name:a.filename,type:a.content_type,size:a.size_bytes
       }))}),names);
     const result=await execute(db,claimed.agent_id as PlatformAgentId,{trigger:"inbound_email",prompt});
+    if(!leaseHealthy)throw new Error("AI_JOB_LEASE_LOST");
     const state=result.status==="done"?"done":result.status==="disabled"?"queued":"failed";
     await db.query("UPDATE ai_jobs SET state=$3,run_id=$4,last_error=$5,lease_token=NULL,lease_expires_at=NULL WHERE id=$1 AND lease_token=$2",
       [claimed.id,token,state,result.runId,state==="failed"?result.status:null]);
   }catch(e){
     await db.query("UPDATE ai_jobs SET state='failed',last_error=$3,lease_token=NULL,lease_expires_at=NULL WHERE id=$1 AND lease_token=$2",
       [claimed.id,token,String((e as Error).message||e).slice(0,500)]);
+  }finally{
+    clearInterval(heartbeat);
   }
   return true;
 }
 
 let timer: NodeJS.Timeout|null=null;
+let activeWorkers=0;
 export function startAiWorker(intervalMs=30000){
   if(timer||process.env.AI_WORKER==="off")return;
-  const tick=()=>{void processNextAiJob(pool).catch(e=>console.error("AI worker",e))};
+  const tick=()=>{
+    void (async()=>{
+      // One base worker, with up to two helpers when queued work accumulates.
+      const pending=(await pool.query("SELECT count(*)::int AS n FROM ai_jobs WHERE state='queued'")).rows[0]?.n??0;
+      const target=pending>=10?3:pending>=4?2:1;
+      while(activeWorkers<target){
+        activeWorkers++;
+        void processNextAiJob(pool).catch(e=>console.error("AI worker",e))
+          .finally(()=>{activeWorkers--});
+      }
+    })().catch(e=>console.error("AI worker scheduler",e));
+  };
   timer=setInterval(tick,intervalMs);
   timer.unref();
 }
