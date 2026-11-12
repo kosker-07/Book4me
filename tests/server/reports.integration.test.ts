@@ -37,7 +37,7 @@ async function world() {
   for (const [agencyId, name, type, parent] of [[a, "Alpha DMC", "master", null], [b, "Bravo DMC", "master", null], [subA, "Alpha Sub", "sub", a], [subB, "Bravo Sub", "sub", b]])
     await pool.query("INSERT INTO agencies(id,name,type,parent_agency_id) VALUES ($1,$2,$3,$4)", [agencyId, name, type, parent]);
   const t: Record<string, string> = {};
-  for (const [key, role, agencyId] of [["admin", "system_admin", null], ["office", "back_office", a], ["masterA", "master_agency", a], ["masterB", "master_agency", b], ["subA", "sub_agency", subA], ["subB", "sub_agency", subB]] as const) {
+  for (const [key, role, agencyId] of [["admin", "system_admin", null], ["office", "back_office", null], ["masterA", "master_agency", a], ["masterB", "master_agency", b], ["subA", "sub_agency", subA], ["subB", "sub_agency", subB]] as const) {
     const uid = id();
     await pool.query("INSERT INTO users(id,email,password_hash,role,agency_id) VALUES ($1,$2,$3,$4,$5)", [uid, `rep-${key}@test.local`, hashPassword("integration-password-1"), role, agencyId]);
     t[key] = issueSession({ sub: uid, role, agencyId, ver: 0 }, process.env.SESSION_SECRET!);
@@ -104,6 +104,7 @@ test("I4 integrations: only system_admin manages them", { skip }, async () => {
   assert.equal((await request("PATCH", `/api/integrations/${created.body.id}`, w.t.admin!, { status: "active" })).body.status, "active");
   assert.equal((await request("PATCH", `/api/integrations/${created.body.id}`, w.t.admin!, { status: "error" })).status, 400);
   assert.equal((await request("POST", "/api/integrations", w.t.admin!, { kind: "ftp", name: "X" })).status, 400);
+  assert.equal((await request("GET", "/api/reports/sales", w.t.office!)).body.items.length, 2, "back office reads every booking");
   for (const k of ["office", "masterA", "subA"]) {
     assert.equal((await request("GET", "/api/integrations", w.t[k]!)).status, 403, k);
     assert.equal((await request("POST", "/api/integrations", w.t[k]!, { kind: "other", name: "Y" })).status, 403, k);
