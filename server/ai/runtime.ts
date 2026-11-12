@@ -38,10 +38,12 @@ export async function runAgent(deps: { store: RunStore; model: ModelClient }, ag
     for (let step = 0; step < MAX_STEPS; step++) {
       const reply = await model.complete({ model: agent.model, system: agent.system, messages, tools: specs, maxTokens: 2000 });
       await store.addUsage(runId, reply.inputTokens, reply.outputTokens);
-      used += reply.inputTokens + reply.outputTokens;
+      // Re-read today's total (it includes other runs of this agent) and stop before any tool runs once it is spent.
+      used = await store.tokensUsedToday(agent.id);
       text = reply.content.filter((b): b is Extract<Block, { type: "text" }> => b.type === "text").map(b => b.text).join("\n");
       const calls = reply.content.filter((b): b is Extract<Block, { type: "tool_use" }> => b.type === "tool_use");
       if (!calls.length) return end("done", text);
+      if (used >= agent.dailyTokenBudget) return end("budget_exceeded", text);
       messages.push({ role: "assistant", content: reply.content });
       const results: Block[] = [];
       for (const call of calls) {

@@ -28,9 +28,27 @@ export async function decideApproval(db: Db, id: string, userId: string, decisio
   }
   const approvals = await count();
   if (approvals < required) return { state: "pending", approvals, required };
-  const claimed = (await db.query("UPDATE approval_queue SET state = 'approved', decided_at = $2 WHERE id = $1 AND state = 'pending' RETURNING id", [id, now])).rows[0];
-  if (!claimed) return { state: "approved", approvals, required };
-  const result = await handler!(db, a, userId);
+  // The claim is one statement: it only succeeds while the item is pending AND nobody has voted to reject, so a
+  // rejection that lands concurrently always wins over the last approval.
+  const claimed = (await db.query(
+    `UPDATE approval_queue SET state = 'approved', decided_at = $2 WHERE id = $1 AND state = 'pending'
+        AND NOT EXISTS (SELECT 1 FROM approval_votes WHERE approval_id = $1 AND decision = 'reject') RETURNING id`, [id, now])).rows[0];
+  if (!claimed) {
+    const cur = (await db.query("SELECT state, EXISTS (SELECT 1 FROM approval_votes WHERE approval_id = $1 AND decision = 'reject') AS rejected FROM approval_queue WHERE id = $1", [id])).rows[0];
+    if (cur?.state === "pending" && cur.rejected) {
+      await db.query("UPDATE approval_queue SET state = 'rejected', decided_at = $2 WHERE id = $1 AND state = 'pending'", [id, now]);
+      return { state: "rejected", approvals, required };
+    }
+    return { state: (cur?.state ?? "approved") as Decision["state"], approvals, required };
+  }
+  let result: string | void;
+  try { result = await handler!(db, a, userId); }
+  catch (e) {
+    // The action did not happen: reopen the item so the next approval retries it, and keep the reason.
+    await db.query("UPDATE approval_queue SET state = 'pending', decided_at = NULL, result = $2 WHERE id = $1 AND state = 'approved'",
+      [id, ("FAILED: " + String((e as Error)?.message ?? e)).slice(0, 500)]);
+    throw e;
+  }
   await db.query("UPDATE approval_queue SET result = $2 WHERE id = $1", [id, typeof result === "string" ? result.slice(0, 500) : null]);
   return { state: "approved", approvals, required };
 }
