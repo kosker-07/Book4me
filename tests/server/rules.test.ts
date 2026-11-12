@@ -1,7 +1,7 @@
 // Unit tests for pure pricing, winner selection, validation and quote signing (no database).
 import test from "node:test";
 import assert from "node:assert/strict";
-import { Candidate, chooseWinners, nightlySellCents, priceCandidate } from "../../server/pricing";
+import { Candidate, chooseWinners, equivalenceKey, nightlySellCents, priceCandidate } from "../../server/pricing";
 import { isCalendarDate, validateGuest, validateStay } from "../../server/validation";
 import { signQuote, verifyQuote } from "../../server/quotes";
 
@@ -122,7 +122,7 @@ test("eligibility: exclusion first, exact, group, general, not included; all gue
 });
 
 test("equivalence key separates different nationality sets but not their order", async () => {
-  const { equivalenceKey } = await import("../../server/pricing");
+  // equivalenceKey is imported at the top.
   const c = cand("x", 100), o = { adults: 2, children: 0, childAges: [] };
   assert.equal(equivalenceKey(c, o, "a", "b", 1, ["TR", "DE"]), equivalenceKey(c, o, "a", "b", 1, ["DE", "TR"]));
   assert.notEqual(equivalenceKey(c, o, "a", "b", 1, ["TR", "TR"]), equivalenceKey(c, o, "a", "b", 1, ["TR", "DE"]));
@@ -152,4 +152,13 @@ test("ECB parser inverts 'units per EUR' into 'EUR per unit' and rejects malform
   assert.deepEqual(Object.fromEntries(parsed.rates.map(r => [r.currency, r.eurPerUnit])),
     { USD: "0.80000000", JPY: "0.00625000", GBP: "1.25000000", TRY: "0.02500000", THB: "0.02631579" });
   assert.throws(() => parseEcbDailyXml("<Cube/>"));
+});
+
+test("equivalence uses the hotel group and room key when present", () => {
+  const base: any = { ratePlanId: "p1", hotelId: "h1", roomId: "r1", board: "AI", currency: "EUR", markup: { type: "percent", value: "0" }, nights: [] };
+  const o = { adults: 2, children: 0, childAges: [] };
+  const a = { ...base, hotelGroupKey: "rixos|belek", roomKey: "deluxe room" };
+  const b = { ...base, hotelId: "h2", roomId: "r2", hotelGroupKey: "rixos|belek", roomKey: "deluxe room" };
+  assert.equal(equivalenceKey(a, o, "x", "y", 1), equivalenceKey(b, o, "x", "y", 1));
+  assert.notEqual(equivalenceKey(base, o, "x", "y", 1), equivalenceKey({ ...base, hotelId: "h2" }, o, "x", "y", 1), "without keys the ids decide");
 });

@@ -14,11 +14,13 @@ import { signQuote, verifyQuote } from "./quotes";
 import { audit, authenticate, AuthedRequest, clearSessionCookie, httpError, isPlatformWide, requireAgency, resolveSession, roles, sessionSecret, setSessionCookie, uuidParam } from "./http";
 import { adminRouter } from "./admin-routes";
 import { contractRouter } from "./contract-routes";
+import { contractImportRouter } from "./contract-import-routes";
 import { distributionRouter } from "./distribution-routes";
 import { dmcRouter } from "./dmc-routes";
 import { mailRouter } from "./mail-routes";
 import { startMailWorker } from "./mail/worker";
 import { registerPlatformApprovalHandlers } from "./ai/tools/handlers";
+import { markRead, startReminderWorker } from "./booking-reminders";
 import { renderVoucher } from "./voucher";
 import { renderProforma } from "./proforma";
 import { LOGIN_WINDOW_MINUTES, loginThrottled, parseTrustProxy } from "./login-guard";
@@ -57,6 +59,16 @@ app.use("/app", (_req, res, next) => {
   res.setHeader("Content-Security-Policy", "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'; object-src 'none'");
   next();
 }, express.static(path.resolve(process.cwd(), "web")));
+
+// "I have read this reminder" link from payment reminder e-mails. No login; the token is the only key.
+app.get("/r/:token", async (req, res, next) => {
+  try {
+    const ok = await markRead(pool, String(req.params.token || ""));
+    res.setHeader("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; frame-ancestors 'none'");
+    res.status(ok ? 200 : 404).type("html").send(`<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>BED4BOOK</title>
+<body style="font-family:Arial,sans-serif;background:#0b0d12;color:#f6f6f8;display:grid;place-items:center;min-height:90vh"><p>${ok ? "Thank you. The reminder is marked as read." : "This link is not valid."}</p></body>`);
+  } catch (error) { next(error); }
+});
 
 app.get("/health", (_req, res) => res.json({ ok: true, service: "bed4book-api" }));
 app.get("/ready", async (_req, res) => {
@@ -145,6 +157,7 @@ app.get("/api/me", authenticate, (req: AuthedRequest, res) => {
 
 app.use(adminRouter);
 app.use(contractRouter);
+app.use(contractImportRouter);
 app.use(distributionRouter);
 app.use(dmcRouter);
 app.use(mailRouter);
@@ -174,8 +187,8 @@ interface CandidateRow {
   rate_plan_id: string; board_name: string; currency: string; minor_units: number;
   cancellation_policy: unknown; payment_terms: unknown; sales_conditions: unknown;
   contract_id: string;
-  room_id: string; room_name: string; max_adults: number; max_children: number;
-  hotel_id: string; hotel_name: string; location: string; category: string | null;
+  room_id: string; room_name: string; room_key: string; max_adults: number; max_children: number;
+  hotel_id: string; hotel_name: string; hotel_group_key: string | null; location: string; category: string | null;
   markup_type: "percent" | "fixed"; markup_value: string;
   source: string; platform_margin_percent: string; buyer_markup_percent: string; platform_fee_percent: string; nights: { date: string; price: string }[];
 }
@@ -187,8 +200,8 @@ async function loadCandidates(db: { query: PoolClient["query"] }, agencyId: stri
   const result = await db.query(
     `SELECT rp.id AS rate_plan_id, rp.board_name, rp.currency, cur.minor_units, rp.cancellation_policy, rp.payment_terms, rp.sales_conditions,
             hc.id AS contract_id,
-            r.id AS room_id, r.name AS room_name, r.max_adults, r.max_children,
-            h.id AS hotel_id, h.name AS hotel_name, h.location, h.category,
+            r.id AS room_id, r.name AS room_name, b4b_norm(r.name) AS room_key, r.max_adults, r.max_children,
+            h.id AS hotel_id, h.name AS hotel_name, h.group_key AS hotel_group_key, h.location, h.category,
             s.markup_type, s.markup_value::text AS markup_value, s.source,
             CASE WHEN s.source = 'distribution_rule' THEN
               coalesce(marketplace_applicable_margin(h.owner_agency_id, coalesce(buyer.parent_agency_id, buyer.id), h.id), 0)::text
@@ -242,6 +255,7 @@ const fitsOccupancy = (row: { max_adults: number; max_children: number }, occupa
 
 const toCandidate = (row: CandidateRow): Candidate => ({
   ratePlanId: row.rate_plan_id, hotelId: row.hotel_id, roomId: row.room_id, board: row.board_name,
+  ...(row.hotel_group_key ? { hotelGroupKey: row.hotel_group_key } : {}), ...(row.room_key ? { roomKey: row.room_key } : {}),
   cancellationPolicy: row.cancellation_policy, paymentTerms: row.payment_terms, salesConditions: row.sales_conditions,
   currency: row.currency.trim(), minorUnits: row.minor_units,
   markup: { type: row.markup_type, value: row.markup_value },
@@ -831,6 +845,31 @@ app.get("/api/backoffice/hotels", ...backoffice, async (req: AuthedRequest, res,
   } catch (error) { next(error); }
 });
 
+// Hotel room inventory overview. Platform operators see all hotels; DMCs see only their own.
+// Deliberately read-only: changing inventory or prices requires separate validated workflows.
+app.get("/api/backoffice/hotels/:id/rooms", ...backoffice, async (req: AuthedRequest, res, next) => {
+  try {
+    const hotelId = uuidParam(req, "HOTEL_NOT_FOUND");
+    const platform = isPlatformWide(req.auth!.role);
+    const hotel = await pool.query(
+      `SELECT h.id, h.name, h.location, h.status, h.owner_agency_id
+         FROM hotels h
+        WHERE h.id = $1 AND ($2::boolean OR h.owner_agency_id = $3)`,
+      [hotelId, platform, req.auth!.agencyId]
+    );
+    if (!hotel.rowCount) return res.status(404).json({ error: "HOTEL_NOT_FOUND" });
+    const rooms = await pool.query(
+      `SELECT r.id, r.hotel_id, r.name, r.description, r.max_adults, r.max_children, r.active,
+              COUNT(DISTINCT rp.id)::integer AS rate_plan_count
+         FROM rooms r LEFT JOIN rate_plans rp ON rp.room_id = r.id
+        WHERE r.hotel_id = $1
+        GROUP BY r.id
+        ORDER BY r.name, r.id`, [hotelId]
+    );
+    res.json({ hotel: hotel.rows[0], items: rooms.rows });
+  } catch (error) { next(error); }
+});
+
 // Status changes. approve/reject (pending only): Back Office, system admin, master agency (own hotels).
 // cancel (draft, pending or approved): Back Office and system admin only. Master agency has no cancel right.
 app.patch("/api/backoffice/bookings/:id/status", ...backoffice, async (req: AuthedRequest, res, next) => {
@@ -1018,6 +1057,7 @@ if (require.main === module) {
   }).finally(() => {
     app.listen(port, () => console.log(`BED4BOOK API listening on :${port}`));
     startMailWorker();
+    startReminderWorker(pool);
   });
 }
 export default app;
