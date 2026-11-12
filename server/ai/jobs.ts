@@ -31,6 +31,14 @@ export async function queuePlatformInbox(db: Db, inboxId: string): Promise<boole
 }
 
 /** One atomic claim, with disabled agents remaining queued. */
+/** Terminal failures remain visible for manual intervention. */
+export async function failExhaustedAiJobs(db: Db): Promise<number> {
+  const result=await db.query(`UPDATE ai_jobs SET state='failed',last_error='AI_JOB_RETRY_EXHAUSTED',
+    lease_token=NULL,lease_expires_at=NULL
+    WHERE state='running' AND attempts>=3 AND lease_expires_at<now()
+    RETURNING id`);
+  return result.rows.length;
+}
 export async function renewAiJobLease(db: Db, jobId: string, token: string): Promise<boolean> {
   const updated=await db.query(`UPDATE ai_jobs
     SET lease_expires_at=now()+interval '15 minutes'
@@ -91,7 +99,8 @@ export function startAiWorker(intervalMs=30000){
   const tick=()=>{
     void (async()=>{
       // One base worker, with up to two helpers when queued work accumulates.
-      const pending=(await pool.query("SELECT count(*)::int AS n FROM ai_jobs WHERE state='queued'")).rows[0]?.n??0;
+      await failExhaustedAiJobs(pool);
+      const pending=(await pool.query("SELECT count(*)::int AS n FROM ai_jobs WHERE state='queued' OR (state='running' AND lease_expires_at<now() AND attempts<3)")).rows[0]?.n??0;
       const target=pending>=10?3:pending>=4?2:1;
       while(activeWorkers<target){
         activeWorkers++;
