@@ -5,8 +5,8 @@ let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log(
   const br = await chromium.launch(), pg = await br.newPage({ viewport: { width: 1280, height: 900 }, colorScheme: "light" }), errs = []; pg.on("pageerror", e => errs.push(e.message)); await pg.route(/^https?:\/\//, r => r.abort());
   const URL = "file://" + path.join(__dirname, "../dist/index.html"), th = () => pg.evaluate(() => document.documentElement.getAttribute("data-theme")), bg = () => pg.evaluate(() => getComputedStyle(document.body).backgroundColor);
   await pg.goto(URL); await pg.evaluate(() => localStorage.clear()); await pg.reload();
-  ok(await th() == null && /243, 245, 249/.test(await bg()), "varsayılan: otomatik (cihaz açık temada)"); ok(!!(await pg.$("button[data-a=theme]")), "giriş ekranında tema düğmesi");
-  await pg.click("button[data-a=theme]"); ok(await th() == "dark" && /10, 20, 36/.test(await bg()), "koyu tema");
+  ok(await th() == null && /244, 245, 247/.test(await bg()), "varsayılan: otomatik (cihaz açık temada)"); ok(!!(await pg.$("button[data-a=theme]")), "giriş ekranında tema düğmesi");
+  await pg.click("button[data-a=theme]"); ok(await th() == "dark" && /11, 13, 18/.test(await bg()), "koyu tema");
   await pg.fill("#lg_e", "admin@book4me-ai.com"); await pg.fill("#lg_p", "book4me"); await pg.click("button[data-a=login]"); ok(await th() == "dark", "girişten sonra koyu kaldı");
   await pg.click("button[data-a=theme]"); ok(await th() == "light", "açık tema"); await pg.click("button[data-a=theme]"); ok(await th() == null, "otomatiğe döndü"); await pg.click("button[data-a=theme]");
   ok(await pg.evaluate(() => B4M.pref.get(B4M.ctx.uid, "theme")) == "dark", "seçim kullanıcı bazında saklandı");
