@@ -1,3 +1,4 @@
+import { pdfText } from "../helpers/pdf-text";
 import { VALID_TERMS } from "./fixtures/rate-plan-terms";
 // End-to-end v1 flows through the HTTP API only (management → publication → search → booking → Back Office
 // → voucher), drafts, management authorization, vouchers, login hardening and the admin CLI.
@@ -5,10 +6,7 @@ import { VALID_TERMS } from "./fixtures/rate-plan-terms";
 import test, { before, after, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
-import { execFileSync, spawnSync } from "node:child_process";
-import { mkdtempSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { spawnSync } from "node:child_process";
 import type { AddressInfo } from "node:net";
 import type { Server } from "node:http";
 
@@ -17,8 +15,6 @@ delete process.env.TRUST_PROXY; // D1d checks the default (X-Forwarded-For ignor
 process.env.SESSION_SECRET = process.env.SESSION_SECRET || "integration-test-secret-at-least-32-chars";
 if (!DB_URL && process.env.CI) throw new Error("DATABASE_URL is required for integration tests in CI.");
 const skip = DB_URL ? false : "DATABASE_URL not set; integration tests skipped locally";
-const hasPdftotext = spawnSync("pdftotext", ["-v"]).status === 0;
-if (!hasPdftotext && process.env.CI) throw new Error("pdftotext (poppler-utils) is required in CI to verify voucher content.");
 
 let server: Server, base = "", pool: any, hashPassword: (p: string) => string;
 const PW = "integration-password-1";
@@ -128,10 +124,8 @@ test("A2 acceptance: booking → Back Office queue → approval → BED4BOOK PDF
   assert.equal(v.buf.subarray(0, 5).toString(), "%PDF-");
   assert.ok(v.buf.toString("latin1").includes(created.body.bookingNo), "booking number in PDF metadata");
   assert.equal(await count("SELECT count(*)::int AS c FROM vouchers WHERE booking_id=$1", [created.body.id]), 1);
-  if (hasPdftotext) {
-    const dir = mkdtempSync(join(tmpdir(), "voucher-")), file = join(dir, "v.pdf");
-    writeFileSync(file, v.buf);
-    const text = execFileSync("pdftotext", ["-layout", file, "-"]).toString("utf8").replace(/\s+/g, " ");
+  {
+    const text = await pdfText(v.buf);
     const [y1, m1, d1] = D1.split("-"), [y3, m3, d3] = D3.split("-");
     for (const expected of ["BED4BOOK", "Hotel Wholesale Platform", created.body.bookingNo, "Deniz Kıyısı Otel", "Antalya / Lara",
                             `${d1}.${m1}.${y1}`, `${d3}.${m3}.${y3}`, "Standart Oda", "Her Şey Dahil", "Ayşe Yılmaz", NOTE, "Onaylandı"])
