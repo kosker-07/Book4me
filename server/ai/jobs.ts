@@ -50,10 +50,18 @@ export async function renewAiJobLease(db: Db, jobId: string, token: string): Pro
 /** A worker owns its job while heartbeats succeed; the lease is a crash detector, not a deadline. */
 export async function processNextAiJob(db: Db, execute: typeof runPlatformAgent = runPlatformAgent): Promise<boolean> {
   const token=randomUUID();
-  const claimed=(await db.query(`UPDATE ai_jobs j SET state='running', attempts=j.attempts+1, lease_token=$1, lease_expires_at=now()+interval '15 minutes'
-    WHERE id=(SELECT j2.id FROM ai_jobs j2 JOIN ai_agents a ON a.id=j2.agent_id
-      WHERE a.enabled=true AND j2.attempts<3 AND (j2.state='queued' OR (j2.state='running' AND j2.lease_expires_at<now())) ORDER BY j2.created_at,j2.id LIMIT 1)
-      AND (j.state='queued' OR (j.state='running' AND j.lease_expires_at<now())) RETURNING j.id,j.agent_id,j.kind,j.ref_id`,[token])).rows[0];
+  const claimed=(await db.query(`UPDATE ai_jobs j
+    SET state='running',attempts=j.attempts+1,lease_token=$1,
+        lease_expires_at=now()+interval '15 minutes'
+    WHERE j.id=(
+      SELECT j2.id FROM ai_jobs j2
+      JOIN ai_agents a ON a.id=j2.agent_id
+      WHERE a.enabled=true AND j2.attempts<3
+        AND (j2.state='queued' OR (j2.state='running' AND j2.lease_expires_at<now()))
+      ORDER BY j2.created_at,j2.id LIMIT 1
+    )
+    AND (j.state='queued' OR (j.state='running' AND j.lease_expires_at<now()))
+    RETURNING j.id,j.agent_id,j.kind,j.ref_id`,[token])).rows[0];
   if(!claimed)return false;
   let leaseHealthy=true;
   let renewing=false;
