@@ -31,9 +31,13 @@ export function voucherReady(data: { reference: string; guestName: string; hotel
   return { subject: `Voucher ${data.reference}`, ...wrap("Your voucher is ready", [`Dear ${data.guestName},`, `The voucher for booking ${data.reference} at ${data.hotelName} is ready in your account.`]) };
 }
 
-export function paymentReminder(data: { reference: string; amountDue: string; currency: string; dueDate: string }): Rendered {
+export function paymentReminder(data: { reference: string; amountDue: string; currency: string; dueDate: string; readUrl?: string }): Rendered {
   assertSafeTemplateData(data);
-  return { subject: `Payment reminder ${data.reference}`, ...wrap("Payment reminder", [`Booking ${data.reference} has ${data.amountDue} ${data.currency} due by ${data.dueDate}.`]) };
+  const base = wrap("Payment reminder", [`Booking ${data.reference} has ${data.amountDue} ${data.currency} due by ${data.dueDate}.`]);
+  if (!data.readUrl || !/^https:\/\/[^\s"'<>]+$/.test(data.readUrl)) return { subject: `Payment reminder ${data.reference}`, ...base };
+  const link = `<p><a href="${esc(data.readUrl)}">I have read this reminder</a></p>`;
+  return { subject: `Payment reminder ${data.reference}`, html: base.html.replace('<p style="color:#666">', link + '<p style="color:#666">'),
+           text: base.text.replace("\n\nBED4BOOK", `\n\nI have read this reminder: ${data.readUrl}\n\nBED4BOOK`) };
 }
 
 export function contractExpiry(data: { contractNumber: string; endDate: string }): Rendered {
