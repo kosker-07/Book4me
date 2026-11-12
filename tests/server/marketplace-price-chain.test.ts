@@ -50,3 +50,22 @@ test("T1 unit: direct DMC sale includes fee while distribution chain does not", 
   assert.equal(rule.saleMinor, 13200);
   assert.equal(11000 + platformFeeMinor(10000, "5"), 11500);
 });
+
+test("marketplace: multi-night DMC distribution reconciles every component to buyer total", () => {
+  const netNights = [10000, 10500, 12000, 9900];
+  const nights = netNights.map(net => priceMarketplaceChain(net, "7.5", "12.25"));
+  const sum = (key: "netMinor" | "platformMarginMinor" | "buyerCostMinor" | "buyerMarkupMinor" | "saleMinor") =>
+    nights.reduce((total, night) => total + night[key], 0);
+  assert.equal(sum("netMinor") + sum("platformMarginMinor"), sum("buyerCostMinor"));
+  assert.equal(sum("buyerCostMinor") + sum("buyerMarkupMinor"), sum("saleMinor"));
+  assert.ok(nights.every(n => n.platformMarginMinor >= 0 && n.buyerMarkupMinor >= 0));
+  assert.deepEqual(nights.map(n => n.saleMinor), netNights.map(n => priceMarketplaceChain(n, "7.5", "12.25").saleMinor));
+});
+
+test("marketplace: a buyer's zero markup cannot erase platform margin", () => {
+  const chain = priceMarketplaceChain(24999, "8", "0");
+  assert.ok(chain.platformMarginMinor > 0);
+  assert.equal(chain.buyerMarkupMinor, 0);
+  assert.equal(chain.saleMinor, chain.buyerCostMinor);
+  assert.equal(chain.buyerCostMinor, chain.netMinor + chain.platformMarginMinor);
+});
