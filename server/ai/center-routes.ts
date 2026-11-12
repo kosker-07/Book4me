@@ -89,10 +89,15 @@ aiCenterRouter.get("/api/ai/runs/:id", wrap(async (req: any,res: any) => {
 }));
 const KINDS = ["function","from_domain","risk","amount_over"];
 const CHANNELS = ["instant","digest","count_only","never"];
-const validRule = (b: any) => fields(b) && KINDS.includes(b.match_kind) &&
-  typeof b.match_value === "string" && b.match_value.length >= 1 && b.match_value.length <= 255 &&
-  CHANNELS.includes(b.channel) && Number.isSafeInteger(b.position) && b.position >= 0 &&
-  typeof b.active === "boolean";
+const validRule = (value: unknown): boolean => {
+  if (!fields(value)) return false;
+  const b = value as Record<string, unknown>;
+  return typeof b.match_kind === "string" && KINDS.includes(b.match_kind) &&
+    typeof b.match_value === "string" && b.match_value.length >= 1 && b.match_value.length <= 255 &&
+    typeof b.channel === "string" && CHANNELS.includes(b.channel) &&
+    typeof b.position === "number" && Number.isSafeInteger(b.position) && b.position >= 0 &&
+    typeof b.active === "boolean";
+};
 aiCenterRouter.get("/api/ai/notify-rules", wrap(async (_req: any,res: any) => {
   const r=await pool.query("SELECT id,match_kind,match_value,channel,position,active FROM notify_rules ORDER BY position,id");
   res.json({items:r.rows});
