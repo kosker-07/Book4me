@@ -83,6 +83,18 @@ test("two-DMC agency/user isolation, parent enforcement, platform role denial an
   await pool.query("INSERT INTO hotels(id,owner_agency_id,name,location,status) VALUES ($1,$2,'Hierarchy Hotel','Antalya','active')",[hotel,ma]);
   await pool.query("INSERT INTO rooms(id,hotel_id,name) VALUES ($1,$2,'Room')",[room,hotel]);
   await pool.query("INSERT INTO rate_plans(id,room_id,board_name,currency,cancellation_policy,payment_terms) VALUES ($1,$2,'BB','EUR',$3::jsonb,$4::jsonb)",[rp,room,JSON.stringify(VALID_TERMS.cancellationPolicy),JSON.stringify(VALID_TERMS.paymentTerms)]);
+  // Room overview is tenant-scoped and includes each room's rate-plan count.
+  const ownRooms = await request("GET", "/api/backoffice/hotels/"+hotel+"/rooms", a);
+  assert.equal(ownRooms.status, 200, JSON.stringify(ownRooms.body));
+  assert.equal(ownRooms.body.hotel.id, hotel);
+  assert.equal(ownRooms.body.items.length, 1);
+  assert.equal(ownRooms.body.items[0].id, room);
+  assert.equal(ownRooms.body.items[0].rate_plan_count, 1);
+  assert.equal((await request("GET","/api/backoffice/hotels/"+hotel+"/rooms",b)).status,404);
+  assert.equal((await request("GET","/api/backoffice/hotels/"+hotel+"/rooms",sub)).status,403);
+  assert.equal((await request("GET","/api/backoffice/hotels/"+hotel+"/rooms",admin)).status,200);
+  assert.equal((await request("GET","/api/backoffice/hotels/"+randomUUID()+"/rooms",a)).status,404);
+  assert.equal((await request("GET","/api/backoffice/hotels/not-a-uuid/rooms",a)).status,404);
   for (const agencyId of [orphan]) {
     const response = await request("POST","/api/admin/publications",admin,{ratePlanId:rp,agencyId,markupType:"percent",markupValue:10});
     assert.equal(response.status,409,JSON.stringify(response.body));
