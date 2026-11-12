@@ -18,6 +18,7 @@ import { distributionRouter } from "./distribution-routes";
 import { dmcRouter } from "./dmc-routes";
 import { mailRouter } from "./mail-routes";
 import { startMailWorker } from "./mail/worker";
+import { markRead, startReminderWorker } from "./booking-reminders";
 import { renderVoucher } from "./voucher";
 import { renderProforma } from "./proforma";
 import { LOGIN_WINDOW_MINUTES, loginThrottled, parseTrustProxy } from "./login-guard";
@@ -55,6 +56,16 @@ app.use("/app", (_req, res, next) => {
   res.setHeader("Content-Security-Policy", "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'; object-src 'none'");
   next();
 }, express.static(path.resolve(process.cwd(), "web")));
+
+// "I have read this reminder" link from payment reminder e-mails. No login; the token is the only key.
+app.get("/r/:token", async (req, res, next) => {
+  try {
+    const ok = await markRead(pool, String(req.params.token || ""));
+    res.setHeader("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; frame-ancestors 'none'");
+    res.status(ok ? 200 : 404).type("html").send(`<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>BED4BOOK</title>
+<body style="font-family:Arial,sans-serif;background:#0b0d12;color:#f6f6f8;display:grid;place-items:center;min-height:90vh"><p>${ok ? "Thank you. The reminder is marked as read." : "This link is not valid."}</p></body>`);
+  } catch (error) { next(error); }
+});
 
 app.get("/health", (_req, res) => res.json({ ok: true, service: "bed4book-api" }));
 app.get("/ready", async (_req, res) => {
@@ -1085,6 +1096,7 @@ if (require.main === module) {
   }).finally(() => {
     app.listen(port, () => console.log(`BED4BOOK API listening on :${port}`));
     startMailWorker();
+    startReminderWorker(pool);
   });
 }
 export default app;
