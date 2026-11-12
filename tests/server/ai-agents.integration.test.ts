@@ -69,9 +69,7 @@ test("AG4: disabled agent makes no run; missing API key creates failed run witho
   assert.equal(await count("ai_runs","agent_id=$1",["reservations"]),0);
   await db.query("UPDATE ai_agents SET enabled=true WHERE id='reservations'");
   const agent=await loadAgent(db,"reservations");assert.equal(agent.enabled,true);
-  const failed=await runPlatformAgent(db,"reservations",{trigger:"integration",prompt:"Review"},{apiKey:"",model:{
-    complete:async()=>{throw new Error("AI_NOT_CONFIGURED");}
-  }});
+  const failed=await runPlatformAgent(db,"reservations",{trigger:"integration",prompt:"Review"},{apiKey:""});
   assert.equal(failed.status,"failed");
   assert.equal((await db.query("SELECT status,error FROM ai_runs WHERE id=$1",[failed.runId])).rows[0].error,"AI_NOT_CONFIGURED");
 });
