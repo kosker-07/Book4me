@@ -21,6 +21,11 @@ export async function aiCenter({view,api,message,session,errText}) {
       const budget=add(section,'input');budget.type='number';budget.min='0';budget.max='5000000';budget.value=a.daily_token_budget;budget.disabled=!canWrite;budget.setAttribute('aria-label','Daily token budget');
       if(canWrite)button(section,'Save',async()=>{try{await api('/api/ai/agents/'+encodeURIComponent(a.id),{method:'PATCH',body:{enabled:enabled.checked,model:model.value,daily_token_budget:Number(budget.value)}});message('Saved');await agents();}catch(e){error(e)}});
     }
+    // PR-F supplies the optional owner-only chat widget; keep PR-D independently deployable.
+    if(canWrite){
+      const available=await fetch('./owner-assistant.js',{method:'HEAD'}).then(r=>r.ok).catch(()=>false);
+      if(available){const widget=await import('./owner-assistant.js');widget.ownerAssistantWidget({parent:body,api,message,errText});}
+    }
   }
   async function approvals(){
     body.replaceChildren();
