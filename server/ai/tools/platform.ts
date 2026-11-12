@@ -21,8 +21,35 @@ const json = (value: unknown): string => JSON.stringify(value).slice(0, 8000);
 const schema = (properties: Record<string, unknown>, required: string[] = []) => ({ type: "object", properties, required, additionalProperties: false });
 const idField = { type: "string", format: "uuid" };
 const textField = { type: "string", maxLength: 500 };
+const validate = (name: keyof typeof TOOL_RISKS, input: unknown): void => {
+  const v = object(input);
+  const allowed: Record<keyof typeof TOOL_RISKS, string[]> = {
+    getBooking: ["bookingId"], listBookings: ["status","from","to","limit"],
+    getAgencySummary: ["agencyId"], getInboxEmail: ["inboxId"],
+    listOpenApprovals: ["limit"], getDailyStats: [],
+    draftReply: ["inboxId","toAddress","subject","textBody"],
+    flagBooking: ["bookingId","reason"],
+    requestRefund: ["bookingId","amount","currency","reason"],
+    changeBookingStatus: ["bookingId","status","reason"],
+  };
+  if (Object.keys(v).some(k => !allowed[name].includes(k))) throw new Error("INVALID_INPUT");
+  const required: Partial<Record<keyof typeof TOOL_RISKS, string[]>> = {
+    getBooking: ["bookingId"], getAgencySummary: ["agencyId"], getInboxEmail: ["inboxId"],
+    draftReply: ["inboxId","toAddress","subject","textBody"],
+    flagBooking: ["bookingId","reason"], requestRefund: ["bookingId","amount","currency","reason"],
+    changeBookingStatus: ["bookingId","status","reason"],
+  };
+  for (const k of required[name] ?? []) if (v[k] === undefined) throw new Error("INVALID_INPUT");
+  for (const k of ["bookingId","agencyId","inboxId"]) if (v[k] !== undefined) uuid(v[k]);
+  for (const [k,max] of [["reason",500],["toAddress",320],["subject",250],["textBody",8000],["currency",3],["status",40]] as const)
+    if (v[k] !== undefined) string(v[k],max);
+  if (v.limit !== undefined && (typeof v.limit !== "number" || !Number.isInteger(v.limit) || v.limit < 1 || v.limit > 50)) throw new Error("INVALID_LIMIT");
+  for (const k of ["from","to"]) if (v[k] !== undefined && (typeof v[k] !== "string" || !/^\\d{4}-\\d{2}-\\d{2}$/.test(v[k] as string) || Number.isNaN(Date.parse(v[k] as string)))) throw new Error("INVALID_DATE");
+  if (name === "requestRefund" && (typeof v.amount !== "number" || !Number.isFinite(v.amount) || v.amount <= 0 || v.amount > 999999999999.99 || !/^[A-Za-z]{3}$/.test(v.currency as string))) throw new Error("INVALID_AMOUNT");
+  if (name === "changeBookingStatus" && !["approved","rejected","cancelled"].includes(v.status as string)) throw new Error("INVALID_STATUS");
+};
 const build = (name: keyof typeof TOOL_RISKS, input_schema: Record<string, unknown>, run: AgentTool["run"], summarize?: AgentTool["summarize"], amountEur?: AgentTool["amountEur"]): AgentTool =>
-  ({ name, description: name, input_schema, risk: TOOL_RISKS[name], run, ...(summarize ? { summarize } : {}), ...(amountEur ? { amountEur } : {}) });
+  ({ name, description: name, input_schema, risk: TOOL_RISKS[name], validate: input => validate(name,input), run, ...(summarize ? { summarize } : {}), ...(amountEur ? { amountEur } : {}) });
 
 /** The platform operator may read every BED4BOOK booking, but never DMC-private mail or credentials. */
 export function platformTools(db: Db): AgentTool[] {
