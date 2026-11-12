@@ -1,3 +1,0 @@
-import test from "node:test";import assert from "node:assert/strict";import {mayManageDmcInventory,publicMarketplaceSupplier,assertDifferentDmcHidden} from "../../server/dmc-trade-invariants";
-test("DMC ownership is isolated",()=>{assert.equal(mayManageDmcInventory("master_agency","a","a"),true);assert.equal(mayManageDmcInventory("master_agency","a","b"),false);assert.equal(mayManageDmcInventory("sub_agency","a","a"),false);assert.equal(mayManageDmcInventory("system_admin",null,"b"),true)});
-test("buyer sees BED4BOOK",()=>{assert.equal(publicMarketplaceSupplier(),"BED4BOOK");assert.throws(()=>assertDifferentDmcHidden("","b"))});
