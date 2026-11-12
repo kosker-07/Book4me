@@ -23,8 +23,7 @@ export async function aiCenter({view,api,message,session,errText}) {
     }
     // PR-F supplies the optional owner-only chat widget; keep PR-D independently deployable.
     if(canWrite){
-      const available=await fetch('./owner-assistant.js',{method:'HEAD'}).then(r=>r.ok).catch(()=>false);
-      if(available){const widget=await import('./owner-assistant.js');widget.ownerAssistantWidget({parent:body,api,message,errText});}
+      void import('./owner-assistant.js').then(widget=>widget.ownerAssistantWidget({parent:body,api,message,errText})).catch(()=>{});
     }
   }
   async function approvals(){
