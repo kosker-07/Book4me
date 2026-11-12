@@ -131,5 +131,5 @@ test("X8 re-import keeps reserved stock: a new allotment never drops below rooms
   assert.deepEqual([t.cancellation_policy.freeUntilDays, t.payment_terms.dueDaysBeforeCheckIn], [21, 30], "re-import applies the newly confirmed terms");
   const night = (await pool.query("SELECT allotment, reserved FROM inventory_daily WHERE rate_plan_id=$1 AND stay_date='2021-11-01'", [plan])).rows[0];
   assert.ok(night.allotment >= night.reserved);
-  assert.equal(await count("SELECT count(*) AS n FROM rate_plans"), 4, "no duplicate rate plans on re-import (4 priced rooms)");
+  assert.equal(await count("SELECT count(*) AS n FROM rate_plans"), 5, "no duplicate rate plans on re-import (5 priced rooms, one priced per person count)");
 });

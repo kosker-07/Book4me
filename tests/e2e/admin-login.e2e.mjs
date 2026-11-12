@@ -161,7 +161,7 @@ await run("excel contract import preview and confirm", { viewport: { width: 1280
   assert.ok((await page.getByTestId("import-preview").textContent()).includes("XANADU RESORT HOTEL"));
   await page.getByTestId("import-confirm").click();
   await page.getByTestId("import-result").waitFor({ state: "visible" });
-  assert.match(await page.getByTestId("import-result").textContent(), /XANADU RESORT HOTEL: 4 oda/);
+  assert.match(await page.getByTestId("import-result").textContent(), /XANADU RESORT HOTEL: 5 oda/);
   assert.equal(await toastText(page), "");
 });
 
