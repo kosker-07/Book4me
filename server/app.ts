@@ -13,6 +13,7 @@ import { signQuote, verifyQuote } from "./quotes";
 import { audit, authenticate, AuthedRequest, clearSessionCookie, httpError, isPlatformWide, requireAgency, resolveSession, roles, sessionSecret, setSessionCookie, uuidParam } from "./http";
 import { adminRouter } from "./admin-routes";
 import { contractRouter } from "./contract-routes";
+import { contractImportRouter } from "./contract-import-routes";
 import { distributionRouter } from "./distribution-routes";
 import { dmcRouter } from "./dmc-routes";
 import { mailRouter } from "./mail-routes";
@@ -142,6 +143,7 @@ app.get("/api/me", authenticate, (req: AuthedRequest, res) => {
 
 app.use(adminRouter);
 app.use(contractRouter);
+app.use(contractImportRouter);
 app.use(distributionRouter);
 app.use(dmcRouter);
 app.use(mailRouter);
