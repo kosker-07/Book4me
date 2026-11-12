@@ -69,7 +69,7 @@ test("D2 bulk margin: publishAll opens every sellable plan, the next search uses
   assert.ok(offers.every(o => o.total === "220.00"), JSON.stringify(offers.map(o => o.total)));
   const booked = await request("POST", "/api/agency/bookings", w.t.subA, { quoteId: offers[0].quoteId,
     guest: { firstName: "Test", lastName: "Guest", adults: 2, children: 0, childAges: [], email: "g@test.local", phone: "+905551112233", nationality: "TR" },
-    otherGuests: [{ firstName: "Second", lastName: "Guest", type: "adult", nationality: "TR" }] });
+    otherGuests: [{ firstName: "Second", lastName: "Guest", type: "adult", nationality: "TR" }], operationNote: "Arrival after 18:00" });
   assert.equal(booked.status, 201, JSON.stringify(booked.body));
   const second = await request("PUT", `/api/dmc/subagencies/${w.subA}/markup`, w.t.masterA, { markupPercent: 25.5 });
   assert.deepEqual(second.body, { markupPercent: 25.5, updated: 2, published: 0, skippedNoTerms: 0 });
