@@ -44,7 +44,7 @@ const validate = (name: keyof typeof TOOL_RISKS, input: unknown): void => {
   for (const [k,max] of [["reason",500],["toAddress",320],["subject",250],["textBody",8000],["currency",3],["status",40]] as const)
     if (v[k] !== undefined) string(v[k],max);
   if (v.limit !== undefined && (typeof v.limit !== "number" || !Number.isInteger(v.limit) || v.limit < 1 || v.limit > 50)) throw new Error("INVALID_LIMIT");
-  for (const k of ["from","to"]) if (v[k] !== undefined && (typeof v[k] !== "string" || !/^\\d{4}-\\d{2}-\\d{2}$/.test(v[k] as string) || Number.isNaN(Date.parse(v[k] as string)))) throw new Error("INVALID_DATE");
+  for (const k of ["from","to"]) if (v[k] !== undefined && (typeof v[k] !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(v[k] as string) || Number.isNaN(Date.parse(v[k] as string)))) throw new Error("INVALID_DATE");
   if (name === "requestRefund" && (typeof v.amount !== "number" || !Number.isFinite(v.amount) || v.amount <= 0 || v.amount > 999999999999.99 || !/^[A-Za-z]{3}$/.test(v.currency as string))) throw new Error("INVALID_AMOUNT");
   if (name === "changeBookingStatus" && !["approved","rejected","cancelled"].includes(v.status as string)) throw new Error("INVALID_STATUS");
 };
