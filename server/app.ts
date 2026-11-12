@@ -13,6 +13,7 @@ import { signQuote, verifyQuote } from "./quotes";
 import { audit, authenticate, AuthedRequest, clearSessionCookie, httpError, isPlatformWide, requireAgency, resolveSession, roles, sessionSecret, setSessionCookie, uuidParam } from "./http";
 import { adminRouter } from "./admin-routes";
 import { contractRouter } from "./contract-routes";
+import { contractImportRouter } from "./contract-import-routes";
 import { distributionRouter } from "./distribution-routes";
 import { dmcRouter } from "./dmc-routes";
 import { mailRouter } from "./mail-routes";
@@ -142,6 +143,7 @@ app.get("/api/me", authenticate, (req: AuthedRequest, res) => {
 
 app.use(adminRouter);
 app.use(contractRouter);
+app.use(contractImportRouter);
 app.use(distributionRouter);
 app.use(dmcRouter);
 app.use(mailRouter);
@@ -171,8 +173,8 @@ interface CandidateRow {
   rate_plan_id: string; board_name: string; currency: string; minor_units: number;
   cancellation_policy: unknown; payment_terms: unknown; sales_conditions: unknown;
   contract_id: string;
-  room_id: string; room_name: string; max_adults: number; max_children: number;
-  hotel_id: string; hotel_name: string; location: string; category: string | null;
+  room_id: string; room_name: string; room_key: string; max_adults: number; max_children: number;
+  hotel_id: string; hotel_name: string; hotel_group_key: string | null; location: string; category: string | null;
   markup_type: "percent" | "fixed"; markup_value: string;
   source: string; platform_margin_percent: string; buyer_markup_percent: string; platform_fee_percent: string; nights: { date: string; price: string }[];
 }
@@ -184,8 +186,8 @@ async function loadCandidates(db: { query: PoolClient["query"] }, agencyId: stri
   const result = await db.query(
     `SELECT rp.id AS rate_plan_id, rp.board_name, rp.currency, cur.minor_units, rp.cancellation_policy, rp.payment_terms, rp.sales_conditions,
             hc.id AS contract_id,
-            r.id AS room_id, r.name AS room_name, r.max_adults, r.max_children,
-            h.id AS hotel_id, h.name AS hotel_name, h.location, h.category,
+            r.id AS room_id, r.name AS room_name, b4b_norm(r.name) AS room_key, r.max_adults, r.max_children,
+            h.id AS hotel_id, h.name AS hotel_name, h.group_key AS hotel_group_key, h.location, h.category,
             s.markup_type, s.markup_value::text AS markup_value, s.source,
             CASE WHEN s.source = 'distribution_rule' THEN
               coalesce(marketplace_applicable_margin(h.owner_agency_id, coalesce(buyer.parent_agency_id, buyer.id), h.id), 0)::text
@@ -239,6 +241,7 @@ const fitsOccupancy = (row: { max_adults: number; max_children: number }, occupa
 
 const toCandidate = (row: CandidateRow): Candidate => ({
   ratePlanId: row.rate_plan_id, hotelId: row.hotel_id, roomId: row.room_id, board: row.board_name,
+  ...(row.hotel_group_key ? { hotelGroupKey: row.hotel_group_key } : {}), ...(row.room_key ? { roomKey: row.room_key } : {}),
   cancellationPolicy: row.cancellation_policy, paymentTerms: row.payment_terms, salesConditions: row.sales_conditions,
   currency: row.currency.trim(), minorUnits: row.minor_units,
   markup: { type: row.markup_type, value: row.markup_value },
@@ -867,6 +870,31 @@ app.get("/api/backoffice/hotels", ...backoffice, async (req: AuthedRequest, res,
         WHERE $1::boolean OR h.owner_agency_id = $2
         ORDER BY h.name LIMIT 1000`, [platform, req.auth!.agencyId]);
     res.json({ items: result.rows });
+  } catch (error) { next(error); }
+});
+
+// Hotel room inventory overview. Platform operators see all hotels; DMCs see only their own.
+// Deliberately read-only: changing inventory or prices requires separate validated workflows.
+app.get("/api/backoffice/hotels/:id/rooms", ...backoffice, async (req: AuthedRequest, res, next) => {
+  try {
+    const hotelId = uuidParam(req, "HOTEL_NOT_FOUND");
+    const platform = isPlatformWide(req.auth!.role);
+    const hotel = await pool.query(
+      `SELECT h.id, h.name, h.location, h.status, h.owner_agency_id
+         FROM hotels h
+        WHERE h.id = $1 AND ($2::boolean OR h.owner_agency_id = $3)`,
+      [hotelId, platform, req.auth!.agencyId]
+    );
+    if (!hotel.rowCount) return res.status(404).json({ error: "HOTEL_NOT_FOUND" });
+    const rooms = await pool.query(
+      `SELECT r.id, r.hotel_id, r.name, r.description, r.max_adults, r.max_children, r.active,
+              COUNT(DISTINCT rp.id)::integer AS rate_plan_count
+         FROM rooms r LEFT JOIN rate_plans rp ON rp.room_id = r.id
+        WHERE r.hotel_id = $1
+        GROUP BY r.id
+        ORDER BY r.name, r.id`, [hotelId]
+    );
+    res.json({ hotel: hotel.rows[0], items: rooms.rows });
   } catch (error) { next(error); }
 });
 
