@@ -60,7 +60,7 @@ export async function handleInbound(deps: InboundDeps, tenantId: string | null, 
   }
   if (tenantId === null && fn === "security") {
     await recordOwnerNotification(deps.db,"security-email:"+row.id,{kind:"alert",function:"security"},
-      "New BED4BOOK security mailbox message: "+String(d.subject??"").slice(0,200));
+      "New BED4BOOK security mailbox message. Review the platform inbox.");
   }
   return { stored: true, deduplicated: false };
 }
