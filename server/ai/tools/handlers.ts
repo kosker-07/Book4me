@@ -11,6 +11,9 @@ const text = (v: unknown, max: number): string => {
   if (typeof v !== "string" || !v.trim() || v.length > max) throw new Error("INVALID_INPUT");
   return v.trim();
 };
+const REPLY_FUNCTIONS = new Set(["support","reservations","accounting","contracts"]);
+const escapeHtml = (v: string) => v.replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c] as string));
+export const replyHtml = (body: string) => `<div style="font-family:Arial,sans-serif;max-width:560px">${escapeHtml(body).replace(/\r?\n/g, "<br>")}</div>`;
 const platform = (tenantId: string | null) => {
   if (tenantId !== null) throw new Error("PLATFORM_ONLY");
 };
@@ -23,15 +26,16 @@ export function registerPlatformApprovalHandlers(): void {
     const toAddress = text(a.payload.toAddress, 320);
     const subject = text(a.payload.subject, 250);
     const textBody = text(a.payload.textBody, 8000);
-    const inbox = (await db.query("SELECT id FROM email_inbox WHERE id=$1 AND tenant_id IS NULL", [inboxId])).rows[0];
+    const inbox = (await db.query("SELECT id, function_name FROM email_inbox WHERE id=$1 AND tenant_id IS NULL", [inboxId])).rows[0];
     if (!inbox) throw new Error("NOT_FOUND");
     // A human approval queues exactly one platform-owned email; the outbox worker sends it.
     // Idempotency is enforced by email_outbox_idem_idx even if the handler is retried.
     const outbox = await db.query(`INSERT INTO email_outbox
       (tenant_id,kind,function_name,to_address,subject,html,text_body,idempotency_key)
-      VALUES(NULL,'ai_approved_reply','support',$1,$2,$3,$3,$4)
+      VALUES(NULL,'ai_approved_reply',$5,$1,$2,$3,$6,$4)
       ON CONFLICT DO NOTHING RETURNING id`,
-      [toAddress,subject,textBody,`ai-reply:${a.id}`]);
+      // Reply from the address the mail came to; the body is plain text, escaped for the HTML part.
+      [toAddress,subject,replyHtml(textBody),`ai-reply:${a.id}`,REPLY_FUNCTIONS.has(inbox.function_name) ? inbox.function_name : "support",textBody]);
     const result = await db.query(`INSERT INTO ai_reply_drafts(inbox_id,agent_id,to_address,subject,text_body,approval_id,state)
       SELECT $1,$2,$3,$4,$5,$6,'approved'
       WHERE NOT EXISTS (SELECT 1 FROM ai_reply_drafts WHERE approval_id=$6)

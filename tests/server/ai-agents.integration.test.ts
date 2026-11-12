@@ -84,4 +84,18 @@ test("AG5: approved draftReply enqueues one email; repeated approval never dupli
   assert.equal((await decideApproval(db,approvalId,admin,"approve"))?.state,"approved");
   assert.equal(await count("email_outbox","idempotency_key=$1",[`ai-reply:${approvalId}`]),1);
   assert.equal(await count("ai_reply_drafts","approval_id=$1",[approvalId]),1);
+  const sent=(await db.query("SELECT html,text_body FROM email_outbox WHERE idempotency_key=$1",[`ai-reply:${approvalId}`])).rows[0];
+  assert.equal(sent.text_body,"Approved response");
+  assert.ok(sent.html.includes("Approved response"));
+});
+
+test("AG5b approved reply body is escaped in the HTML part", {skip}, async () => {
+  const runId=randomUUID(), approvalId=randomUUID();
+  await db.query("INSERT INTO ai_runs(id,agent_id,trigger) VALUES($1,'support','integration')",[runId]);
+  await db.query(`INSERT INTO approval_queue(id,run_id,agent_id,action,payload,summary,risk)
+    VALUES($1,$2,'support','draftReply',$3,'Reply','medium')`,
+    [approvalId,runId,JSON.stringify({inboxId:inbox,toAddress:"guest@example.com",subject:"Re: Test",textBody:"Hi <script>x</script>\nLine 2"})]);
+  assert.equal((await decideApproval(db,approvalId,admin,"approve"))?.state,"approved");
+  const sent=(await db.query("SELECT html FROM email_outbox WHERE idempotency_key=$1",[`ai-reply:${approvalId}`])).rows[0];
+  assert.ok(!sent.html.includes("<script>") && sent.html.includes("&lt;script&gt;") && sent.html.includes("<br>Line 2"));
 });
