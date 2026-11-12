@@ -2,7 +2,8 @@ import { ratePlanTermsText } from "./rate-plan-terms";
 // Proforma PDF. Informational pre-payment document — NOT a tax invoice or e-invoice.
 // Amounts come only from the booking's immutable price snapshot; nothing is re-priced or re-converted.
 import PDFDocument from "pdfkit";
-import { join } from "node:path";
+import { existsSync } from "node:fs";
+import { join, resolve as pathResolve } from "node:path";
 
 const FONT_REGULAR = join(__dirname, "assets", "fonts", "DejaVuSans.ttf");
 const FONT_BOLD = join(__dirname, "assets", "fonts", "DejaVuSans-Bold.ttf");
@@ -60,7 +61,14 @@ export function renderProforma(p: ProformaData): Promise<Buffer> {
     doc.registerFont("regular", FONT_REGULAR);
     doc.registerFont("bold", FONT_BOLD);
 
-    doc.font("bold").fontSize(26).fillColor("#000000").text("BED4BOOK");
+    const logoPath = pathResolve(process.cwd(), "web", "assets", "bed4book-logo.png");
+    if (existsSync(logoPath)) {
+      try { doc.image(logoPath, 50, 50, { width: 150 }); doc.y = 110; }
+      catch (error) { console.warn("BED4BOOK PDF logo unavailable:", error); doc.font("bold").fontSize(26).fillColor("#000000").text("BED4BOOK"); }
+    } else {
+      console.warn("BED4BOOK PDF logo missing:", logoPath);
+      doc.font("bold").fontSize(26).fillColor("#000000").text("BED4BOOK");
+    }
     doc.font("regular").fontSize(10).text("Hotel Wholesale Platform · www.bed4book.com");
     doc.moveDown(1.2);
     doc.font("bold").fontSize(16).text("PROFORMA");

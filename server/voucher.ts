@@ -1,11 +1,10 @@
 import { ratePlanTermsText } from "./rate-plan-terms";
 // BED4BOOK PDF voucher (Technical Specification §4.4).
 // Contains: booking number, hotel, stay dates, room/board, guest and operation notes.
-// Brand: "BED4BOOK" wordmark in black. The official logo file and its exact colour codes have not been
-// supplied yet (Specification §10), so no logo image or guessed brand colour is used.
 // No personal names, phone numbers or titles of company staff appear on the voucher.
 import PDFDocument from "pdfkit";
-import { join } from "node:path";
+import { existsSync } from "node:fs";
+import { join, resolve as pathResolve } from "node:path";
 
 const FONT_REGULAR = join(__dirname, "assets", "fonts", "DejaVuSans.ttf");
 const FONT_BOLD = join(__dirname, "assets", "fonts", "DejaVuSans-Bold.ttf");
@@ -56,7 +55,14 @@ export function renderVoucher(v: VoucherData): Promise<Buffer> {
     doc.registerFont("regular", FONT_REGULAR);
     doc.registerFont("bold", FONT_BOLD);
 
-    doc.font("bold").fontSize(26).fillColor("#000000").text("BED4BOOK");
+    const logoPath = pathResolve(process.cwd(), "web", "assets", "bed4book-logo.png");
+    if (existsSync(logoPath)) {
+      try { doc.image(logoPath, 50, 50, { width: 150 }); doc.y = 110; }
+      catch (error) { console.warn("BED4BOOK PDF logo unavailable:", error); doc.font("bold").fontSize(26).fillColor("#000000").text("BED4BOOK"); }
+    } else {
+      console.warn("BED4BOOK PDF logo missing:", logoPath);
+      doc.font("bold").fontSize(26).fillColor("#000000").text("BED4BOOK");
+    }
     doc.font("regular").fontSize(10).text("Hotel Wholesale Platform · www.bed4book.com");
     doc.moveDown(1.5);
     doc.font("bold").fontSize(16).text("Konaklama Voucher'ı / Accommodation Voucher");

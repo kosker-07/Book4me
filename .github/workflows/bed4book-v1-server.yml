@@ -51,8 +51,8 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - name: Install pdftotext (voucher content verification)
-        run: sudo apt-get update -q && sudo apt-get install -y -q poppler-utils
+      - name: Install PDF text parser (npm only, pinned)
+        run: npm install --no-save --no-audit --no-fund pdfjs-dist@4.10.38
       - name: Apply migrations to a clean database (migration runner)
         run: npm run db:migrate
       - name: Second runner pass must apply nothing
@@ -126,8 +126,8 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - name: Install pdftotext (voucher content verification)
-        run: sudo apt-get update -q && sudo apt-get install -y -q poppler-utils
+      - name: Install PDF text parser (npm only, pinned)
+        run: npm install --no-save --no-audit --no-fund pdfjs-dist@4.10.38
       - name: Mutation check (throwaway database, created and dropped by the script)
         env:
           ADMIN_URL: postgres://bed4book:bed4book@localhost:5432/postgres
