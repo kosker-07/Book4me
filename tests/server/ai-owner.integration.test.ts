@@ -39,13 +39,14 @@ test("OW3: daily digest sends once and counts count_only",{skip},async()=>{
   try{
     await recordOwnerNotification(db,"ow3",{kind:"email",function:"contracts"},"Contract report");
     const now=new Date();
-    // Daily schedule respects Istanbul clock; a pre-08:30 invocation must do nothing.
-    const date=new Intl.DateTimeFormat("en-CA",{timeZone:"Europe/Istanbul",year:"numeric",month:"2-digit",day:"2-digit"}).format(now);
-    const later=new Date(date+"T08:00:00Z");
-    await sendOwnerDigest(db,later);
-    await sendOwnerDigest(db,later);
+    const parts=new Intl.DateTimeFormat("en-US",{timeZone:"Europe/Istanbul",year:"numeric",month:"2-digit",day:"2-digit"}).formatToParts(now);
+    const get=(name:string)=>parts.find(p=>p.type===name)?.value??"";
+    const day=get("year")+"-"+get("month")+"-"+get("day");
+    const later=new Date(day+"T07:00:00Z"); // 10:00 Europe/Istanbul
+    assert.equal(await sendOwnerDigest(db,later),true);
+    assert.equal(await sendOwnerDigest(db,later),false);
     const n=await db.query("SELECT count(*)::int AS n FROM email_outbox WHERE kind='owner_digest'");
-    assert.ok(n.rows[0].n<=1);
+    assert.equal(n.rows[0].n,1);
   }finally{if(prev===undefined)delete process.env.OWNER_EMAIL;else process.env.OWNER_EMAIL=prev}
 });
 test("OW4: owner assistant tools are strictly read-only",{skip},async()=>{
