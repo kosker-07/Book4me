@@ -2,7 +2,7 @@ import test,{before,after,beforeEach} from "node:test";
 import assert from "node:assert/strict";
 import {randomUUID} from "node:crypto";
 import {Pool} from "pg";
-import {queuePlatformInbox,processNextAiJob,renewAiJobLease} from "../../server/ai/jobs";
+import {queuePlatformInbox,processNextAiJob,renewAiJobLease,failExhaustedAiJobs} from "../../server/ai/jobs";
 import type {RunResult} from "../../server/ai/runtime";
 
 const url=process.env.DATABASE_URL;
@@ -100,4 +100,14 @@ test("IN8: stale worker cannot renew or complete another owner's lease",{skip},a
   const changed=await db.query("UPDATE ai_jobs SET state='done' WHERE id=$1 AND lease_token=$2 RETURNING id",[row.id,stale]);
   assert.equal(changed.rows.length,0);
   assert.equal((await db.query("SELECT state FROM ai_jobs WHERE id=$1",[row.id])).rows[0].state,"running");
+});
+
+test("IN9: exhausted crashed job becomes visible failed, not stuck running",{skip},async()=>{
+  await queuePlatformInbox(db,platformId);
+  await db.query("UPDATE ai_jobs SET state='running',attempts=3,lease_token=$2,lease_expires_at=now()-interval '1 minute' WHERE ref_id=$1",[platformId,randomUUID()]);
+  assert.equal(await failExhaustedAiJobs(db),1);
+  assert.equal(await failExhaustedAiJobs(db),0);
+  const row=(await db.query("SELECT state,last_error,lease_token FROM ai_jobs WHERE ref_id=$1",[platformId])).rows[0];
+  assert.equal(row.state,"failed");assert.equal(row.last_error,"AI_JOB_RETRY_EXHAUSTED");
+  assert.equal(row.lease_token,null);
 });
