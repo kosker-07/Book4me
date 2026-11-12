@@ -54,6 +54,9 @@ export interface Candidate {
   paymentTerms: unknown;
   /** rate_plans.sales_conditions: supplier sales conditions; offers with different conditions are different products. */
   salesConditions?: unknown;
+  /** Same hotel loaded by several DMCs: hotels.group_key and the normalized room name. Fall back to the ids. */
+  hotelGroupKey?: string;
+  roomKey?: string;
   currency: string;
   /** ISO 4217 minor units of `currency` (default 2). */
   minorUnits?: number;
@@ -88,7 +91,7 @@ export function canonicalJson(value: unknown): string {
 export function equivalenceKey(c: Candidate, occupancy: Occupancy, checkIn: string, checkOut: string, rooms: number,
                                nationalities: readonly string[] = []): string {
   return canonicalJson([
-    c.hotelId, c.roomId, c.board.trim().toLowerCase(),
+    c.hotelGroupKey || c.hotelId, c.roomKey || c.roomId, c.board.trim().toLowerCase(),
     c.cancellationPolicy ?? {}, c.paymentTerms ?? {}, c.salesConditions ?? {},
     occupancy.adults, occupancy.children, [...occupancy.childAges].sort((a, b) => a - b),
     checkIn, checkOut, rooms, [...nationalities].sort()
