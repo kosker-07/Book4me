@@ -1,13 +1,10 @@
+import { pdfText } from "../helpers/pdf-text";
 import { VALID_TERMS } from "./fixtures/rate-plan-terms";
 // Nationality-based contract pricing, FX, price snapshots and proformas — integration tests against real
 // PostgreSQL with all migrations applied. Required: DATABASE_URL pointing to a THROWAWAY database.
 import test, { before, after, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
-import { execFileSync, spawnSync } from "node:child_process";
-import { mkdtempSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
 import type { AddressInfo } from "node:net";
 import type { Server } from "node:http";
 
@@ -16,7 +13,6 @@ const DB_URL = process.env.DATABASE_URL;
 process.env.SESSION_SECRET = process.env.SESSION_SECRET || "integration-test-secret-at-least-32-chars";
 if (!DB_URL && process.env.CI) throw new Error("DATABASE_URL is required for integration tests in CI.");
 const skip = DB_URL ? false : "DATABASE_URL not set; integration tests skipped locally";
-const hasPdftotext = spawnSync("pdftotext", ["-v"]).status === 0;
 
 const id = (p: string, n: number) => `${p}0000000-0000-4000-8000-${String(n).padStart(12, "0")}`;
 const M1 = id("a", 1), M2 = id("a", 2), SA = id("a", 3), SB = id("a", 4);
@@ -369,9 +365,8 @@ test("N17 proforma: pending/approved only, numbered, stored once, from the snaps
   const row = (await pool.query("SELECT payment_amount::text AS p, contract_amount::text AS c FROM proformas WHERE booking_id=$1", [id1])).rows[0];
   assert.deepEqual(row, { p: "168.00", c: "140.00" });
   assert.equal((await pool.query("SELECT seller_legal_name FROM proformas WHERE booking_id=$1",[id1])).rows[0].seller_legal_name,"BED4BOOK");
-  if (hasPdftotext) {
-    const dir = mkdtempSync(join(tmpdir(), "proforma-")), file = join(dir, "p.pdf"); writeFileSync(file, first.buf);
-    const text = execFileSync("pdftotext", ["-layout", file, "-"]).toString("utf8").replace(/\s+/g, " ");
+  {
+    const text = await pdfText(first.buf);
     for (const s of ["PROFORMA", "Not a tax invoice", "Vergi faturası değildir", `PF-${year}-000001`, "BED4BOOK", "140.00 GBP", "168.00 EUR", "Lead Guest (yetişkin/adult, GB)", "half-up"])
       assert.ok(text.includes(s), `proforma must contain "${s}"; got ${text}`);
     // The contract code is the seller DMC's own label; the buyer's proforma never prints it.
@@ -410,8 +405,8 @@ test("N17b platform seller settings: role scope, PDF snapshot, immutable previou
   const record=(await pool.query("SELECT seller_legal_name,seller_settings FROM proformas WHERE booking_id=$1",[id])).rows[0];
   assert.equal(record.seller_legal_name,settings.legal_name);
   assert.equal(record.seller_settings.tax_number,settings.tax_number);
-  if(hasPdftotext){
-    const text=spawnSync("pdftotext",["-","-"],{input:first.buf}).stdout.toString("utf8");
+  {
+    const text=await pdfText(first.buf);
     for(const expected of [settings.legal_name,settings.tax_office,settings.tax_number])assert.ok(text.includes(expected),expected);
     assert.ok(!text.includes("Hotel One Turizm A.Ş."));
   }

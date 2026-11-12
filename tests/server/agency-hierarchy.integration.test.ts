@@ -1,3 +1,4 @@
+import { pdfText } from "../helpers/pdf-text";
 import { VALID_TERMS } from "./fixtures/rate-plan-terms";
 import test, { before, after, beforeEach } from "node:test";
 import assert from "node:assert/strict";
@@ -145,27 +146,48 @@ test("two-DMC agency/user isolation, parent enforcement, platform role denial an
   assert.equal(voucherResponse.status,200);
   const voucherBytes = Buffer.from(await voucherResponse.arrayBuffer());
   assert.equal(voucherResponse.headers.get("content-type"),"application/pdf");
-  const {spawnSync} = await import("node:child_process");
-  const pdfText = spawnSync("pdftotext",["-","-"],{input:voucherBytes}).stdout.toString("utf8");
-  for (const secret of [ma,"DMC A"]) assert.ok(!pdfText.includes(secret),"voucher leaks seller");
+  const voucherText = await pdfText(voucherBytes);
+  for (const secret of [ma,"DMC A"]) assert.ok(!voucherText.includes(secret),"voucher leaks seller");
   const ownPublication = await request("POST","/api/admin/publications",a,{ratePlanId:rp,agencyId:sa,markupType:"percent",markupValue:10});
   assert.equal(ownPublication.status,201,JSON.stringify(ownPublication.body));
   const ownUserId = randomUUID();
   await pool.query("INSERT INTO users(id,email,password_hash,role,agency_id) VALUES ($1,'hierarchy-own@test.local',$2,'sub_agency',$3)",[ownUserId,hashPassword(PW),sa]);
   const ownToken = issueSession({sub:ownUserId,role:"sub_agency",agencyId:sa,ver:0},process.env.SESSION_SECRET!);
+  // T1 fixture: 100.00 EUR net per night, publication markup 10%, 2 nights, 2 rooms; fee 5% => 460.00 EUR.
+  // T1: direct publication adds 5% of the nightly net to the buyer sale price.
+  assert.equal((await request("PATCH","/api/admin/agencies/"+ma,admin,{platformFeePercent:5})).status,200);
   const ownSearch = await request("POST","/api/agency/searches",ownToken,{
-    checkIn,checkOut,rooms:1,adults:2,children:0,childAges:[],
-    roomOccupancies:[{adults:2,children:0,childAges:[]}],nationalities:["TR"]
+    checkIn,checkOut,rooms:2,adults:2,children:0,childAges:[],
+    roomOccupancies:[{adults:1,children:0,childAges:[]},{adults:1,children:0,childAges:[]}],nationalities:["TR"]
   });
   assert.equal(ownSearch.status,200);
   const ownQuote = ownSearch.body.results.find((x:any)=>x.hotel.id===hotel);
   assert.ok(ownQuote?.quoteId);
+  assert.equal(Number(ownQuote.total),460,"T1 direct sale search must include 5% nightly net fee");
   const ownBooking = await request("POST","/api/agency/bookings",ownToken,{
     quoteId:ownQuote.quoteId,
     guest:{firstName:"Test",lastName:"Guest",adults:2,children:0,childAges:[],email:"guest@test.local",phone:"+905551112233",nationality:"TR"},
     otherGuests:[{firstName:"Second",lastName:"Guest",type:"adult",nationality:"TR"}],operationNote:"Arrival after 18:00"
   },{"Idempotency-Key":randomUUID()});
   assert.equal(ownBooking.status,201,JSON.stringify(ownBooking.body));
+  // T2: immutable per-night fee and fee-inclusive sell price, stored at booking time.
+  const nights = (await pool.query("SELECT marketplace_platform_fee_percent::text AS pct, marketplace_platform_fee::text AS fee, sell_price::text AS sell FROM booking_nights WHERE booking_id=$1 ORDER BY stay_date",[ownBooking.body.id])).rows;
+  assert.equal(nights.length,2,"T2 two nightly snapshots");
+  for(const night of nights){
+    assert.equal(Number(night.pct),5,"T2 fee percent");
+    assert.equal(Number(night.fee),5,"T2 nightly fee");
+    assert.equal(Number(night.sell),115,"T2 nightly sale");
+  }
+  await assert.rejects(pool.query("UPDATE booking_nights SET sell_price=116 WHERE booking_id=$1",[ownBooking.body.id]),(e:any)=>e.code==="23514");
+  // T4: modifying the operator fee changes new quotes, not the booked price snapshot.
+  assert.equal((await request("PATCH","/api/admin/agencies/"+ma,admin,{platformFeePercent:8})).status,200);
+  const refreshed = await request("POST","/api/agency/searches",ownToken,{
+    checkIn,checkOut,rooms:2,adults:2,children:0,childAges:[],
+    roomOccupancies:[{adults:1,children:0,childAges:[]},{adults:1,children:0,childAges:[]}],nationalities:["TR"]
+  });
+  assert.equal(refreshed.status,200);
+  assert.equal(Number(refreshed.body.results.find((x:any)=>x.hotel.id===hotel)?.total),472,"T4 new fee-inclusive quote");
+  assert.equal(Number((await pool.query("SELECT sell_price FROM booking_nights WHERE booking_id=$1 LIMIT 1",[ownBooking.body.id])).rows[0].sell_price),115,"T4 old booking frozen");
   const ownSellerDetail = await request("GET","/api/backoffice/bookings/"+ownBooking.body.id,a);
   assert.equal(ownSellerDetail.status,200);
   assert.equal(ownSellerDetail.body.agency_name,"Sub A");

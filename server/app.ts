@@ -5,7 +5,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { pool, withTransaction } from "./db";
 import { bootstrapAdmin } from "./bootstrap-admin";
 import { BROWSER_SESSION_MAX_SECONDS, hashPassword, issueSession, verifyPassword } from "./security";
-import { Candidate, chooseWinners, convertMinor, formatMinor, Markup, nightlySellMinor, normalizeDecimal, parseMinor, priceCandidate, priceMarketplaceChain } from "./pricing";
+import { Candidate, chooseWinners, convertMinor, formatMinor, Markup, nightlySellMinor, normalizeDecimal, parseMinor, priceCandidate, priceMarketplaceChain, platformFeeMinor } from "./pricing";
 import { ContractEligibility, evaluateContract, NationalityRule, rulesByContract } from "./eligibility";
 import { comparisonRates, FxRate, loadFreshRates } from "./fx";
 import { FieldErrors, nightsBetween, validateGuest, validateNationalities, validateOccupancy, validateOtherGuests, validateStay } from "./validation";
@@ -14,6 +14,9 @@ import { audit, authenticate, AuthedRequest, clearSessionCookie, httpError, isPl
 import { adminRouter } from "./admin-routes";
 import { contractRouter } from "./contract-routes";
 import { distributionRouter } from "./distribution-routes";
+import { dmcRouter } from "./dmc-routes";
+import { mailRouter } from "./mail-routes";
+import { startMailWorker } from "./mail/worker";
 import { renderVoucher } from "./voucher";
 import { renderProforma } from "./proforma";
 import { LOGIN_WINDOW_MINUTES, loginThrottled, parseTrustProxy } from "./login-guard";
@@ -31,11 +34,12 @@ app.use((_req, res, next) => {
   next();
 });
 app.use(requestContext);
-app.use(express.json({ limit: "1mb" }));
+// Webhook signatures are computed over the exact raw bytes, so keep them for /api/webhooks/ only.
+app.use(express.json({ limit: "1mb", verify: (req: any, _res, buf) => { if (String(req.url).startsWith("/api/webhooks/")) req.rawBody = buf; } }));
 
 // Temporary same-origin admin sign-in page; assets are copied into dist-server/server/assets.
 app.get("/giris", (_req, res) => {
-  res.setHeader("Content-Security-Policy", "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'; object-src 'none'; img-src 'none'");
+  res.setHeader("Content-Security-Policy", "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'; object-src 'none'; img-src 'self'");
   res.type("html").sendFile(path.join(__dirname, "assets", "giris.html"));
 });
 
@@ -139,6 +143,8 @@ app.get("/api/me", authenticate, (req: AuthedRequest, res) => {
 app.use(adminRouter);
 app.use(contractRouter);
 app.use(distributionRouter);
+app.use(dmcRouter);
+app.use(mailRouter);
 
 // A sub-agency sees only hotels explicitly published to that agency.
 app.get("/api/agency/hotels", authenticate, roles("sub_agency"), requireAgency, async (req: AuthedRequest, res, next) => {
@@ -168,7 +174,7 @@ interface CandidateRow {
   room_id: string; room_name: string; max_adults: number; max_children: number;
   hotel_id: string; hotel_name: string; location: string; category: string | null;
   markup_type: "percent" | "fixed"; markup_value: string;
-  source: string; platform_margin_percent: string; buyer_markup_percent: string; nights: { date: string; price: string }[];
+  source: string; platform_margin_percent: string; buyer_markup_percent: string; platform_fee_percent: string; nights: { date: string; price: string }[];
 }
 
 /** Published, active, bookable rate plans with allotment for every night, whose contract is active and valid
@@ -186,6 +192,8 @@ async function loadCandidates(db: { query: PoolClient["query"] }, agencyId: stri
               ELSE '0' END AS platform_margin_percent,
             CASE WHEN s.source = 'distribution_rule' THEN coalesce(parent.marketplace_markup_percent, buyer.marketplace_markup_percent)::text
               ELSE '0' END AS buyer_markup_percent,
+            CASE WHEN s.source = 'publication' AND h.owner_agency_id = buyer.parent_agency_id
+              THEN coalesce(parent.platform_fee_percent, 0)::text ELSE '0' END AS platform_fee_percent,
             json_agg(json_build_object('date', d.stay_date::text, 'price', d.price::text) ORDER BY d.stay_date) AS nights
        FROM effective_agency_sales($1) s
        JOIN agencies sa ON sa.id = s.agency_id AND sa.active
@@ -202,7 +210,7 @@ async function loadCandidates(db: { query: PoolClient["query"] }, agencyId: stri
        JOIN inventory_daily d ON d.rate_plan_id = rp.id
             AND d.stay_date >= $2::date AND d.stay_date < $3::date AND d.allotment - d.reserved >= $4
       WHERE s.agency_id = $1 AND s.active
-      GROUP BY rp.id, cur.minor_units, hc.id, r.id, h.id, s.markup_type, s.markup_value, s.source, buyer.parent_agency_id, buyer.id, parent.marketplace_markup_percent, buyer.marketplace_markup_percent, h.owner_agency_id
+      GROUP BY rp.id, cur.minor_units, hc.id, r.id, h.id, s.markup_type, s.markup_value, s.source, buyer.parent_agency_id, buyer.id, parent.marketplace_markup_percent, buyer.marketplace_markup_percent, parent.platform_fee_percent, h.owner_agency_id
      HAVING count(*) = $5`,
     [agencyId, checkIn, checkOut, rooms, nights]
   );
@@ -234,6 +242,7 @@ const toCandidate = (row: CandidateRow): Candidate => ({
   cancellationPolicy: row.cancellation_policy, paymentTerms: row.payment_terms, salesConditions: row.sales_conditions,
   currency: row.currency.trim(), minorUnits: row.minor_units,
   markup: { type: row.markup_type, value: row.markup_value },
+  platformFeePercent: row.platform_fee_percent,
   nights: row.nights.map(n => ({ date: n.date, netPrice: n.price }))
 });
 
@@ -275,7 +284,7 @@ app.post("/api/agency/searches", authenticate, roles("sub_agency"), requireAgenc
             date: n.date,
             netPrice: formatMinor(priceMarketplaceChain(
               parseMinor(n.price, r.minor_units), r.platform_margin_percent,
-              r.buyer_markup_percent, 0, r.minor_units).saleMinor, r.minor_units)
+              r.buyer_markup_percent, r.minor_units).saleMinor, r.minor_units)
           }));
           candidate.markup = { type: "percent", value: "0" };
         }
@@ -339,8 +348,8 @@ async function publishedSale(client: PoolClient, agencyId: string, ratePlanId: s
               ELSE '0' END AS platform_margin_percent,
             CASE WHEN s.source = 'distribution_rule' THEN parent.marketplace_markup_percent::text
               ELSE '0' END AS buyer_markup_percent,
-            CASE WHEN s.source = 'distribution_rule' AND buyer.type = 'master'
-              THEN buyer.platform_fee_percent::text ELSE '0' END AS platform_fee_percent
+            CASE WHEN s.source = 'publication' AND h.owner_agency_id = buyer.parent_agency_id
+              THEN coalesce(parent.platform_fee_percent, 0)::text ELSE '0' END AS platform_fee_percent
        FROM effective_agency_sales($1) s
        JOIN agencies sa ON sa.id = s.agency_id AND sa.active
        JOIN agencies buyer ON buyer.id = s.agency_id
@@ -395,8 +404,8 @@ async function revalidateFx(client: PoolClient, contractCurrency: string, fxRate
 /** Shared pricing for both booking and draft paths; publications retain their original markup. */
 function saleNightMinor(netMinor: number, sale: Sale): number {
   return sale.source === "distribution_rule"
-    ? priceMarketplaceChain(netMinor, sale.platformMarginPercent, sale.buyerMarkupPercent, 0, sale.minorUnits).saleMinor
-    : nightlySellMinor(netMinor, sale.markup, sale.minorUnits);
+    ? priceMarketplaceChain(netMinor, sale.platformMarginPercent, sale.buyerMarkupPercent, sale.minorUnits).saleMinor
+    : nightlySellMinor(netMinor, sale.markup, sale.minorUnits) + platformFeeMinor(netMinor, sale.platformFeePercent, sale.minorUnits);
 }
 
 /** Atomically decrements every night and writes the nightly price snapshot. Throws 409 on any failure. */
@@ -418,7 +427,7 @@ async function reserveNights(client: PoolClient, bookingId: string, ratePlanId: 
   if (totalMinor !== expectedTotalMinor) throw httpError(409, "PRICE_CHANGED");
   for (const n of nights) {
     const breakdown = sale.source === "distribution_rule"
-      ? priceMarketplaceChain(n.netMinor, sale.platformMarginPercent, sale.buyerMarkupPercent, sale.platformFeePercent, digits)
+      ? priceMarketplaceChain(n.netMinor, sale.platformMarginPercent, sale.buyerMarkupPercent, digits)
       : null;
     await client.query(
       `INSERT INTO booking_nights(booking_id, stay_date, inventory_id, rooms, net_price, markup_type, markup_value, sell_price, currency,
@@ -432,8 +441,8 @@ async function reserveNights(client: PoolClient, bookingId: string, ratePlanId: 
        breakdown ? formatMinor(breakdown.buyerCostMinor, digits) : null,
        breakdown?.buyerMarkupPercent ?? null,
        breakdown ? formatMinor(breakdown.buyerMarkupMinor, digits) : null,
-       breakdown?.platformFeePercent ?? null,
-       breakdown ? formatMinor(breakdown.platformFeeMinor, digits) : null]);
+       sale.source === "publication" ? sale.platformFeePercent : null,
+       sale.source === "publication" ? formatMinor(platformFeeMinor(n.netMinor, sale.platformFeePercent, digits), digits) : null]);
   }
   return totalMinor;
 }
@@ -459,6 +468,18 @@ async function writeSnapshot(client: PoolClient, bookingId: string, sale: Sale, 
      fx.contract.eurPerUnit, fx.contract.historyId, fx.contract.source, fx.contract.validAt || null,
      fx.payment.currency, fx.paymentMinorUnits, fx.payment.eurPerUnit, fx.payment.historyId,
      formatMinor(paymentAmountMinor, fx.paymentMinorUnits)]);
+}
+
+/** True when a configured credit limit (EUR) would be exceeded by adding this booking to the sub-agency's open
+ *  exposure (pending + approved bookings, valued at their frozen payment amount and EUR rate). No limit: false. */
+async function creditExceeded(client: PoolClient, agencyId: string, paymentAmount: string, paymentEurPerUnit: string) {
+  const r = await client.query(
+    `SELECT coalesce((SELECT sum(s.payment_amount * s.payment_eur_per_unit)
+                        FROM bookings b JOIN booking_price_snapshots s ON s.booking_id = b.id
+                       WHERE b.agency_id = a.id AND b.status IN ('pending', 'approved')), 0)
+            + ($2::numeric * $3::numeric) > a.credit_limit_eur AS over
+       FROM agencies a WHERE a.id = $1`, [agencyId, paymentAmount, paymentEurPerUnit]);
+  return r.rows[0]?.over === true;
 }
 
 app.post("/api/agency/bookings", authenticate, roles("sub_agency"), requireAgency, async (req: AuthedRequest, res, next) => {
@@ -538,7 +559,8 @@ app.post("/api/agency/bookings", authenticate, roles("sub_agency"), requireAgenc
       const bookingId = randomUUID();
       const seq = (await client.query("SELECT nextval('booking_no_seq') AS n")).rows[0].n;
       const bookingNo = `B4B-${String(seq).padStart(8, "0")}`;
-      const status = asDraft ? "draft" : "pending";
+      const awaitingApproval = !asDraft && await creditExceeded(client, agencyId, formatMinor(q.paymentAmountMinor, fx.paymentMinorUnits), String(fx.payment.eurPerUnit));
+      const status = asDraft ? "draft" : awaitingApproval ? "awaiting_credit_approval" : "pending";
       const quotedTotal = formatMinor(q.totalMinor, q.minorUnits);
       await client.query(
         `INSERT INTO bookings(id, booking_no, agency_id, hotel_id, rate_plan_id, check_in, check_out, room_count, total, quoted_total, currency, status,
@@ -546,7 +568,7 @@ app.post("/api/agency/bookings", authenticate, roles("sub_agency"), requireAgenc
          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$9,$10,$11, CASE WHEN $11 = 'pending' THEN now() END, $12,$13,$14,$15,$16,$17,$18,$19,$20,$21::jsonb)`,
         [bookingId, bookingNo, agencyId, sale.hotelId, q.ratePlanId, q.checkIn, q.checkOut, q.rooms, quotedTotal, q.currency, status,
          guest.firstName, guest.lastName, guest.email, guest.phone, guest.nationality, adults, children, childAges, guest.operationNote, JSON.stringify(q.roomOccupancies)]);
-      if (!asDraft) await reserveNights(client, bookingId, q.ratePlanId, q.checkIn, q.checkOut, q.rooms, sale, q.totalMinor);
+      if (!asDraft && !awaitingApproval) await reserveNights(client, bookingId, q.ratePlanId, q.checkIn, q.checkOut, q.rooms, sale, q.totalMinor);
       else if ((await currentTotalMinor(client, q.ratePlanId, q.checkIn, q.checkOut, q.rooms, sale)) !== q.totalMinor) throw httpError(409, "PRICE_CHANGED");
       const guests = [{ firstName: guest.firstName, lastName: guest.lastName, type: "adult", age: null as number | null, nationality: guest.nationality, isLead: true },
                       ...otherGuests.map(g => ({ ...g, nationality: guest.nationality, isLead: false }))];
@@ -557,7 +579,7 @@ app.post("/api/agency/bookings", authenticate, roles("sub_agency"), requireAgenc
       await writeSnapshot(client, bookingId, sale, q.ratePlanId, nationalities, eligibility, q.totalMinor, fx, q.paymentAmountMinor);
       await client.query("INSERT INTO booking_status_history(booking_id,from_status,to_status,actor_id,note) VALUES ($1,NULL,$2,$3,'Created by sub-agency')",
         [bookingId, status, req.auth!.sub]);
-      await audit(client, req.auth!.sub, agencyId, asDraft ? "booking.draft_created" : "booking.created", "booking", bookingId, {
+      await audit(client, req.auth!.sub, agencyId, asDraft ? "booking.draft_created" : awaitingApproval ? "booking.awaiting_credit_approval" : "booking.created", "booking", bookingId, {
         targetAgencyId: agencyId,
         after: { contract: sale.contractCode, nationalities, eligibility: eligibility.matches, total: quotedTotal, currency: q.currency,
                  fxRateId: q.fxRateId, paymentCurrency: q.paymentCurrency, paymentAmount: formatMinor(q.paymentAmountMinor, q.paymentMinorUnits),
@@ -611,6 +633,72 @@ app.post("/api/agency/bookings/:id/submit", authenticate, roles("sub_agency"), r
         { targetAgencyId: agencyId, before: { status: "draft" }, after: { status: "pending" } });
       return { id: bookingId, status: "pending" };
     }, agencyId);
+    res.json(result);
+  } catch (error) { next(error); }
+});
+
+// ---------------------------------------------------------------------------------------------
+// Credit approval: only the sub-agency's own parent DMC. A foreign or missing booking answers 404 identically.
+// Approval re-validates exactly like a draft submission and only then takes stock.
+// ---------------------------------------------------------------------------------------------
+const OWN_SUB = "b.agency_id IN (SELECT id FROM agencies WHERE type = 'sub' AND parent_agency_id = $X)";
+
+app.get("/api/dmc/credit-approvals", authenticate, roles("master_agency"), requireAgency, async (req: AuthedRequest, res, next) => {
+  try {
+    const result = await pool.query(
+      `SELECT b.id, b.booking_no, b.check_in::text, b.check_out::text, b.total, b.currency, b.created_at, h.name AS hotel_name, a.name AS agency_name
+         FROM bookings b JOIN hotels h ON h.id = b.hotel_id JOIN agencies a ON a.id = b.agency_id
+        WHERE b.status = 'awaiting_credit_approval' AND ${OWN_SUB.replace("$X", "$1")}
+        ORDER BY b.created_at, b.id`, [req.auth!.agencyId]);
+    res.json({ items: result.rows });
+  } catch (error) { next(error); }
+});
+
+app.post("/api/dmc/credit-approvals/:id/approve", authenticate, roles("master_agency"), requireAgency, async (req: AuthedRequest, res, next) => {
+  try {
+    const bookingId = uuidParam(req, "BOOKING_NOT_FOUND"), dmcId = req.auth!.agencyId!;
+    const result = await withTransaction(async client => {
+      const b = (await client.query(
+        `UPDATE bookings b SET status = 'pending', submitted_at = now(), updated_at = now()
+          WHERE b.id = $1 AND b.status = 'awaiting_credit_approval' AND ${OWN_SUB.replace("$X", "$2")}
+        RETURNING b.agency_id, b.rate_plan_id, b.check_in::text AS check_in, b.check_out::text AS check_out, b.room_count,
+                  b.quoted_total::text AS quoted_total, b.currency, b.adults, b.children, b.room_occupancies`, [bookingId, dmcId])).rows[0];
+      if (!b) throw httpError(404, "BOOKING_NOT_FOUND");
+      const snap = (await client.query(
+        `SELECT contract_id, nationalities, fx_rate_history_id, payment_currency, payment_fx_rate_history_id
+           FROM booking_price_snapshots WHERE booking_id = $1`, [bookingId])).rows[0];
+      if (!snap) throw httpError(409, "DRAFT_REQUIRES_NEW_QUOTE");
+      const sale = await publishedSale(client, b.agency_id, b.rate_plan_id);
+      if (sale.currency !== String(b.currency).trim()) throw httpError(409, "PRICE_CHANGED");
+      if (Array.isArray(b.room_occupancies) && b.room_occupancies.length === b.room_count) {
+        if (!b.room_occupancies.every((room: { adults: number; children: number }) => room.adults <= sale.maxAdults && room.children <= sale.maxChildren))
+          throw httpError(409, "OCCUPANCY_EXCEEDS_CAPACITY");
+      }
+      await revalidateContract(client, sale, snap.contract_id, b.check_in, b.check_out, (snap.nationalities as string[]).map(x => x.trim()));
+      await revalidateFx(client, sale.currency, snap.fx_rate_history_id === null ? null : Number(snap.fx_rate_history_id),
+                         String(snap.payment_currency).trim(), snap.payment_fx_rate_history_id === null ? null : Number(snap.payment_fx_rate_history_id));
+      await reserveNights(client, bookingId, b.rate_plan_id, b.check_in, b.check_out, b.room_count, sale, parseMinor(b.quoted_total, sale.minorUnits));
+      await client.query("INSERT INTO booking_status_history(booking_id,from_status,to_status,actor_id,note) VALUES ($1,'awaiting_credit_approval','pending',$2,'Credit approved by DMC')",
+        [bookingId, req.auth!.sub]);
+      await audit(client, req.auth!.sub, b.agency_id, "booking.credit_approved", "booking", bookingId,
+        { targetAgencyId: b.agency_id, before: { status: "awaiting_credit_approval" }, after: { status: "pending" } });
+      return { id: bookingId, status: "pending" };
+    }, dmcId);
+    res.json(result);
+  } catch (error) { next(error); }
+});
+
+app.post("/api/dmc/credit-approvals/:id/reject", authenticate, roles("master_agency"), requireAgency, async (req: AuthedRequest, res, next) => {
+  try {
+    const bookingId = uuidParam(req, "BOOKING_NOT_FOUND"), dmcId = req.auth!.agencyId!;
+    const result = await withTransaction(async client => {
+      const from = await transition(client, {
+        bookingId, to: "rejected", from: ["awaiting_credit_approval"], scopeSql: OWN_SUB.replace("$X", "$4"), scopeParams: [dmcId],
+        actorId: req.auth!.sub, note: "Credit rejected by DMC"
+      });
+      if (!from) throw httpError(404, "BOOKING_NOT_FOUND");
+      return { id: bookingId, status: "rejected" };
+    }, dmcId);
     res.json(result);
   } catch (error) { next(error); }
 });
@@ -729,7 +817,7 @@ app.post("/api/agency/bookings/:id/cancel", authenticate, roles("sub_agency"), r
     const bookingId = uuidParam(req, "BOOKING_NOT_FOUND");
     const result = await withTransaction(async client => {
       const from = await transition(client, {
-        bookingId, to: "cancelled", from: ["draft", "pending"], scopeSql: "b.agency_id = $4", scopeParams: [req.auth!.agencyId],
+        bookingId, to: "cancelled", from: ["draft", "awaiting_credit_approval", "pending"], scopeSql: "b.agency_id = $4", scopeParams: [req.auth!.agencyId],
         actorId: req.auth!.sub, note: String(req.body?.note || "Cancelled by sub-agency")
       });
       if (from) return { id: bookingId, status: "cancelled", previousStatus: from };
@@ -744,7 +832,7 @@ app.post("/api/agency/bookings/:id/cancel", authenticate, roles("sub_agency"), r
 // Back Office and system administrator: platform-wide. Master agency: bookings of its own hotels only.
 const backofficeScope = (req: AuthedRequest) => isPlatformWide(req.auth!.role)
   ? { sql: "true", params: [] as unknown[] }
-  : { sql: "EXISTS (SELECT 1 FROM hotels hs WHERE hs.id = b.hotel_id AND hs.owner_agency_id = $X)", params: [req.auth!.agencyId] as unknown[] };
+  : { sql: "EXISTS (SELECT 1 FROM hotels hs WHERE hs.id = b.hotel_id AND hs.owner_agency_id = $X) AND b.status <> 'awaiting_credit_approval'", params: [req.auth!.agencyId] as unknown[] };
 const withParamIndex = (sql: string, index: number) => sql.replace("$X", `$${index}`);
 const backoffice = [authenticate, roles("system_admin", "back_office", "master_agency")] as const;
 
@@ -993,6 +1081,7 @@ if (require.main === module) {
     console.error(`Yönetici başlangıç adımı başarısız: ${error?.message || "bilinmeyen hata"}`);
   }).finally(() => {
     app.listen(port, () => console.log(`BED4BOOK API listening on :${port}`));
+    startMailWorker();
   });
 }
 export default app;
