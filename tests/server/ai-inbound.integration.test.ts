@@ -2,7 +2,7 @@ import test,{before,after,beforeEach} from "node:test";
 import assert from "node:assert/strict";
 import {randomUUID} from "node:crypto";
 import {Pool} from "pg";
-import {queuePlatformInbox,processNextAiJob} from "../../server/ai/jobs";
+import {queuePlatformInbox,processNextAiJob,renewAiJobLease} from "../../server/ai/jobs";
 import type {RunResult} from "../../server/ai/runtime";
 
 const url=process.env.DATABASE_URL;
@@ -81,4 +81,23 @@ test("IN6: active lease cannot be stolen by another worker",{skip},async()=>{
   const fake=async (_db:any,_id:any,_input:any):Promise<RunResult>=>{calls++;return {runId:null,status:"done",text:"",approvals:[]}};
   assert.equal(await processNextAiJob(db,fake),false);
   assert.equal(calls,0);
+});
+
+test("IN7: heartbeat extends active job without ending its work",{skip},async()=>{
+  await queuePlatformInbox(db,platformId);
+  const token=randomUUID();
+  const row=(await db.query("UPDATE ai_jobs SET state='running',attempts=1,lease_token=$2,lease_expires_at=now()+interval '2 minutes' WHERE ref_id=$1 RETURNING id",[platformId,token])).rows[0];
+  assert.equal(await renewAiJobLease(db,row.id,token),true);
+  const lease=(await db.query("SELECT state,lease_expires_at>now()+interval '14 minutes' AS extended FROM ai_jobs WHERE id=$1",[row.id])).rows[0];
+  assert.equal(lease.state,"running");
+  assert.equal(lease.extended,true);
+});
+test("IN8: stale worker cannot renew or complete another owner's lease",{skip},async()=>{
+  await queuePlatformInbox(db,platformId);
+  const stale=randomUUID(),current=randomUUID();
+  const row=(await db.query("UPDATE ai_jobs SET state='running',attempts=2,lease_token=$2,lease_expires_at=now()+interval '15 minutes' WHERE ref_id=$1 RETURNING id",[platformId,current])).rows[0];
+  assert.equal(await renewAiJobLease(db,row.id,stale),false);
+  const changed=await db.query("UPDATE ai_jobs SET state='done' WHERE id=$1 AND lease_token=$2 RETURNING id",[row.id,stale]);
+  assert.equal(changed.rows.length,0);
+  assert.equal((await db.query("SELECT state FROM ai_jobs WHERE id=$1",[row.id])).rows[0].state,"running");
 });
