@@ -44,8 +44,9 @@ export async function sendOwnerDigest(db:Db,now=new Date()):Promise<boolean>{
   const existing=await db.query("SELECT 1 FROM owner_notification_deliveries WHERE delivery_kind='digest' AND delivery_day=$1",[day]);
   if(existing.rows[0])return false;
   const rows=(await db.query(`SELECT id,summary,channel FROM owner_notifications
-    WHERE (created_at AT TIME ZONE 'Europe/Istanbul')::date=$1::date AND channel<>'never'
-    ORDER BY created_at LIMIT 1000`,[day])).rows;
+    WHERE created_at > $1::timestamptz - interval '24 hours'
+      AND created_at <= $1::timestamptz AND channel<>'never'
+    ORDER BY created_at LIMIT 1000`,[now.toISOString()])).rows;
   const digest=rows.filter(x=>x.channel==="digest").slice(0,10).map(x=>x.summary);
   const count=rows.filter(x=>x.channel==="count_only").length;
   const approvals=(await db.query("SELECT id,agent_id FROM approval_queue WHERE state='pending' AND tenant_id IS NULL ORDER BY created_at LIMIT 10")).rows;
