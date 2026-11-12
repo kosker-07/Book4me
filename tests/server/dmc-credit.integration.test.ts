@@ -80,7 +80,7 @@ async function bookOnce(w: World) {
   assert.equal(r.status, 200, JSON.stringify(r.body));
   const quote = r.body.results.find((x: any) => x.hotel.id === w.hotel);
   assert.ok(quote?.quoteId);
-  assert.equal(Number(quote.total), 220);
+  assert.equal(Number(quote.total), 230, "200 net + 10% sub markup + 5% seller-DMC platform fee on net");
   const booked = await book(w.t.subA, quote.quoteId);
   assert.equal(booked.status, 201, JSON.stringify(booked.body));
   return booked.body;
