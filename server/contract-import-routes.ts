@@ -112,7 +112,8 @@ contractImportRouter.post("/api/contracts/import/:id/confirm", ...managers, h(as
              VALUES ($1,$2,$3,$4::jsonb,$5::jsonb,$6::jsonb) RETURNING id`,
             [room.id, (p.concept || "Contract rate").slice(0, 200), p.currency, JSON.stringify(b.cancellationPolicy), JSON.stringify(b.paymentTerms),
              JSON.stringify({ source: "excel-import", importId: id, occupancyPrices: r.occupancyPrices })])).rows[0];
-          await client.query("INSERT INTO contract_rate_plans(rate_plan_id, contract_id) VALUES ($1,$2)", [plan.id, contract.id]);
+          // A trigger attaches every new rate plan to the hotel's default contract; move it to this import's contract.
+          await client.query("UPDATE contract_rate_plans SET contract_id = $2 WHERE rate_plan_id = $1", [plan.id, contract.id]);
           ratePlans++;
         }
         await client.query(
