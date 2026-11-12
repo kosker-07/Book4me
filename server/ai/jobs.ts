@@ -5,7 +5,7 @@ import { pool } from "../db";
 
 /** Defense in depth: prevent known DMC names and sensitive pricing terms entering prompts. */
 export function redactInboundPrompt(value: string, dmcNames: string[]): string {
-  let result = value.replace(/\b(?:net\s*(?:price|rate)|margin|platform\s*fee)\b[^\n,;}]*?/gi, "[REDACTED]");
+  let result = value.replace(/\b(?:net\s*(?:price|rate)|margin|platform\s*fee)\b[^\n,;}]*/gi, "[REDACTED]");
   for (const name of dmcNames.filter(n => n.length >= 3)) {
     const escaped = name.replace(/[.*+?^$\x7b\x7d()|[\]\\]/g, "\\export const MAIL_AGENTS:");
     result = result.replace(new RegExp(escaped, "gi"), "[REDACTED_DMC]");
