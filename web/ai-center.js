@@ -28,7 +28,7 @@ export async function aiCenter({view,api,message,session,errText}) {
     if(!data.items.length)add(body,'p','No pending approvals');
     for(const a of data.items){
       const section=add(body,'section');section.className='card';
-      add(section,'h3',a.agent_id+' · '+a.risk.toUpperCase());
+      const heading=add(section,'h3',a.agent_id+' · '+a.risk.toUpperCase());heading.className=a.risk==='high'?'ai-risk-high':'ai-risk-medium';
       add(section,'p',a.summary);
       add(section,'p','Amount: '+(a.amount_eur??'—')+' EUR · '+a.created_at);
       if(canWrite)for(const decision of ['approve','reject'])button(section,decision==='approve'?'Approve':'Reject',async()=>{
@@ -52,7 +52,18 @@ export async function aiCenter({view,api,message,session,errText}) {
     for(const r of data.items){
       const section=add(body,'section');section.className='card';
       add(section,'p',r.match_kind+' · '+r.match_value+' → '+r.channel);
-      if(canWrite)button(section,r.active?'Disable':'Enable',async()=>{try{await api('/api/ai/notify-rules/'+r.id,{method:'PATCH',body:{active:!r.active}});await rules()}catch(e){error(e)}});
+      if(canWrite){
+        button(section,r.active?'Disable':'Enable',async()=>{try{await api('/api/ai/notify-rules/'+r.id,{method:'PATCH',body:{active:!r.active}});await rules()}catch(e){error(e)}});
+        button(section,'Edit',async()=>{
+          const value=prompt('Match value',r.match_value);
+          if(value===null)return;
+          try{await api('/api/ai/notify-rules/'+r.id,{method:'PATCH',body:{match_value:value}});await rules()}catch(e){error(e)}
+        });
+        button(section,'Delete',async()=>{
+          if(!confirm('Delete this notification rule?'))return;
+          try{await api('/api/ai/notify-rules/'+r.id,{method:'DELETE'});await rules()}catch(e){error(e)}
+        });
+      }
     }
     if(canWrite){
       const form=add(body,'form');form.className='card';
