@@ -60,3 +60,25 @@ test("IN4: worker prompt excludes private mail and attachment content",{skip},as
   assert.ok(!prompt.includes("123 EUR"));
   assert.ok(!prompt.includes("support@private.example"));
 });
+
+test("IN5: expired running job is recovered once and completed with a new lease",{skip},async()=>{
+  await queuePlatformInbox(db,platformId);
+  await db.query("UPDATE ai_agents SET enabled=true WHERE id='support'");
+  await db.query("UPDATE ai_jobs SET state='running',attempts=1,lease_token=$2,lease_expires_at=now()-interval '1 minute' WHERE ref_id=$1",[platformId,randomUUID()]);
+  let calls=0;
+  const fake=async (_db:any,_id:any,_input:any):Promise<RunResult>=>{calls++;return {runId:null,status:"done",text:"",approvals:[]}};
+  assert.equal(await processNextAiJob(db,fake),true);
+  assert.equal(await processNextAiJob(db,fake),false);
+  assert.equal(calls,1);
+  const row=(await db.query("SELECT state,attempts,lease_token FROM ai_jobs WHERE ref_id=$1",[platformId])).rows[0];
+  assert.equal(row.state,"done");assert.equal(row.attempts,2);assert.equal(row.lease_token,null);
+});
+test("IN6: active lease cannot be stolen by another worker",{skip},async()=>{
+  await queuePlatformInbox(db,platformId);
+  await db.query("UPDATE ai_agents SET enabled=true WHERE id='support'");
+  await db.query("UPDATE ai_jobs SET state='running',attempts=1,lease_token=$2,lease_expires_at=now()+interval '5 minutes' WHERE ref_id=$1",[platformId,randomUUID()]);
+  let calls=0;
+  const fake=async (_db:any,_id:any,_input:any):Promise<RunResult>=>{calls++;return {runId:null,status:"done",text:"",approvals:[]}};
+  assert.equal(await processNextAiJob(db,fake),false);
+  assert.equal(calls,0);
+});
