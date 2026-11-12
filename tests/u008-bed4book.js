@@ -7,8 +7,8 @@ const ok = (v,m) => assert.ok(v,m);
 const offer = (id,total) => ({offerId:id,supplierId:"s"+id,normalizedTotal:total,available:true,equivalence:{property:"p",room:"r",board:"ai",occupancy:"2a",dates:"d",cancellation:"free",payment:"pay-later",market:"TR"}});
 (async()=>{
   const E=B.rebookingV2;
-  const e=await E.evaluate({normalizedTotal:120},{searchAlternatives:async()=>[offer("bad",80),offer("good",95)]},{minimumSaving:10});
-  ok(e.ok); eq(e.data.winner.offerId,"good");
+  const e=await E.evaluate({normalizedTotal:120},{searchAlternatives:async()=>[offer("cheapest",80),offer("dearer",95)]},{minimumSaving:10});
+  ok(e.ok); eq(e.data.winner.offerId,"cheapest","lowest normalized total among equivalent offers must win");
   let cancelled=0;
   const noConfirm=await E.execute({bookingReference:"old"},e,{createReplacement:async()=>({confirmed:false}),cancelOld:async()=>{cancelled++;return {confirmed:true};}},"t1");
   eq(noConfirm.code,"REPLACEMENT_NOT_CONFIRMED"); eq(cancelled,0);
@@ -22,7 +22,9 @@ const offer = (id,total) => ({offerId:id,supplierId:"s"+id,normalizedTotal:total
   ok(RR.submit(id,{total:100,currency:"EUR",normalizedTotal:100},{dmcId:"A"},{windowMs:3600000,safetyBufferMs:60000}).ok);
   ok(RR.submit(id,{total:90,currency:"EUR",normalizedTotal:90},{dmcId:"B"},{windowMs:3600000,safetyBufferMs:60000}).ok);
   const view=RR.participantView(id,"A").data;
-  eq(view.myBids.length,1); ok(!("bids" in view)); ok(!JSON.stringify(view).includes("B"));
+  eq(view.myBids.length,1); ok(!("bids" in view));
+  // competitor (DMC "B", total 90) must not leak: no dmcId field, no competitor total
+  ok(!JSON.stringify(view).includes('"dmcId"'), "dmcId must not be exposed"); ok(!view.myBids.some(b=>b.total===90), "competitor bid must not leak");
   const x=db.get("rateRelayOpportunities",id); x.closeAt=new Date(Date.now()-1000).toISOString();
   let sourceCancelled=0;
   const closed=await RR.close(id,{transferAndConfirm:async()=>({confirmed:true,bookingReference:"new-r"}),cancelSource:async()=>{sourceCancelled++;return {confirmed:true};}},"rr1");

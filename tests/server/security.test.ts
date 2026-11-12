@@ -1,0 +1,75 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { hashPassword, verifyPassword, issueSession, verifySession } from "../../server/security";
+
+test("password hashes are salted and verifiable", () => {
+  const a = hashPassword("a-long-password-123");
+  const b = hashPassword("a-long-password-123");
+  assert.notEqual(a, b);
+  assert.equal(verifyPassword("a-long-password-123", a), true);
+  assert.equal(verifyPassword("wrong-password-123", a), false);
+});
+
+test("signed sessions reject tampering and expiry", () => {
+  const secret = "test-secret-with-at-least-thirty-two-characters";
+  const token = issueSession({ sub: "user-1", role: "sub_agency", agencyId: "agency-1" }, secret, 1_800_000_000_000);
+  assert.equal(verifySession(token, secret, 1_800_000_001_000)?.sub, "user-1");
+  assert.equal(verifySession(token + "x", secret, 1_800_000_001_000), null);
+  assert.equal(verifySession(token, secret, 1_900_000_000_000), null);
+});
+
+test("browser sessions end after one idle hour and never outlive their absolute end", () => {
+  const secret = "test-secret-with-at-least-thirty-two-characters";
+  const t0 = 1_800_000_000_000, sec = t0 / 1000;
+  const claims = { sub: "user-1", role: "sub_agency" as const, agencyId: "agency-1", max: sec + 12 * 3600 };
+  const token = issueSession(claims, secret, t0);
+  assert.equal(verifySession(token, secret, t0)?.exp, sec + 3600, "one idle hour");
+  assert.equal(verifySession(token, secret, t0 + 3599_000)?.sub, "user-1");
+  assert.equal(verifySession(token, secret, t0 + 3600_000), null, "expired after one hour without renewal");
+  const late = issueSession(claims, secret, t0 + (12 * 3600 - 600) * 1000);
+  assert.equal(verifySession(late, secret, t0 + (12 * 3600 - 600) * 1000)?.exp, claims.max, "renewal is capped at the absolute end");
+  assert.equal(verifySession(late, secret, t0 + 12 * 3600 * 1000), null);
+  // API tokens (no max) keep their eight-hour lifetime.
+  const api = issueSession({ sub: "user-1", role: "sub_agency", agencyId: "agency-1" }, secret, t0);
+  assert.equal(verifySession(api, secret, t0)?.exp, sec + 8 * 3600);
+});
+
+// ---------------------------------------------------------------- B4B-01 login throttling policy
+import { LOGIN_LIMITS, loginThrottled, parseTrustProxy } from "../../server/login-guard";
+
+test("login throttling: 5 failures per account+IP, 20 per IP, 100 per account", () => {
+  const z = { accountAndIp: 0, ip: 0, account: 0 };
+  assert.equal(loginThrottled(z), false);
+  assert.equal(loginThrottled({ ...z, accountAndIp: 4, ip: 4, account: 4 }), false);
+  assert.equal(loginThrottled({ ...z, accountAndIp: 5, ip: 5, account: 5 }), true, "brute force from one client");
+  assert.equal(loginThrottled({ ...z, ip: 20 }), true, "one client spraying many accounts");
+  assert.equal(loginThrottled({ ...z, ip: 19, accountAndIp: 4, account: 99 }), false);
+  assert.equal(loginThrottled({ ...z, account: 100 }), true, "distributed brute force on one account");
+  assert.deepEqual({ ...LOGIN_LIMITS }, { perAccountAndIp: 5, perIp: 20, perAccount: 100 });
+});
+
+test("login throttling: an attacker's failures on another IP do not lock the victim out", () => {
+  // Attacker typed the victim's e-mail 5 times from 203.0.113.9 → account counter 5, but the victim's own
+  // IP has no failures, so the victim's attempt is evaluated normally.
+  assert.equal(loginThrottled({ accountAndIp: 0, ip: 0, account: 5 }), false);
+  // Up to 19 attacker IPs × 5 = 95 failures still leave the account usable from a clean IP.
+  assert.equal(loginThrottled({ accountAndIp: 0, ip: 0, account: 95 }), false);
+});
+
+// ---------------------------------------------------------------- B4B-02 reverse proxy trust
+test("trust proxy: off by default outside production, explicit in production", () => {
+  assert.equal(parseTrustProxy(undefined, "test"), false);
+  assert.equal(parseTrustProxy("", undefined), false);
+  assert.equal(parseTrustProxy("false", "production"), false);
+  assert.equal(parseTrustProxy("0", "production"), false);
+  assert.throws(() => parseTrustProxy(undefined, "production"), /must be set in production/);
+  assert.throws(() => parseTrustProxy("  ", "production"), /must be set in production/);
+});
+
+test("trust proxy: hop counts and address lists; 'true' and junk are refused", () => {
+  assert.equal(parseTrustProxy("1", "production"), 1);
+  assert.equal(parseTrustProxy(" 2 ", "production"), 2);
+  assert.deepEqual(parseTrustProxy("loopback, 10.0.0.0/8,fd00::/8,100.64.0.1", "production"), ["loopback", "10.0.0.0/8", "fd00::/8", "100.64.0.1"]);
+  for (const bad of ["true", "TRUE", "6", "99", "10.0.0.0/33", "fd00::/129", "example.com", "10.0.0.0/8/1", "1.2.3", ","])
+    assert.throws(() => parseTrustProxy(bad, "production"), Error, bad);
+});

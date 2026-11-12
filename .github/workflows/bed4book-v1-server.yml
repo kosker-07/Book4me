@@ -1,0 +1,134 @@
+name: BED4BOOK v1 server checks
+
+on:
+  push:
+    branches:
+      - main
+      - feature/bed4book-v1-server-foundation
+      - "claude/**"
+    paths:
+      - "server/**"
+      - "tests/server/**"
+      - "package.json"
+      - "package-lock.json"
+      - "tsconfig.server.json"
+      - "infra/**"
+      - ".github/workflows/bed4book-v1-server.yml"
+  pull_request:
+    paths:
+      - "server/**"
+      - "tests/server/**"
+      - "package.json"
+      - "package-lock.json"
+      - "tsconfig.server.json"
+      - "infra/**"
+      - ".github/workflows/bed4book-v1-server.yml"
+
+jobs:
+  server:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: bed4book
+          POSTGRES_PASSWORD: bed4book
+          POSTGRES_DB: bed4book_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U bed4book -d bed4book_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgres://bed4book:bed4book@localhost:5432/bed4book_test
+      SESSION_SECRET: ci-only-session-secret-at-least-32-characters
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Install PDF text parser (npm only, pinned)
+        run: npm install --no-save --no-audit --no-fund pdfjs-dist@4.10.38
+      - name: Apply migrations to a clean database (migration runner)
+        run: npm run db:migrate
+      - name: Second runner pass must apply nothing
+        run: npm run db:migrate | tee runner2.log && grep -q "no pending migrations" runner2.log
+      - name: Re-apply migrations after 001 by hand (files must stay re-runnable)
+        run: |
+          for f in server/migrations/*.sql; do
+            [ "$(basename "$f")" = "001_initial.sql" ] && continue
+            psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -q -f "$f"
+          done
+      - name: Upgrade a database that has only 001 and legacy data
+        run: |
+          BASE="postgres://bed4book:bed4book@localhost:5432"
+          psql "$BASE/bed4book_test" -c "CREATE DATABASE bed4book_upgrade"
+          psql "$BASE/bed4book_upgrade" -v ON_ERROR_STOP=1 -q -f server/migrations/001_initial.sql
+          psql "$BASE/bed4book_upgrade" -v ON_ERROR_STOP=1 -q -f tests/server/migrations/legacy_001_data.sql
+          DATABASE_URL="$BASE/bed4book_upgrade" npm run db:migrate -- --baseline 001_initial.sql
+          psql "$BASE/bed4book_upgrade" -v ON_ERROR_STOP=1 -f tests/server/migrations/legacy_upgrade_checks.sql
+          psql "$BASE/bed4book_upgrade" -v ON_ERROR_STOP=1 -q -f tests/server/migrations/drill_v1_data.sql
+      - name: Backup → restore drill (and self-test that a tampered restore fails)
+        env:
+          SOURCE_URL: postgres://bed4book:bed4book@localhost:5432/bed4book_upgrade
+          ADMIN_URL: postgres://bed4book:bed4book@localhost:5432/bed4book_test
+          RESTORE_DB: bed4book_restore_drill
+        run: |
+          infra/scripts/backup-restore-drill.sh
+          if DRILL_TAMPER_SQL="UPDATE bookings SET total = total + 1" infra/scripts/backup-restore-drill.sh; then
+            echo "Self-test failed: a tampered restore was not detected"; exit 1
+          fi
+          echo "Self-test passed: tampered restore detected"
+      - run: npm run build:server
+      - name: Compiled server smoke test (dist build, fonts bundled, /ready)
+        run: |
+          node -e "require('./dist-server/server/voucher').renderVoucher({bookingNo:'B4B-SMOKE',status:'approved',hotelName:'Ş',hotelLocation:'İ',checkIn:'2030-01-01',checkOut:'2030-01-02',nights:1,roomName:'R',board:'B',rooms:1,guestName:'Ğ',adults:2,children:0,childAges:[],nationality:'TR',operationNote:'n',agencyName:'a',issuedAt:new Date()}).then(b=>{if(b.subarray(0,5).toString()!=='%PDF-')process.exit(1);console.log('voucher bytes',b.length)})"
+          PORT=3999 node dist-server/server/app.js & echo $! > server.pid
+          for i in $(seq 1 20); do curl -fsS http://127.0.0.1:3999/ready && break; sleep 0.5; done
+          curl -fsS http://127.0.0.1:3999/ready | grep -q '"database":"up"'
+          kill "$(cat server.pid)"
+      - run: npm run test:server
+      - name: Basic performance smoke test (search p95 must stay under 500 ms)
+        run: |
+          BASE="postgres://bed4book:bed4book@localhost:5432"
+          psql "$BASE/bed4book_test" -c "CREATE DATABASE bed4book_perf"
+          DATABASE_URL="$BASE/bed4book_perf" npm run db:migrate
+          DATABASE_URL="$BASE/bed4book_perf" npx tsx infra/scripts/perf-smoke.ts
+
+  # M1–M24: each mutation must turn its expected test red; files are restored and verified with git diff.
+  mutation:
+    runs-on: ubuntu-latest
+    needs: server
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: bed4book
+          POSTGRES_PASSWORD: bed4book
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U bed4book -d postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      SESSION_SECRET: ci-only-session-secret-at-least-32-characters
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Install PDF text parser (npm only, pinned)
+        run: npm install --no-save --no-audit --no-fund pdfjs-dist@4.10.38
+      - name: Mutation check (throwaway database, created and dropped by the script)
+        env:
+          ADMIN_URL: postgres://bed4book:bed4book@localhost:5432/postgres
+        run: node infra/scripts/mutation-check.mjs
