@@ -44,9 +44,8 @@ test("AG2: platform cannot read DMC-private inbox; valid ISO date ranges pass va
   await assert.rejects(get.run({inboxId:inbox},{...ctx,tenantId:agency}),/PLATFORM_ONLY/);
   const list=tools.find(t=>t.name==="listBookings")!;
   assert.doesNotThrow(()=>list.validate?.({from:"2026-11-01",to:"2026-11-30"}));
-  await assert.rejects(list.run({from:"2026-11-01",to:"2026-11-30"},ctx),/NEVER_MATCH_THIS/).catch(async e=>{
-    if (e?.code==="ERR_ASSERTION") assert.ok(true); else throw e;
-  });
+  const rows = JSON.parse(await list.run({from:"2026-11-01",to:"2026-11-30"},ctx));
+  assert.ok(Array.isArray(rows));
   assert.throws(()=>list.validate?.({from:"2026/11/01"}),/INVALID_DATE/);
   assert.throws(()=>list.validate?.({to:"2026-99-99"}),/INVALID_DATE/);
 });
