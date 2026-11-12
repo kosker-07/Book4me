@@ -366,4 +366,4 @@ async function agencies(){
 
 function adminForm(url,method,fields,done){const form=el('form');for(const [label,name] of fields)form.append(field(label,name,name==='password'?'password':'text'));form.append(el('button',{text:'Kaydet',cls:'primary',type:'submit'}));form.onsubmit=async e=>{e.preventDefault();const body=Object.fromEntries(new FormData(form));for(const k of Object.keys(body))if(body[k]==='')delete body[k];try{await api(url,{method,body});message('Kaydedildi.');done()}catch(e){fail(e)}};return form}
 setAuth(false);
-restoreSession().then(ok=>{if(ok){setAuth(true);go(isAgency()?"search":"dashboard")}});
+restoreSession().then(ok=>{if(ok){setAuth(true);go(isOperator()&&new URLSearchParams(location.search).get("page")==="ai-center"?"ai-center":isAgency()?"search":"dashboard")}});
