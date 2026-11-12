@@ -25,9 +25,18 @@ export function registerPlatformApprovalHandlers(): void {
     const textBody = text(a.payload.textBody, 8000);
     const inbox = (await db.query("SELECT id FROM email_inbox WHERE id=$1 AND tenant_id IS NULL", [inboxId])).rows[0];
     if (!inbox) throw new Error("NOT_FOUND");
+    // A human approval queues exactly one platform-owned email; the outbox worker sends it.
+    // Idempotency is enforced by email_outbox_idem_idx even if the handler is retried.
+    const outbox = await db.query(`INSERT INTO email_outbox
+      (tenant_id,kind,function_name,to_address,subject,html,text_body,idempotency_key)
+      VALUES(NULL,'ai_approved_reply','support',$1,$2,$3,$3,$4)
+      ON CONFLICT DO NOTHING RETURNING id`,
+      [toAddress,subject,textBody,`ai-reply:${a.id}`]);
     const result = await db.query(`INSERT INTO ai_reply_drafts(inbox_id,agent_id,to_address,subject,text_body,approval_id,state)
-      VALUES($1,$2,$3,$4,$5,$6,'approved') RETURNING id`, [inboxId,a.agent_id,toAddress,subject,textBody,a.id]);
-    return result.rows[0]?.id;
+      SELECT $1,$2,$3,$4,$5,$6,'approved'
+      WHERE NOT EXISTS (SELECT 1 FROM ai_reply_drafts WHERE approval_id=$6)
+      RETURNING id`, [inboxId,a.agent_id,toAddress,subject,textBody,a.id]);
+    return result.rows[0]?.id ?? outbox.rows[0]?.id ?? a.id;
   });
   registerApprovalHandler("flagBooking", async (db, a) => {
     platform(a.tenant_id);
