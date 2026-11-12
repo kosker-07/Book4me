@@ -11,9 +11,11 @@ export const RELEASING = new Set(["rejected", "cancelled"]);
 /** Returns allotment of a booking that consumed inventory. Uses the nightly snapshot; bookings created
  *  before migration 002 have no snapshot and are released from their date range. */
 export async function releaseInventory(client: PoolClient, bookingId: string) {
+  // A night may have one row per room (occupancy pricing): release the sum per inventory night.
   await client.query(
     `UPDATE inventory_daily d SET reserved = d.reserved - n.rooms
-       FROM booking_nights n WHERE n.booking_id = $1 AND d.id = n.inventory_id`, [bookingId]);
+       FROM (SELECT inventory_id, sum(rooms)::int AS rooms FROM booking_nights WHERE booking_id = $1 GROUP BY inventory_id) n
+      WHERE d.id = n.inventory_id`, [bookingId]);
   await client.query(
     `UPDATE inventory_daily d SET reserved = d.reserved - b.room_count
        FROM bookings b

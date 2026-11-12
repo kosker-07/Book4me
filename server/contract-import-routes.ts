@@ -121,10 +121,11 @@ contractImportRouter.post("/api/contracts/import/:id/confirm", ...managers, h(as
             [plan.id, JSON.stringify(b.cancellationPolicy), JSON.stringify(b.paymentTerms)]);
         }
         await client.query(
-          `INSERT INTO inventory_daily(rate_plan_id, stay_date, price, allotment)
-           SELECT $1, d, p, a FROM unnest($2::date[], $3::numeric[], $4::int[]) AS t(d, p, a)
-           ON CONFLICT (rate_plan_id, stay_date) DO UPDATE SET price = EXCLUDED.price, allotment = GREATEST(EXCLUDED.allotment, inventory_daily.reserved)`,
-          [plan.id, r.dates, r.prices, r.allotments]);
+          `INSERT INTO inventory_daily(rate_plan_id, stay_date, price, allotment, occupancy_prices, min_stay, release_days)
+           SELECT $1, d, p, a, o, m, rl FROM unnest($2::date[], $3::numeric[], $4::int[], $5::jsonb[], $6::smallint[], $7::smallint[]) AS t(d, p, a, o, m, rl)
+           ON CONFLICT (rate_plan_id, stay_date) DO UPDATE SET price = EXCLUDED.price, allotment = GREATEST(EXCLUDED.allotment, inventory_daily.reserved),
+             occupancy_prices = EXCLUDED.occupancy_prices, min_stay = EXCLUDED.min_stay, release_days = EXCLUDED.release_days`,
+          [plan.id, r.dates, r.prices, r.allotments, (r.occupancy ?? []).map(o => o ? JSON.stringify(o) : null), r.minStays ?? [], r.releases ?? []]);
         nightsWritten += r.dates.length;
       }
       hotels.push({ index, name: p.name, hotelId: hotel.id, createdHotel, contractId: contract.id, rooms: p.rooms.length, ratePlans, nights: nightsWritten });
