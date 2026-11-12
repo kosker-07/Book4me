@@ -18,11 +18,13 @@ import { distributionRouter } from "./distribution-routes";
 import { dmcRouter } from "./dmc-routes";
 import { mailRouter } from "./mail-routes";
 import { startMailWorker } from "./mail/worker";
+import { registerPlatformApprovalHandlers } from "./ai/tools/handlers";
 import { renderVoucher } from "./voucher";
 import { renderProforma } from "./proforma";
 import { LOGIN_WINDOW_MINUTES, loginThrottled, parseTrustProxy } from "./login-guard";
 import { requestContext } from "./context";
 
+registerPlatformApprovalHandlers();
 const app = express();
 app.disable("x-powered-by");
 // Reverse-proxy trust is explicit (B4B-02): by default X-Forwarded-For is ignored and req.ip is the TCP peer.
