@@ -67,7 +67,7 @@ async function book(token: string) {
 const setStatus = (w: any, id: string, status: string) => request("PATCH", `/api/backoffice/bookings/${id}/status`, w.t.admin, { status });
 const lines = async (bookingId: string) => (await pool.query(
   `SELECT e.book_owner_id, e.kind, l.party_kind, l.party_agency_id, l.debit::numeric(14,2)::text AS debit, l.credit::numeric(14,2)::text AS credit
-     FROM ledger_entries e JOIN ledger_lines l ON l.entry_id = e.id WHERE e.booking_id = $1 ORDER BY e.posted_at, e.id, l.id`, [bookingId])).rows;
+     FROM ledger_entries e JOIN ledger_lines l ON l.entry_id = e.id WHERE e.booking_id = $1 ORDER BY e.kind, (e.book_owner_id IS NOT NULL), l.id`, [bookingId])).rows;
 
 test("F1 marketplace sale: operator book B 220 / A 200 / revenue 20; B's book sub 264 / B 264; nothing before approval", { skip }, async () => {
   const w = await world();
