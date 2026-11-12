@@ -1,6 +1,7 @@
 import express, { NextFunction, Request, Response } from "express";
 import path from "node:path";
 import type { PoolClient } from "pg";
+import { transition } from "./booking-transition";
 import { createHash, randomUUID } from "node:crypto";
 import { pool, withTransaction } from "./db";
 import { bootstrapAdmin } from "./bootstrap-admin";
@@ -13,15 +14,21 @@ import { signQuote, verifyQuote } from "./quotes";
 import { audit, authenticate, AuthedRequest, clearSessionCookie, httpError, isPlatformWide, requireAgency, resolveSession, roles, sessionSecret, setSessionCookie, uuidParam } from "./http";
 import { adminRouter } from "./admin-routes";
 import { contractRouter } from "./contract-routes";
+import { contractImportRouter } from "./contract-import-routes";
 import { distributionRouter } from "./distribution-routes";
 import { dmcRouter } from "./dmc-routes";
+import { financeRouter } from "./finance-routes";
+import { reportRouter } from "./report-routes";
 import { mailRouter } from "./mail-routes";
 import { startMailWorker } from "./mail/worker";
+import { registerPlatformApprovalHandlers } from "./ai/tools/handlers";
+import { markRead, startReminderWorker } from "./booking-reminders";
 import { renderVoucher } from "./voucher";
 import { renderProforma } from "./proforma";
 import { LOGIN_WINDOW_MINUTES, loginThrottled, parseTrustProxy } from "./login-guard";
 import { requestContext } from "./context";
 
+registerPlatformApprovalHandlers();
 const app = express();
 app.disable("x-powered-by");
 // Reverse-proxy trust is explicit (B4B-02): by default X-Forwarded-For is ignored and req.ip is the TCP peer.
@@ -54,6 +61,16 @@ app.use("/app", (_req, res, next) => {
   res.setHeader("Content-Security-Policy", "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'; object-src 'none'");
   next();
 }, express.static(path.resolve(process.cwd(), "web")));
+
+// "I have read this reminder" link from payment reminder e-mails. No login; the token is the only key.
+app.get("/r/:token", async (req, res, next) => {
+  try {
+    const ok = await markRead(pool, String(req.params.token || ""));
+    res.setHeader("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; frame-ancestors 'none'");
+    res.status(ok ? 200 : 404).type("html").send(`<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>BED4BOOK</title>
+<body style="font-family:Arial,sans-serif;background:#0b0d12;color:#f6f6f8;display:grid;place-items:center;min-height:90vh"><p>${ok ? "Thank you. The reminder is marked as read." : "This link is not valid."}</p></body>`);
+  } catch (error) { next(error); }
+});
 
 app.get("/health", (_req, res) => res.json({ ok: true, service: "bed4book-api" }));
 app.get("/ready", async (_req, res) => {
@@ -142,8 +159,11 @@ app.get("/api/me", authenticate, (req: AuthedRequest, res) => {
 
 app.use(adminRouter);
 app.use(contractRouter);
+app.use(contractImportRouter);
 app.use(distributionRouter);
 app.use(dmcRouter);
+app.use(financeRouter);
+app.use(reportRouter);
 app.use(mailRouter);
 
 // A sub-agency sees only hotels explicitly published to that agency.
@@ -171,8 +191,8 @@ interface CandidateRow {
   rate_plan_id: string; board_name: string; currency: string; minor_units: number;
   cancellation_policy: unknown; payment_terms: unknown; sales_conditions: unknown;
   contract_id: string;
-  room_id: string; room_name: string; max_adults: number; max_children: number;
-  hotel_id: string; hotel_name: string; location: string; category: string | null;
+  room_id: string; room_name: string; room_key: string; max_adults: number; max_children: number;
+  hotel_id: string; hotel_name: string; hotel_group_key: string | null; location: string; category: string | null;
   markup_type: "percent" | "fixed"; markup_value: string;
   source: string; platform_margin_percent: string; buyer_markup_percent: string; platform_fee_percent: string; nights: { date: string; price: string }[];
 }
@@ -184,8 +204,8 @@ async function loadCandidates(db: { query: PoolClient["query"] }, agencyId: stri
   const result = await db.query(
     `SELECT rp.id AS rate_plan_id, rp.board_name, rp.currency, cur.minor_units, rp.cancellation_policy, rp.payment_terms, rp.sales_conditions,
             hc.id AS contract_id,
-            r.id AS room_id, r.name AS room_name, r.max_adults, r.max_children,
-            h.id AS hotel_id, h.name AS hotel_name, h.location, h.category,
+            r.id AS room_id, r.name AS room_name, b4b_norm(r.name) AS room_key, r.max_adults, r.max_children,
+            h.id AS hotel_id, h.name AS hotel_name, h.group_key AS hotel_group_key, h.location, h.category,
             s.markup_type, s.markup_value::text AS markup_value, s.source,
             CASE WHEN s.source = 'distribution_rule' THEN
               coalesce(marketplace_applicable_margin(h.owner_agency_id, coalesce(buyer.parent_agency_id, buyer.id), h.id), 0)::text
@@ -239,6 +259,7 @@ const fitsOccupancy = (row: { max_adults: number; max_children: number }, occupa
 
 const toCandidate = (row: CandidateRow): Candidate => ({
   ratePlanId: row.rate_plan_id, hotelId: row.hotel_id, roomId: row.room_id, board: row.board_name,
+  ...(row.hotel_group_key ? { hotelGroupKey: row.hotel_group_key } : {}), ...(row.room_key ? { roomKey: row.room_key } : {}),
   cancellationPolicy: row.cancellation_policy, paymentTerms: row.payment_terms, salesConditions: row.sales_conditions,
   currency: row.currency.trim(), minorUnits: row.minor_units,
   markup: { type: row.markup_type, value: row.markup_value },
@@ -703,48 +724,6 @@ app.post("/api/dmc/credit-approvals/:id/reject", authenticate, roles("master_age
   } catch (error) { next(error); }
 });
 
-// ---------------------------------------------------------------------------------------------
-// Booking state changes. No SELECT ... FOR UPDATE: each transition is one conditional UPDATE that
-// succeeds only from the expected status, so a booking can be released at most once.
-// ---------------------------------------------------------------------------------------------
-const CONSUMES_INVENTORY = new Set(["pending", "approved"]);
-const RELEASING = new Set(["rejected", "cancelled"]);
-
-/** Returns allotment of a booking that consumed inventory. Uses the nightly snapshot; bookings created
- *  before migration 002 have no snapshot and are released from their date range. */
-async function releaseInventory(client: PoolClient, bookingId: string) {
-  await client.query(
-    `UPDATE inventory_daily d SET reserved = d.reserved - n.rooms
-       FROM booking_nights n WHERE n.booking_id = $1 AND d.id = n.inventory_id`, [bookingId]);
-  await client.query(
-    `UPDATE inventory_daily d SET reserved = d.reserved - b.room_count
-       FROM bookings b
-      WHERE b.id = $1 AND d.rate_plan_id = b.rate_plan_id AND d.stay_date >= b.check_in AND d.stay_date < b.check_out
-        AND NOT EXISTS (SELECT 1 FROM booking_nights n WHERE n.booking_id = b.id)`, [bookingId]);
-}
-
-/** Tries each allowed source status with a conditional UPDATE. The scope limits which bookings the actor may touch. */
-async function transition(client: PoolClient, opts: {
-  bookingId: string; to: string; from: string[]; scopeSql: string; scopeParams: unknown[]; actorId: string; note: string;
-}) {
-  for (const from of opts.from) {
-    const updated = await client.query(
-      `UPDATE bookings b SET status = $2, updated_at = now()
-        WHERE b.id = $1 AND b.status = $3 AND ${opts.scopeSql}
-      RETURNING b.agency_id`,
-      [opts.bookingId, opts.to, from, ...opts.scopeParams]);
-    if (updated.rowCount === 1) {
-      if (RELEASING.has(opts.to) && CONSUMES_INVENTORY.has(from)) await releaseInventory(client, opts.bookingId);
-      await client.query("INSERT INTO booking_status_history(booking_id,from_status,to_status,actor_id,note) VALUES ($1,$2,$3,$4,$5)",
-        [opts.bookingId, from, opts.to, opts.actorId, opts.note]);
-      await audit(client, opts.actorId, updated.rows[0].agency_id, `booking.${opts.to}`, "booking", opts.bookingId,
-        { targetAgencyId: updated.rows[0].agency_id, before: { status: from }, after: { status: opts.to } });
-      return from;
-    }
-  }
-  return null;
-}
-
 // Sub-agency: own bookings only.
 app.get("/api/agency/bookings", authenticate, roles("sub_agency"), requireAgency, async (req: AuthedRequest, res, next) => {
   try {
@@ -867,6 +846,31 @@ app.get("/api/backoffice/hotels", ...backoffice, async (req: AuthedRequest, res,
         WHERE $1::boolean OR h.owner_agency_id = $2
         ORDER BY h.name LIMIT 1000`, [platform, req.auth!.agencyId]);
     res.json({ items: result.rows });
+  } catch (error) { next(error); }
+});
+
+// Hotel room inventory overview. Platform operators see all hotels; DMCs see only their own.
+// Deliberately read-only: changing inventory or prices requires separate validated workflows.
+app.get("/api/backoffice/hotels/:id/rooms", ...backoffice, async (req: AuthedRequest, res, next) => {
+  try {
+    const hotelId = uuidParam(req, "HOTEL_NOT_FOUND");
+    const platform = isPlatformWide(req.auth!.role);
+    const hotel = await pool.query(
+      `SELECT h.id, h.name, h.location, h.status, h.owner_agency_id
+         FROM hotels h
+        WHERE h.id = $1 AND ($2::boolean OR h.owner_agency_id = $3)`,
+      [hotelId, platform, req.auth!.agencyId]
+    );
+    if (!hotel.rowCount) return res.status(404).json({ error: "HOTEL_NOT_FOUND" });
+    const rooms = await pool.query(
+      `SELECT r.id, r.hotel_id, r.name, r.description, r.max_adults, r.max_children, r.active,
+              COUNT(DISTINCT rp.id)::integer AS rate_plan_count
+         FROM rooms r LEFT JOIN rate_plans rp ON rp.room_id = r.id
+        WHERE r.hotel_id = $1
+        GROUP BY r.id
+        ORDER BY r.name, r.id`, [hotelId]
+    );
+    res.json({ hotel: hotel.rows[0], items: rooms.rows });
   } catch (error) { next(error); }
 });
 
@@ -1057,6 +1061,7 @@ if (require.main === module) {
   }).finally(() => {
     app.listen(port, () => console.log(`BED4BOOK API listening on :${port}`));
     startMailWorker();
+    startReminderWorker(pool);
   });
 }
 export default app;

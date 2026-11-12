@@ -5,6 +5,7 @@
 // Env: BASE_URL, ADMIN_EMAIL, ADMIN_PASSWORD (the server bootstraps this admin).
 import { chromium, devices } from "playwright";
 import assert from "node:assert/strict";
+import { fileURLToPath } from "node:url";
 
 const BASE = process.env.BASE_URL || "http://127.0.0.1:3999";
 const EMAIL = process.env.ADMIN_EMAIL;
@@ -12,7 +13,7 @@ const PASSWORD = process.env.ADMIN_PASSWORD;
 assert.ok(EMAIL && PASSWORD, "ADMIN_EMAIL and ADMIN_PASSWORD are required");
 
 // Admin pages that load data from the API; each must open without an error.
-const ADMIN_PAGES = ["dashboard", "bookings", "hotels", "markets", "agencies", "currencies", "platform-settings", "distribution", "account"];
+const ADMIN_PAGES = ["dashboard", "bookings", "hotels", "contract-import", "markets", "agencies", "currencies", "platform-settings", "integrations", "reports", "distribution", "account"];
 
 function watchErrors(page, allowConsole) {
   const errors = [];
@@ -138,6 +139,30 @@ await run("theme system light dark persistence", { viewport: { width: 1280, heig
   await page.emulateMedia({ colorScheme: "dark" });
   assert.equal(await page.locator("html").evaluate(n => getComputedStyle(n).colorScheme), "dark", "auto tracks system changes");
   assert.equal(await page.evaluate(() => localStorage.getItem("b4b-theme")), "auto");
+});
+
+// 5) Excel contract import: preview shows the hotel, nothing is saved until confirmation, confirm saves it.
+await run("excel contract import preview and confirm", { viewport: { width: 1280, height: 900 } }, async page => {
+  await signIn(page, EMAIL, PASSWORD);
+  await page.locator("#app").waitFor({ state: "visible" });
+  const dmcName = "E2E Import DMC " + Date.now();
+  const created = await page.evaluate(async name => {
+    const r = await fetch("/api/admin/agencies", { method: "POST", credentials: "same-origin",
+      headers: { "Content-Type": "application/json", "X-Requested-With": "bed4book" }, body: JSON.stringify({ name, type: "master" }) });
+    return r.status;
+  }, dmcName);
+  assert.equal(created, 201);
+  await page.getByTestId("nav-contract-import").click();
+  await page.getByTestId("import-form").waitFor({ state: "visible" });
+  await page.locator("select[name=ownerAgencyId]").selectOption({ label: dmcName });
+  await page.getByTestId("import-file").setInputFiles(fileURLToPath(new URL("../server/fixtures/SEJOUR - SEJOUR KONTRAT EXCELI ORNEK FORMAT PENINSULA.xlsx", import.meta.url)));
+  await page.getByTestId("import-preview-btn").click();
+  await page.getByTestId("import-preview").waitFor({ state: "visible" });
+  assert.ok((await page.getByTestId("import-preview").textContent()).includes("XANADU RESORT HOTEL"));
+  await page.getByTestId("import-confirm").click();
+  await page.getByTestId("import-result").waitFor({ state: "visible" });
+  assert.match(await page.getByTestId("import-result").textContent(), /XANADU RESORT HOTEL: 4 oda/);
+  assert.equal(await toastText(page), "");
 });
 
 console.log("all browser checks passed");

@@ -78,6 +78,14 @@ test("received email fetch: body and attachment metadata", async () => {
   assert.deepEqual(r.attachments, [{ filename: "c.xlsx", contentType: "application/vnd.ms-excel", size: 10, downloadUrl: "https://x/y" }]);
 });
 
+test("received email fetch: a failed attachment listing is an error, not an empty list", async () => {
+  for (const [status, retryable] of [[503, true], [404, false]] as const) {
+    const f = (async (url: string) => String(url).endsWith("/attachments") ? new Response("{}", { status })
+      : new Response(JSON.stringify({ text: "hi" }))) as any;
+    await assert.rejects(fetchReceivedEmail("k", "e1", f), (e: any) => e instanceof MailProviderError && e.retryable === retryable && e.message === "RESEND_ATTACHMENTS_" + status);
+  }
+});
+
 // Minimal in-memory outbox standing in for PostgreSQL: it understands exactly the statements processOutbox issues.
 function fakeDb(rows: any[], settings: any = null) {
   return {

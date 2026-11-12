@@ -5,7 +5,7 @@ import type { Block, Message, ModelClient, ToolSpec } from "./model";
 
 export type Risk = "low" | "medium" | "high";
 export interface ToolContext { tenantId: string | null; runId: string; agentId: string }
-export interface AgentTool extends ToolSpec { risk: Risk; summarize?: (input: any) => string; amountEur?: (input: any) => number | undefined; run: (input: any, ctx: ToolContext) => Promise<string> }
+export interface AgentTool extends ToolSpec { risk: Risk; validate?: (input: any) => void; summarize?: (input: any) => string; amountEur?: (input: any) => number | undefined; run: (input: any, ctx: ToolContext) => Promise<string> }
 export interface Agent { id: string; model: string; system: string; enabled: boolean; dailyTokenBudget: number; tools: AgentTool[] }
 export interface RunStore {
   tokensUsedToday(agentId: string): Promise<number>;
@@ -38,15 +38,22 @@ export async function runAgent(deps: { store: RunStore; model: ModelClient }, ag
     for (let step = 0; step < MAX_STEPS; step++) {
       const reply = await model.complete({ model: agent.model, system: agent.system, messages, tools: specs, maxTokens: 2000 });
       await store.addUsage(runId, reply.inputTokens, reply.outputTokens);
-      used += reply.inputTokens + reply.outputTokens;
+      // Re-read today's total (it includes other runs of this agent) and stop before any tool runs once it is spent.
+      used = await store.tokensUsedToday(agent.id);
       text = reply.content.filter((b): b is Extract<Block, { type: "text" }> => b.type === "text").map(b => b.text).join("\n");
       const calls = reply.content.filter((b): b is Extract<Block, { type: "tool_use" }> => b.type === "tool_use");
       if (!calls.length) return end("done", text);
+      if (used >= agent.dailyTokenBudget) return end("budget_exceeded", text);
       messages.push({ role: "assistant", content: reply.content });
       const results: Block[] = [];
       for (const call of calls) {
         const tool = agent.tools.find(t => t.name === call.name);
         if (!tool) { await log("tool.unknown", { name: call.name }); results.push({ type: "tool_result", tool_use_id: call.id, content: "UNKNOWN_TOOL", is_error: true }); continue; }
+        try { tool.validate?.(call.input); } catch (e) {
+          await log("tool.failed", { name: tool.name, error: String((e as Error).message).slice(0, 300) });
+          results.push({ type: "tool_result", tool_use_id: call.id, content: "TOOL_FAILED", is_error: true });
+          continue;
+        }
         if (tool.risk !== "low") {
           const amountEur = tool.amountEur?.(call.input);
           const id = await store.enqueueApproval({ runId, agentId: agent.id, tenantId: input.tenantId, action: tool.name, payload: call.input, summary: tool.summarize?.(call.input) ?? tool.name, risk: tool.risk, ...(amountEur === undefined ? {} : { amountEur }) });

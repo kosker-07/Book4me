@@ -11,11 +11,22 @@ export const MAX_ATTACHMENT_BYTES = 15 * 1024 * 1024;
 export interface InboundEvent { type?: string; data?: { email_id?: string; from?: string; to?: string[]; subject?: string; message_id?: string } }
 export interface InboundDeps { db: Db; apiKey: string; fetchEmail?: (apiKey: string, id: string) => Promise<ReceivedEmail>; download?: (url: string) => Promise<Buffer> }
 
+/** Streams the attachment and stops as soon as it passes the limit, so an oversized file is never held in memory. */
 const defaultDownload = async (url: string): Promise<Buffer> => {
   const r = await fetch(url);
   if (!r.ok) throw new Error(`DOWNLOAD_${r.status}`);
-  const buf = Buffer.from(await r.arrayBuffer());
-  return buf;
+  if (Number(r.headers.get("content-length") || 0) > MAX_ATTACHMENT_BYTES) { await r.body?.cancel(); throw new Error("ATTACHMENT_TOO_LARGE"); }
+  const chunks: Buffer[] = []; let size = 0;
+  const reader = r.body?.getReader();
+  if (!reader) return Buffer.alloc(0);
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    size += value.length;
+    if (size > MAX_ATTACHMENT_BYTES) { await reader.cancel(); throw new Error("ATTACHMENT_TOO_LARGE"); }
+    chunks.push(Buffer.from(value));
+  }
+  return Buffer.concat(chunks);
 };
 
 export async function handleInbound(deps: InboundDeps, tenantId: string | null, event: InboundEvent): Promise<{ stored: boolean; deduplicated: boolean }> {
@@ -34,7 +45,9 @@ export async function handleInbound(deps: InboundDeps, tenantId: string | null, 
     if (tenantId || (fn && ATTACHMENT_FUNCTIONS.has(fn))) {
       for (const a of email.attachments) {
         if (a.size > MAX_ATTACHMENT_BYTES) continue;
-        const data = await (deps.download ?? defaultDownload)(a.downloadUrl);
+        let data: Buffer;
+        try { data = await (deps.download ?? defaultDownload)(a.downloadUrl); }
+        catch (e) { if ((e as Error).message === "ATTACHMENT_TOO_LARGE") continue; throw e; }
         if (data.length > MAX_ATTACHMENT_BYTES) continue;
         await deps.db.query(
           "INSERT INTO inbound_attachments(inbox_id, filename, content_type, size_bytes, sha256, data) VALUES ($1,$2,$3,$4,$5,$6)",

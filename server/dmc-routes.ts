@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { pool, withTransaction } from "./db";
 import { authenticate, roles, httpError, audit, uuidParam } from "./http";
 import { h, rowJson } from "./admin-routes";
+import { validateRatePlanTerms } from "./validation";
 
 export const dmcRouter = Router();
 const access=[authenticate,roles("master_agency")] as const;
@@ -57,4 +58,41 @@ dmcRouter.patch("/api/dmc/subagencies/:id",...access,h(async(req,res)=>{
   return updated;
  });
  res.json(result);
+}));
+
+// Bulk margin for one sub-agency: the DMC sets the percent markup on every publication of its own hotels for that
+// sub-agency in one step (effective on the next search; existing bookings keep their frozen price). With publishAll
+// the DMC also opens every sellable rate plan of its own active hotels to that sub-agency. Another DMC's sub → 404.
+dmcRouter.put("/api/dmc/subagencies/:id/markup",...access,h(async(req,res)=>{
+ const id=uuidParam(req),body=req.body||{};
+ const v=body.markupPercent;
+ if(Object.keys(body).some(k=>k!=="markupPercent"&&k!=="publishAll")||(body.publishAll!==undefined&&typeof body.publishAll!=="boolean")
+   ||typeof v!=="number"||!Number.isFinite(v)||v<0||v>100||Math.abs(v*1000-Math.round(v*1000))>1e-6)
+  throw httpError(400,"INVALID_MARKUP");
+ const dmc=req.auth!.agencyId!;
+ const sub=(await pool.query("SELECT id,active FROM agencies WHERE id=$1 AND type='sub' AND parent_agency_id=$2",[id,dmc])).rows[0];
+ if(!sub)throw httpError(404,"NOT_FOUND");
+ if(body.publishAll&&!sub.active)throw httpError(409,"SUBAGENCY_INACTIVE");
+ const value=String(Math.round(v*1000)/1000);
+ const out=await withTransaction(async client=>{
+  const updated=(await client.query(
+   `UPDATE agency_hotel_sales s SET markup_type='percent', markup_value=$3::numeric
+      FROM hotels h WHERE s.hotel_id=h.id AND h.owner_agency_id=$2 AND s.agency_id=$1 RETURNING s.id`,[id,dmc,value])).rowCount??0;
+  let published=0,skippedNoTerms=0;
+  if(body.publishAll){
+   const plans=(await client.query(
+    `SELECT rp.id, r.hotel_id, rp.cancellation_policy, rp.payment_terms FROM rate_plans rp
+       JOIN rooms r ON r.id=rp.room_id AND r.active JOIN hotels h ON h.id=r.hotel_id AND h.owner_agency_id=$2 AND h.status='active'
+      WHERE rp.active AND NOT EXISTS (SELECT 1 FROM agency_hotel_sales s WHERE s.agency_id=$1 AND s.rate_plan_id=rp.id)`,[id,dmc])).rows;
+   for(const p of plans){
+    if(!validateRatePlanTerms(p.cancellation_policy,p.payment_terms)){skippedNoTerms++;continue}
+    await client.query("INSERT INTO agency_hotel_sales(agency_id,hotel_id,rate_plan_id,markup_type,markup_value,active) VALUES ($1,$2,$3,'percent',$4::numeric,true)",[id,p.hotel_id,p.id,value]);
+    published++;
+   }
+  }
+  const result={markupPercent:Number(value),updated,published,skippedNoTerms};
+  await audit(client,req.auth!.sub,dmc,"publication.bulk_markup","agency",id,{targetAgencyId:id,after:result});
+  return result;
+ });
+ res.json(out);
 }));

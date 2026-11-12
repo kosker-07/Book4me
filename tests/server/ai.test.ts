@@ -28,7 +28,7 @@ test("notify: defaults, and the owner's rule wins (including never)", () => {
 function memory(usedToday = 0) {
   const log: string[] = [], queued: any[] = []; let status = "", tokens = 0;
   const store: RunStore = {
-    tokensUsedToday: async () => usedToday, startRun: async () => "run-1",
+    tokensUsedToday: async () => usedToday + tokens, startRun: async () => "run-1",
     addUsage: async (_r, i, o) => { tokens += i + o; }, finishRun: async (_r, s) => { status = s; },
     audit: async e => { log.push(e.action); }, enqueueApproval: async a => { queued.push(a); return "ap-" + queued.length; }
   };

@@ -104,10 +104,14 @@ mailRouter.put("/api/mail/settings", ...dmcOnly, h(async (req, res) => {
     const row = (await client.query(
       `INSERT INTO tenant_mail_settings(tenant_id, credentials_enc, from_address, from_name, reply_to, verified_domain, inbound_key, inbound_webhook_secret_enc, active)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
-       ON CONFLICT (tenant_id) DO UPDATE SET credentials_enc = EXCLUDED.credentials_enc, from_address = EXCLUDED.from_address, from_name = EXCLUDED.from_name,
-         reply_to = EXCLUDED.reply_to, verified_domain = EXCLUDED.verified_domain, inbound_webhook_secret_enc = EXCLUDED.inbound_webhook_secret_enc,
-         active = EXCLUDED.active, updated_at = now() RETURNING *`,
-      [tenant, credentials, from[0], name, b.replyTo || null, domain, randomBytes(18).toString("base64url"), webhookSecret, b.active === true])).rows[0];
+       ON CONFLICT (tenant_id) DO UPDATE SET
+         -- Keep the stored secret unless this request sends a new one, so a concurrent update never restores an old key.
+         credentials_enc = CASE WHEN $10::boolean THEN EXCLUDED.credentials_enc ELSE tenant_mail_settings.credentials_enc END,
+         inbound_webhook_secret_enc = CASE WHEN $11::boolean THEN EXCLUDED.inbound_webhook_secret_enc ELSE tenant_mail_settings.inbound_webhook_secret_enc END,
+         from_address = EXCLUDED.from_address, from_name = EXCLUDED.from_name, reply_to = EXCLUDED.reply_to,
+         verified_domain = EXCLUDED.verified_domain, active = EXCLUDED.active, updated_at = now() RETURNING *`,
+      [tenant, credentials, from[0], name, b.replyTo || null, domain, randomBytes(18).toString("base64url"), webhookSecret, b.active === true,
+       !!apiKey, typeof b.inboundWebhookSecret === "string" && !!b.inboundWebhookSecret.trim()])).rows[0];
     // Audit never carries credentials.
     await audit(client, req.auth!.sub, tenant, "mail.settings.updated", "tenant_mail_settings", tenant, { targetAgencyId: tenant, before: publicSettings(before), after: publicSettings(row) });
     return row;
