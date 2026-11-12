@@ -6,7 +6,11 @@ import { enqueueMail } from "../mail/outbox";
 
 const owner=()=>process.env.OWNER_EMAIL?.trim()||"";
 const escapeHtml=(s:string)=>s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
-const dayIstanbul=(d:Date)=>new Intl.DateTimeFormat("en-CA",{timeZone:"Europe/Istanbul",year:"numeric",month:"2-digit",day:"2-digit"}).format(d);
+const dayIstanbul=(d:Date)=>{
+  const parts=new Intl.DateTimeFormat("en-US",{timeZone:"Europe/Istanbul",year:"numeric",month:"2-digit",day:"2-digit"}).formatToParts(d);
+  const get=(name:string)=>parts.find(p=>p.type===name)?.value??"";
+  return get("year")+"-"+get("month")+"-"+get("day");
+};
 const clockIstanbul=(d:Date)=>new Intl.DateTimeFormat("en-GB",{timeZone:"Europe/Istanbul",hour:"2-digit",minute:"2-digit",hourCycle:"h23"}).format(d);
 export async function recordOwnerNotification(db:Db, eventKey:string,item:NotifyItem,summary:string,now=new Date()):Promise<{channel:Channel;stored:boolean}> {
   const rules=(await db.query("SELECT match_kind,match_value,channel,active FROM notify_rules WHERE active ORDER BY position,id")).rows as NotifyRule[];
@@ -45,7 +49,7 @@ export async function sendOwnerDigest(db:Db,now=new Date()):Promise<boolean>{
   const digest=rows.filter(x=>x.channel==="digest").slice(0,10).map(x=>x.summary);
   const count=rows.filter(x=>x.channel==="count_only").length;
   const approvals=(await db.query("SELECT id,summary FROM approval_queue WHERE state='pending' AND tenant_id IS NULL ORDER BY created_at LIMIT 10")).rows;
-  const lines=[...digest,...approvals.map(a=>a.summary+" — AI Center: /?page=ai-center&approval="+a.id)];
+  const lines=[...digest,...approvals.map(a=>a.summary+" — AI Center: "+(process.env.AI_CENTER_URL||"https://aget.bed4book.com")+"?page=ai-center&approval="+a.id)];
   if(count)lines.push("Other notifications: "+count);
   const text=lines.slice(0,10).map((x,i)=>(i+1)+". "+x).join("\n")||"No notifications today.";
   // Idempotent outbox key prevents duplicate email even across worker restarts.
