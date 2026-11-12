@@ -21,7 +21,7 @@ CREATE TABLE IF NOT EXISTS owner_notification_deliveries (
   notification_id uuid REFERENCES owner_notifications(id),
   delivery_kind text NOT NULL CHECK(delivery_kind IN ('instant','digest')),
   delivery_day date NOT NULL,
-  outbox_id uuid REFERENCES email_outbox(id),
+  outbox_id uuid,
   created_at timestamptz NOT NULL DEFAULT now(),
   UNIQUE(notification_id,delivery_kind,delivery_day)
 );
