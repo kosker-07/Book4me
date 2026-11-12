@@ -108,7 +108,7 @@ contractImportRouter.post("/api/contracts/import/:id/confirm", ...managers, h(as
           "SELECT p.id FROM rate_plans p JOIN contract_rate_plans c ON c.rate_plan_id = p.id WHERE p.room_id = $1 AND c.contract_id = $2 LIMIT 1", [room.id, contract.id])).rows[0];
         if (!plan) {
           plan = (await client.query(
-            `INSERT INTO rate_plans(room_id, board_name, currency, cancellation_policy, payment_terms, sales_conditions)
+            `INSERT INTO rate_plans(room_id, board_name, currency, cancellation_policy, payment_terms, import_meta)
              VALUES ($1,$2,$3,$4::jsonb,$5::jsonb,$6::jsonb) RETURNING id`,
             [room.id, (p.concept || "Contract rate").slice(0, 200), p.currency, JSON.stringify(b.cancellationPolicy), JSON.stringify(b.paymentTerms),
              JSON.stringify({ source: "excel-import", importId: id, occupancyPrices: r.occupancyPrices })])).rows[0];

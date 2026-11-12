@@ -62,6 +62,9 @@ test("X4 preview writes nothing but the preview; confirm creates hotel, rooms, r
   assert.deepEqual(plan.cancellation_policy, VALID_TERMS.cancellationPolicy);
   assert.deepEqual(plan.payment_terms, VALID_TERMS.paymentTerms);
   assert.equal(plan.board_name, "Ultra All inclusive");
+  const meta = (await pool.query("SELECT sales_conditions, import_meta FROM rate_plans WHERE id=$1", [plan.id])).rows[0];
+  assert.deepEqual(meta.sales_conditions, {}, "import data never changes the offer identity");
+  assert.equal(meta.import_meta.importId, pre.body.importId);
   const night = (await pool.query("SELECT price::text, allotment FROM inventory_daily WHERE rate_plan_id=$1 AND stay_date='2021-11-01'", [plan.id])).rows[0];
   assert.deepEqual(night, { price: "400.00", allotment: 10 });
   assert.equal(await count("SELECT count(*) AS n FROM inventory_daily WHERE rate_plan_id=$1 AND stay_date='2022-03-16'", [plan.id]), 1, "extra range imported");

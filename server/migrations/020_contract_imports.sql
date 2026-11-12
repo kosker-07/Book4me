@@ -15,3 +15,7 @@ CREATE TABLE IF NOT EXISTS contract_imports (
 CREATE UNIQUE INDEX IF NOT EXISTS contract_imports_confirmed_once
   ON contract_imports(owner_agency_id, file_sha256) WHERE status = 'confirmed';
 CREATE INDEX IF NOT EXISTS contract_imports_owner_idx ON contract_imports(owner_agency_id, created_at DESC);
+
+-- Import metadata (source file, occupancy prices) lives apart from sales_conditions, because sales_conditions is part
+-- of the offer identity in search and must stay equal for equal products.
+ALTER TABLE rate_plans ADD COLUMN IF NOT EXISTS import_meta jsonb;
