@@ -103,7 +103,7 @@ test("C1 over the credit limit: booking waits for DMC approval and holds no stoc
   assert.equal(proforma.status, 409, "no proforma before approval");
   const sellerList = await request("GET", "/api/backoffice/bookings", w.t.masterA);
   assert.ok(!sellerList.body.items.some((x: any) => x.id === waiting.id), "seller DMC list hides bookings without stock");
-  assert.equal((await request("PATCH", `/api/backoffice/bookings/${waiting.id}/status`, w.t.masterA, { status: "approved" })).status, 409);
+  assert.equal((await request("PATCH", `/api/backoffice/bookings/${waiting.id}/status`, w.t.masterA, { status: "approved" })).status, 404, "hidden from the seller DMC: same answer as a missing booking");
 
   assert.equal((await setLimit(w, 1000)).status, 200);
   const ok = await bookOnce(w);
