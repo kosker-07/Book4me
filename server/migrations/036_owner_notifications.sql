@@ -9,8 +9,12 @@ CREATE TABLE IF NOT EXISTS owner_notifications (
   from_domain text,
   summary text NOT NULL,
   channel text NOT NULL CHECK(channel IN ('instant','digest','count_only','never')),
+  instant_hour timestamptz,
+  instant_slot integer CHECK(instant_slot BETWEEN 1 AND 10),
   created_at timestamptz NOT NULL DEFAULT now()
 );
+CREATE UNIQUE INDEX IF NOT EXISTS owner_notifications_hour_slot ON owner_notifications(instant_hour,instant_slot)
+  WHERE instant_slot IS NOT NULL;
 CREATE INDEX IF NOT EXISTS owner_notifications_day_idx ON owner_notifications(created_at DESC);
 CREATE TABLE IF NOT EXISTS owner_notification_deliveries (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
