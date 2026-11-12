@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { Pool } from "pg";
 import { issueSession } from "../../server/security";
+import { registerApprovalHandler } from "../../server/ai/approvals";
 
 const url=process.env.DATABASE_URL;
 if(!url&&process.env.CI)throw new Error("DATABASE_URL required in CI");
@@ -63,4 +64,17 @@ test("AP5: pending approval appears and disappears after rejection",{skip},async
   await req("/api/ai/approvals/"+approval+"/reject",admin,"POST",{});
   const after=await req("/api/ai/approvals?state=pending",admin);
   assert.ok(!after.body.items.some((a:any)=>a.id===approval));
+});
+
+test("AP1: approved action handler executes exactly once",{skip},async()=>{
+  let executed=0;
+  registerApprovalHandler("ap1Once",async()=>{executed++;return "executed"});
+  await db.query("UPDATE approval_queue SET action='ap1Once' WHERE id=$1",[approval]);
+  const first=await req("/api/ai/approvals/"+approval+"/approve",admin,"POST",{});
+  const second=await req("/api/ai/approvals/"+approval+"/approve",admin,"POST",{});
+  assert.equal(first.status,200);
+  assert.equal(second.status,200);
+  assert.equal(first.body.state,"approved");
+  assert.equal(second.body.state,"approved");
+  assert.equal(executed,1);
 });
