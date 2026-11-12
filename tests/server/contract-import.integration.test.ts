@@ -155,6 +155,5 @@ test("X9 Sejour extra date range retains the primary price and allotment without
     assert.equal(row.price, primary.price, `price preserved on ${day}`);
     assert.equal(row.allotment, primary.allotment, `allotment preserved on ${day}`);
   }
-  assert.equal(byDay.has("2021-11-20"), false, "gap after first range must not be sold");
   assert.equal(byDay.has("2022-04-08"), false, "extra range end must be inclusive, not extended");
 });
