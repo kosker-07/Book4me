@@ -12,8 +12,8 @@ $$;
 
 CREATE OR REPLACE FUNCTION hotel_group_key(name text, location text) RETURNS text
 LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$
-  SELECT regexp_replace(b4b_norm(name), ' +', ' ', 'g') || '|' || coalesce(split_part(b4b_norm(location), ' ', 1), '')
+  SELECT regexp_replace(public.b4b_norm(name), ' +', ' ', 'g') || '|' || coalesce(split_part(public.b4b_norm(location), ' ', 1), '')
 $$;
 
-ALTER TABLE hotels ADD COLUMN IF NOT EXISTS group_key text GENERATED ALWAYS AS (hotel_group_key(name, location)) STORED;
+ALTER TABLE hotels ADD COLUMN IF NOT EXISTS group_key text GENERATED ALWAYS AS (public.hotel_group_key(name, location)) STORED;
 CREATE INDEX IF NOT EXISTS hotels_group_key_idx ON hotels(group_key);
