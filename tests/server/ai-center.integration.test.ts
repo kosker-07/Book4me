@@ -26,14 +26,15 @@ after(async()=>{if(skip)return;await new Promise<void>(r=>server.close(()=>r()))
 beforeEach(async()=>{
   if(skip)return;
   await db.query("TRUNCATE agencies,users,ai_runs,ai_audit,approval_queue,approval_votes CASCADE");
-  const master=randomUUID();admin=randomUUID();bo=randomUUID();dmc=randomUUID();sub=randomUUID();approval=randomUUID();
+  const master=randomUUID(), child=randomUUID();admin=randomUUID();bo=randomUUID();dmc=randomUUID();sub=randomUUID();approval=randomUUID();
   await db.query("INSERT INTO agencies(id,name,type) VALUES($1,'Test DMC','master')",[master]);
-  for(const [id,role,agency] of [[admin,"system_admin",null],[bo,"back_office",null],[dmc,"master_agency",master],[sub,"sub_agency",master]]){
+  await db.query("INSERT INTO agencies(id,name,type,parent_id) VALUES($1,'Test subagency','sub',$2)",[child,master]);
+  for(const [id,role,agency] of [[admin,"system_admin",null],[bo,"back_office",null],[dmc,"master_agency",master],[sub,"sub_agency",child]]){
     await db.query("INSERT INTO users(id,email,password_hash,role,agency_id) VALUES($1,$2,'x',$3,$4)",[id,id+"@test.local",role,agency]);
   }
   const token=(id:string,role:any,agencyId:string|null)=>issueSession({sub:id,role,agencyId,ver:0},process.env.SESSION_SECRET!);
   admin=token(admin,"system_admin",null);bo=token(bo,"back_office",null);
-  dmc=token(dmc,"master_agency",master);sub=token(sub,"sub_agency",master);
+  dmc=token(dmc,"master_agency",master);sub=token(sub,"sub_agency",child);
   await db.query("INSERT INTO approval_queue(id,agent_id,action,payload,summary,risk) VALUES($1,'support','draftReply','{}','Reply draft','medium')",[approval]);
 });
 test("AP2: back office is read only, DMC and sub agency see 404",{skip},async()=>{
