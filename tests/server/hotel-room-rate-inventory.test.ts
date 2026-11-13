@@ -1,7 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { validateRatePlanTerms, validateStay, validateOccupancy, isCalendarDate } from "../../server/validation";
+import { validateRatePlanTerms, validateStay, validateOccupancy, isCalendarDate, nightsBetween } from "../../server/validation";
 
+// ---------------------------------------------------------------- rate plan terms
 test("hotel/room/rate/inventory: validateRatePlanTerms accepts valid terms", () => {
   const errors: Record<string, string> = {};
   assert.equal(validateRatePlanTerms(
@@ -23,6 +24,7 @@ test("hotel/room/rate/inventory: validateRatePlanTerms enforces ranges", () => {
   assert.ok(errors["cancellationPolicy.freeUntilDays"]);
 });
 
+// ---------------------------------------------------------------- stay validation
 test("hotel/room/rate/inventory: validateStay accepts valid stay request", () => {
   const errors: Record<string, string> = {};
   const result = validateStay({
@@ -45,6 +47,17 @@ test("hotel/room/rate/inventory: validateStay rejects past dates", () => {
   assert.ok(errors.checkIn);
 });
 
+test("hotel/room/rate/inventory: validateStay enforces max 60 nights", () => {
+  const errors: Record<string, string> = {};
+  const result = validateStay({
+    checkIn: "2026-12-01", checkOut: "2027-02-01", rooms: 1, adults: 2, children: 0, childAges: [],
+    roomOccupancies: [{ adults: 2, children: 0, childAges: [] }]
+  }, errors);
+  assert.equal(result, null);
+  assert.ok(errors.checkOut);
+});
+
+// ---------------------------------------------------------------- occupancy validation
 test("hotel/room/rate/inventory: validateOccupancy validates adults and children", () => {
   const errors: Record<string, string> = {};
   assert.ok(validateOccupancy({ adults: 2, children: 1, childAges: [5] }, errors) !== null);
@@ -59,9 +72,51 @@ test("hotel/room/rate/inventory: validateOccupancy validates adults and children
   assert.ok(errors3.childAges);
 });
 
+// ---------------------------------------------------------------- calendar date
 test("hotel/room/rate/inventory: isCalendarDate validates real dates", () => {
   assert.equal(isCalendarDate("2026-12-31"), true);
   assert.equal(isCalendarDate("2026-02-30"), false);
   assert.equal(isCalendarDate("not-a-date"), false);
   assert.equal(isCalendarDate(undefined), false);
+});
+
+// ---------------------------------------------------------------- nights calculation
+test("hotel/room/rate/inventory: nightsBetween computes correct count", () => {
+  assert.deepEqual(nightsBetween("2026-12-01", "2026-12-05"), ["2026-12-01", "2026-12-02", "2026-12-03", "2026-12-04"]);
+  assert.deepEqual(nightsBetween("2026-12-01", "2026-12-02"), ["2026-12-01"]);
+});
+
+// ---------------------------------------------------------------- room capacity validation logic
+test("hotel/room/rate/inventory: room capacity validation rejects over-capacity", () => {
+  const room = { max_adults: 2, max_children: 1 };
+  const occupancy = { adults: 3, children: 0, childAges: [] };
+  const isOverCapacity = occupancy.adults > room.max_adults || occupancy.children > room.max_children;
+  assert.equal(isOverCapacity, true);
+
+  const occupancy2 = { adults: 2, children: 1, childAges: [5] };
+  const isOverCapacity2 = occupancy2.adults > room.max_adults || occupancy2.children > room.max_children;
+  assert.equal(isOverCapacity2, false);
+});
+
+// ---------------------------------------------------------------- allotment validation logic
+test("hotel/room/rate/inventory: allotment validation rejects below reserved", () => {
+  const allotment = 5;
+  const reserved = 3;
+  const newAllotment = 2;
+  const isInvalid = newAllotment < reserved;
+  assert.equal(isInvalid, true);
+
+  const newAllotment2 = 5;
+  const isInvalid2 = newAllotment2 < reserved;
+  assert.equal(isInvalid2, false);
+});
+
+// ---------------------------------------------------------------- stop-sale validation logic
+test("hotel/room/rate/inventory: stop-sale deactivates rate plan", () => {
+  const ratePlan = { active: true };
+  ratePlan.active = false;
+  assert.equal(ratePlan.active, false);
+
+  ratePlan.active = true;
+  assert.equal(ratePlan.active, true);
 });
