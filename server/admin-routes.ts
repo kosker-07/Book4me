@@ -91,7 +91,23 @@ function patchSet(fields: Record<string, unknown>, columns: Record<string, strin
   return { sets: sets.join(", "), values };
 }
 
-// ---------------------------------------------------------------- hotels
+// List hotels visible to the caller: platform-wide or owned by their agency.
+adminRouter.get("/api/admin/hotels", ...managers, h(async (req, res) => {
+  const result = await pool.query(
+    `SELECT h.id, h.name, h.location, h.category, h.status, h.created_at, h.updated_at,
+            h.owner_agency_id, a.name AS owner_agency_name, a.type AS owner_agency_type,
+            (SELECT count(*)::int FROM rooms r WHERE r.hotel_id = h.id) AS room_count,
+            (SELECT count(*)::int FROM rate_plans rp JOIN rooms r ON r.id = rp.room_id WHERE r.hotel_id = h.id) AS rate_plan_count,
+            (SELECT count(*)::int FROM agency_hotel_sales s JOIN rate_plans rp ON rp.id = s.rate_plan_id
+              JOIN rooms r ON r.id = rp.room_id WHERE r.hotel_id = h.id AND s.active) AS publication_count
+       FROM hotels h JOIN agencies a ON a.id = h.owner_agency_id
+      WHERE $1::boolean OR h.owner_agency_id = $2
+      ORDER BY h.name`,
+    [isPlatformWide(req.auth!.role), req.auth!.agencyId]
+  );
+  res.json({ items: result.rows });
+}));
+
 adminRouter.post("/api/admin/hotels", ...managers, h(async (req, res) => {
   const { name, location, category, description, amenities, images, operationalNotes } = req.body || {};
   if (!text(name, 200) || !text(location, 200)) throw httpError(400, "HOTEL_NAME_AND_LOCATION_REQUIRED");
@@ -124,6 +140,19 @@ adminRouter.get("/api/admin/hotels/:id", ...managers, h(async (req, res) => {
   res.json({ ...hotel, rooms, ratePlans, publications });
 }));
 
+adminRouter.delete("/api/admin/hotels/:id", ...managers, h(async (req, res) => {
+  const id = uuidParam(req);
+  const owner = await ownedHotel(pool, req, HOTEL_SQL, id);
+  // Refuse if there are bookings referencing this hotel.
+  const hasBookings = (await pool.query("SELECT 1 FROM bookings WHERE hotel_id = $1 LIMIT 1", [id])).rowCount;
+  if (hasBookings) throw httpError(409, "HOTEL_HAS_BOOKINGS");
+  await withTransaction(async client => {
+    await client.query("DELETE FROM hotels WHERE id = $1", [id]);
+    await audit(client, req.auth!.sub, owner.owner_agency_id, "hotel.deleted", "hotel", id);
+  });
+  res.json({ ok: true, id });
+}));
+
 adminRouter.patch("/api/admin/hotels/:id", ...managers, h(async (req, res) => {
   const id = uuidParam(req), b = req.body || {};
   if (b.status !== undefined && !["draft", "active", "inactive"].includes(b.status)) throw httpError(400, "INVALID_STATUS");
@@ -154,6 +183,19 @@ adminRouter.post("/api/admin/hotels/:id/rooms", ...managers, h(async (req, res) 
     await audit(client, req.auth!.sub, owner.owner_agency_id, "room.created", "room", id, { after: await rowJson(client, "rooms", id) });
   });
   res.status(201).json({ id, hotelId, name: name.trim(), maxAdults, maxChildren, active: true });
+}));
+
+adminRouter.delete("/api/admin/rooms/:id", ...managers, h(async (req, res) => {
+  const id = uuidParam(req);
+  const owner = await ownedHotel(pool, req, ROOM_SQL, id);
+  // Refuse if there are rate plans or bookings referencing this room.
+  const hasRatePlans = (await pool.query("SELECT 1 FROM rate_plans WHERE room_id = $1 LIMIT 1", [id])).rowCount;
+  if (hasRatePlans) throw httpError(409, "ROOM_HAS_RATE_PLANS");
+  await withTransaction(async client => {
+    await client.query("DELETE FROM rooms WHERE id = $1", [id]);
+    await audit(client, req.auth!.sub, owner.owner_agency_id, "room.deleted", "room", id);
+  });
+  res.json({ ok: true, id });
 }));
 
 adminRouter.patch("/api/admin/rooms/:id", ...managers, h(async (req, res) => {
@@ -202,6 +244,21 @@ adminRouter.post("/api/admin/rooms/:id/rate-plans", ...managers, h(async (req, r
   });
   const contract = (await pool.query("SELECT contract_id FROM contract_rate_plans WHERE rate_plan_id = $1", [id])).rows[0]?.contract_id ?? null;
   res.status(201).json({ id, roomId, boardName: boardName.trim(), currency, active: true, contractId: contract });
+}));
+
+adminRouter.delete("/api/admin/rate-plans/:id", ...managers, h(async (req, res) => {
+  const id = uuidParam(req);
+  const owner = await ownedHotel(pool, req, RATE_PLAN_SQL, id);
+  // Refuse if there are inventory rows or publications referencing this rate plan.
+  const hasInventory = (await pool.query("SELECT 1 FROM inventory_daily WHERE rate_plan_id = $1 LIMIT 1", [id])).rowCount;
+  if (hasInventory) throw httpError(409, "RATE_PLAN_HAS_INVENTORY");
+  const hasPublications = (await pool.query("SELECT 1 FROM agency_hotel_sales WHERE rate_plan_id = $1 LIMIT 1", [id])).rowCount;
+  if (hasPublications) throw httpError(409, "RATE_PLAN_HAS_PUBLICATIONS");
+  await withTransaction(async client => {
+    await client.query("DELETE FROM rate_plans WHERE id = $1", [id]);
+    await audit(client, req.auth!.sub, owner.owner_agency_id, "rate_plan.deleted", "rate_plan", id);
+  });
+  res.json({ ok: true, id });
 }));
 
 adminRouter.patch("/api/admin/rate-plans/:id", ...managers, h(async (req, res) => {
@@ -301,6 +358,22 @@ adminRouter.post("/api/admin/publications", ...managers, h(async (req, res) => {
     return r;
   });
   res.status(201).json(row);
+}));
+
+adminRouter.delete("/api/admin/publications/:id", ...managers, h(async (req, res) => {
+  const id = uuidParam(req);
+  const owner = await ownedHotel(pool, req, PUBLICATION_SQL, id);
+  // Refuse if there are bookings referencing this publication's rate plan.
+  const ratePlanId = (await pool.query("SELECT rate_plan_id FROM agency_hotel_sales WHERE id = $1", [id])).rows[0]?.rate_plan_id;
+  if (ratePlanId) {
+    const hasBookings = (await pool.query("SELECT 1 FROM bookings WHERE rate_plan_id = $1 LIMIT 1", [ratePlanId])).rowCount;
+    if (hasBookings) throw httpError(409, "PUBLICATION_HAS_BOOKINGS");
+  }
+  await withTransaction(async client => {
+    await client.query("DELETE FROM agency_hotel_sales WHERE id = $1", [id]);
+    await audit(client, req.auth!.sub, owner.owner_agency_id, "publication.deleted", "publication", id);
+  });
+  res.json({ ok: true, id });
 }));
 
 adminRouter.patch("/api/admin/publications/:id", ...managers, h(async (req, res) => {
