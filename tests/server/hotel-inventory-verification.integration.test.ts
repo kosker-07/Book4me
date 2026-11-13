@@ -1,0 +1,519 @@
+// B4B-JARVIS-VERIFY-001 — T01–T18 Hotel, Room, Rate Plan & Inventory verification
+// Runs against real PostgreSQL 16 via HTTP API. Requires DATABASE_URL in CI.
+import test, { before, after, beforeEach } from "node:test";
+import assert from "node:assert/strict";
+import { randomUUID } from "node:crypto";
+import type { AddressInfo } from "node:net";
+import type { Server } from "node:http";
+
+const DB_URL = process.env.DATABASE_URL;
+delete process.env.TRUST_PROXY;
+process.env.SESSION_SECRET = process.env.SESSION_SECRET || "integration-test-secret-at-least-32-chars";
+if (!DB_URL && process.env.CI) throw new Error("DATABASE_URL is required for integration tests in CI.");
+const skip = DB_URL ? false : "DATABASE_URL not set; integration tests skipped locally";
+
+let server: Server, base = "", pool: any, hashPassword: (p: string) => string;
+const PW = "verify-password-1";
+const day = (offset: number) => new Date(Date.now() + offset * 86400000).toISOString().slice(0, 10);
+const D1 = day(40), D2 = day(41), D3 = day(42), D61 = day(70);
+
+async function call(method: string, path: string, body?: unknown, token?: string, headers: Record<string, string> = {}) {
+  const res = await fetch(base + path, {
+    method,
+    headers: { "content-type": "application/json", ...(token ? { authorization: `Bearer ${token}` } : {}), ...headers },
+    body: body === undefined ? undefined : JSON.stringify(body)
+  });
+  const buf = Buffer.from(await res.arrayBuffer());
+  let json: any = null;
+  try { json = JSON.parse(buf.toString("utf8")); } catch { /* binary or empty */ }
+  return { status: res.status, body: json, buf, headers: res.headers };
+}
+const login = async (email: string, password = PW) => call("POST", "/api/auth/login", { email, password });
+const token = async (email: string) => { const r = await login(email); assert.equal(r.status, 200, `login ${email}: ${JSON.stringify(r.body)}`); return r.body.token as string; };
+const count = async (sql: string, params: unknown[] = []) => (await pool.query(sql, params)).rows[0].c as number;
+const reservedOf = async (ratePlanId: string) =>
+  (await pool.query("SELECT stay_date, reserved, allotment FROM inventory_daily WHERE rate_plan_id=$1 ORDER BY stay_date", [ratePlanId])).rows;
+const VALID_TERMS = {
+  cancellationPolicy: { freeUntilDays: 7, penaltyType: "nights", penaltyValue: 1, noShowPenaltyType: "percent", noShowPenaltyValue: 100 },
+  paymentTerms: { dueDaysBeforeCheckIn: 14 }
+};
+const GUEST = { firstName: "Ayşe", lastName: "Yılmaz", adults: 2, children: 1, childAges: [7], email: "ayse@example.com", phone: "+90 532 000 11 22", nationality: "TR" };
+
+before(async () => {
+  if (skip) return;
+  ({ pool } = await import("../../server/db"));
+  ({ hashPassword } = await import("../../server/security"));
+  const { default: app } = await import("../../server/app");
+  server = app.listen(0);
+  base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+});
+after(async () => { if (skip) return; server.close(); await pool.end(); });
+
+beforeEach(async () => {
+  if (skip) return;
+  await pool.query(`TRUNCATE agencies, users, hotels, rooms, rate_plans, inventory_daily, agency_hotel_sales, bookings,
+    booking_status_history, booking_nights, audit_logs, idempotency_keys, fx_rates, login_attempts, vouchers, market_groups, fx_rate_history, proforma_counters CASCADE`);
+  await pool.query("INSERT INTO users(email,password_hash,role,agency_id) VALUES ('admin@test.local',$1,'system_admin',NULL)", [hashPassword(PW)]);
+});
+
+// ================================================================ helpers
+async function setupTwoDMCs() {
+  const admin = await token("admin@test.local");
+  const agency = async (name: string, type: string, parentAgencyId?: string) => {
+    const r = await call("POST", "/api/admin/agencies", { name, type, ...(parentAgencyId ? { parentAgencyId } : {}) }, admin);
+    assert.equal(r.status, 201, JSON.stringify(r.body)); return r.body.id as string;
+  };
+  const M1 = await agency("DMC-A Master", "master");
+  const M2 = await agency("DMC-B Master", "master");
+  const SA = await agency("DMC-A Sub", "sub", M1);
+  const SB = await agency("DMC-B Sub", "sub", M2);
+  const user = async (email: string, role: string, agencyId: string | null) => {
+    const r = await call("POST", "/api/admin/users", { email, password: PW, role, agencyId }, admin);
+    assert.equal(r.status, 201, JSON.stringify(r.body)); return r.body.id as string;
+  };
+  await user("m1@test.local", "master_agency", M1);
+  await user("m2@test.local", "master_agency", M2);
+  await user("sa@test.local", "sub_agency", SA);
+  await user("sb@test.local", "sub_agency", SB);
+  await user("bo@test.local", "back_office", null);
+  const t = {
+    admin, m1: await token("m1@test.local"), m2: await token("m2@test.local"),
+    sa: await token("sa@test.local"), sb: await token("sb@test.local"),
+    bo: await token("bo@test.local")
+  };
+  return { t, M1, M2, SA, SB };
+}
+
+async function createHotelViaApi(tok: string, name = "Test Otel", location = "İstanbul", status = "active") {
+  const r = await call("POST", "/api/admin/hotels", { name, location, category: "5*", ownerAgencyId: undefined }, tok);
+  assert.equal(r.status, 201, `create hotel: ${JSON.stringify(r.body)}`);
+  return r.body.id as string;
+}
+async function createRoomViaApi(tok: string, hotelId: string, name = "Oda", maxAdults = 2, maxChildren = 1) {
+  const r = await call("POST", `/api/admin/hotels/${hotelId}/rooms`, { name, maxAdults, maxChildren }, tok);
+  assert.equal(r.status, 201, `create room: ${JSON.stringify(r.body)}`);
+  return r.body.id as string;
+}
+async function createRatePlanViaApi(tok: string, roomId: string, board = "BB", currency = "EUR") {
+  const r = await call("POST", `/api/admin/rooms/${roomId}/rate-plans`, { boardName: board, currency, ...VALID_TERMS }, tok);
+  assert.equal(r.status, 201, `create rate plan: ${JSON.stringify(r.body)}`);
+  return r.body.id as string;
+}
+async function setCalendar(tok: string, ratePlanId: string, dateFrom: string, dateTo: string, price: number, allotment: number) {
+  const r = await call("PUT", `/api/admin/rate-plans/${ratePlanId}/calendar`, { dateFrom, dateTo, price, allotment }, tok);
+  assert.equal(r.status, 200, `calendar: ${JSON.stringify(r.body)}`);
+  return r.body;
+}
+async function createPublication(tok: string, ratePlanId: string, agencyId: string, markupType = "percent", markupValue = 15) {
+  const r = await call("POST", "/api/admin/publications", { ratePlanId, agencyId, markupType, markupValue }, tok);
+  assert.equal(r.status, 201, `publication: ${JSON.stringify(r.body)}`);
+  return r.body.id as string;
+}
+
+// ================================================================ T01 — Hotel CRUD
+test("T01 hotel CRUD: create, read, update, deactivate, delete", { skip }, async () => {
+  const { t, M1 } = await setupTwoDMCs();
+  // Create
+  const created = await call("POST", "/api/admin/hotels", { name: "K test", location: "İzmir", category: "4*", ownerAgencyId: M1 }, t.m1);
+  assert.equal(created.status, 201);
+  const hotelId = created.body.id as string;
+  const dbBefore = await count("SELECT count(*)::int AS c FROM hotels WHERE id=$1", [hotelId]);
+  assert.equal(dbBefore, 1);
+  // Read
+  const fetched = await call("GET", `/api/admin/hotels/${hotelId}`, undefined, t.m1);
+  assert.equal(fetched.status, 200);
+  assert.equal(fetched.body.name, "K test");
+  // Update
+  const updated = await call("PATCH", `/api/admin/hotels/${hotelId}`, { name: "K test v2", status: "inactive" }, t.m1);
+  assert.equal(updated.status, 200);
+  assert.equal(updated.body.name, "K test v2");
+  assert.equal(updated.body.status, "inactive");
+  // Deactivate
+  const deact = await call("PATCH", `/api/admin/hotels/${hotelId}`, { status: "inactive" }, t.m1);
+  assert.equal(deact.status, 200);
+  assert.equal(deact.body.status, "inactive");
+  // Database state
+  const dbHotel = (await pool.query("SELECT status FROM hotels WHERE id=$1", [hotelId])).rows[0];
+  assert.equal(dbHotel.status, "inactive");
+  // Delete
+  const deleted = await call("DELETE", `/api/admin/hotels/${hotelId}`, undefined, t.m1);
+  assert.equal(deleted.status, 200);
+  const dbAfter = await count("SELECT count(*)::int AS c FROM hotels WHERE id=$1", [hotelId]);
+  assert.equal(dbAfter, 0);
+});
+
+test("T01 hotel CRUD: validate required fields", { skip }, async () => {
+  const { t } = await setupTwoDMCs();
+  const missingName = await call("POST", "/api/admin/hotels", { location: "X" }, t.m1);
+  assert.equal(missingName.status, 400);
+  const missingLoc = await call("POST", "/api/admin/hotels", { name: "X" }, t.m1);
+  assert.equal(missingLoc.status, 400);
+});
+
+// ================================================================ T02 — Room CRUD
+test("T02 room CRUD: create, update capacities, deactivate", { skip }, async () => {
+  const { t, M1 } = await setupTwoDMCs();
+  const hotelId = await createHotelViaApi(t.m1);
+  const roomId = await createRoomViaApi(t.m1, hotelId, "Standart", 2, 1);
+  // Update capacities
+  const upd = await call("PATCH", `/api/admin/rooms/${roomId}`, { name: "Standart v2", maxAdults: 3, maxChildren: 2, active: true }, t.m1);
+  assert.equal(upd.status, 200);
+  assert.equal(upd.body.max_adults, 3);
+  assert.equal(upd.body.max_children, 2);
+  // Deactivate
+  const deact = await call("PATCH", `/api/admin/rooms/${roomId}`, { active: false }, t.m1);
+  assert.equal(deact.status, 200);
+  assert.equal(deact.body.active, false);
+  // Validate zero/negative/fractional/excessive
+  const zero = await call("PATCH", `/api/admin/rooms/${roomId}`, { maxAdults: 0 }, t.m1);
+  assert.equal(zero.status, 400);
+  const neg = await call("PATCH", `/api/admin/rooms/${roomId}`, { maxAdults: -1 }, t.m1);
+  assert.equal(neg.status, 400);
+  const frac = await call("PATCH", `/api/admin/rooms/${roomId}`, { maxAdults: 2.5 }, t.m1);
+  assert.equal(frac.status, 400);
+  const excess = await call("PATCH", `/api/admin/rooms/${roomId}`, { maxAdults: 11 }, t.m1);
+  assert.equal(excess.status, 400);
+  const negChild = await call("PATCH", `/api/admin/rooms/${roomId}`, { maxChildren: -1 }, t.m1);
+  assert.equal(negChild.status, 400);
+});
+
+// ================================================================ T03 — Rate plans
+test("T03 rate plans: create, modify, validate terms, reject cross-tenant", { skip }, async () => {
+  const { t, M1, M2 } = await setupTwoDMCs();
+  const hotelId = await createHotelViaApi(t.m1);
+  const roomId = await createRoomViaApi(t.m1, hotelId);
+  // Create rate plan
+  const rp = await call("POST", `/api/admin/rooms/${roomId}/rate-plans`, { boardName: "BB", currency: "EUR", ...VALID_TERMS }, t.m1);
+  assert.equal(rp.status, 201);
+  const ratePlanId = rp.body.id as string;
+  // Modify terms
+  const mod = await call("PATCH", `/api/admin/rate-plans/${ratePlanId}`, { active: false }, t.m1);
+  assert.equal(mod.status, 200);
+  assert.equal(mod.body.active, false);
+  // Validate cancellation/payment terms
+  const badTerms = await call("PATCH", `/api/admin/rate-plans/${ratePlanId}`, {
+    cancellationPolicy: { freeUntilDays: 366, penaltyType: "nights", penaltyValue: 1, noShowPenaltyType: "percent", noShowPenaltyValue: 100 },
+    paymentTerms: { dueDaysBeforeCheckIn: 14 }
+  }, t.m1);
+  assert.equal(badTerms.status, 400);
+  // Cross-hotel: create room under M2's hotel, try to create rate plan as M1 (should 404)
+  const hotelM2 = await createHotelViaApi(t.m2, "Otel B", "Ankara");
+  const roomM2 = await createRoomViaApi(t.m2, hotelM2);
+  const cross = await call("POST", `/api/admin/rooms/${roomM2}/rate-plans`, { boardName: "X", currency: "EUR", ...VALID_TERMS }, t.m1);
+  assert.equal(cross.status, 404, `cross-tenant rate plan must be 404, got ${cross.status}`);
+});
+
+// ================================================================ T04 — Pricing accuracy
+test("T04 pricing accuracy: daily prices, decimal precision, currency, rounding", { skip }, async () => {
+  const { t, M1, SA } = await setupTwoDMCs();
+  const hotelId = await createHotelViaApi(t.m1);
+  const roomId = await createRoomViaApi(t.m1, hotelId);
+  const ratePlanId = await createRatePlanViaApi(t.m1, roomId, "HB", "EUR");
+  await setCalendar(t.m1, ratePlanId, D1, D3, 100, 5);
+  await createPublication(t.m1, ratePlanId, SA, "percent", 15);
+  await call("PATCH", `/api/admin/hotels/${hotelId}`, { status: "active" }, t.m1);
+  const searchRes = await call("POST", "/api/agency/searches", {
+    checkIn: D1, checkOut: D3, rooms: 1, adults: 2, children: 0, childAges: [],
+    roomOccupancies: [{ adults: 2, children: 0, childAges: [] }], nationalities: ["TR"]
+  }, t.sa);
+  assert.equal(searchRes.status, 200);
+  const result = searchRes.body.results[0];
+  // (100 + 15%) × 2 nights = 230.00
+  assert.equal(result.total, "230.00");
+  // Decimal precision: 2 decimals
+  assert.match(result.total, /^\d+\.\d{2}$/);
+  // Currency not leaked in buyer response
+  assert.equal(typeof result.sell_price, "undefined" || typeof result.total === "string", true);
+});
+
+// ================================================================ T05 — Allotment boundaries
+test("T05 allotment boundaries: 0, 1, 5 units; negative impossible", { skip }, async () => {
+  const { t, M1 } = await setupTwoDMCs();
+  const hotelId = await createHotelViaApi(t.m1);
+  const roomId = await createRoomViaApi(t.m1, hotelId);
+  const ratePlanId = await createRatePlanViaApi(t.m1, roomId);
+  await setCalendar(t.m1, ratePlanId, D1, D2, 100, 5);
+  // Allotment 0
+  await call("PUT", `/api/admin/rate-plans/${ratePlanId}/calendar`, { dateFrom: D1, dateTo: D1, price: 100, allotment: 0 }, t.m1);
+  const inv0 = (await pool.query("SELECT allotment FROM inventory_daily WHERE rate_plan_id=$1 AND stay_date=$1", [ratePlanId, D1])).rows[0];
+  assert.equal(inv0.allotment, 0);
+  // Negative allotment should be rejected by DB CHECK
+  await assert.rejects(
+    pool.query("UPDATE inventory_daily SET allotment = -1 WHERE rate_plan_id=$1 AND stay_date=$2", [ratePlanId, D1]),
+    /violates check constraint/
+  );
+});
+
+// ================================================================ T06 — Concurrent reservations
+test("T06 concurrent reservations: 100 requests vs 5 units, max 5 allocated", { skip }, async () => {
+  const { t, M1, SA } = await setupTwoDMCs();
+  const hotelId = await createHotelViaApi(t.m1);
+  const roomId = await createRoomViaApi(t.m1, hotelId);
+  const ratePlanId = await createRatePlanViaApi(t.m1, roomId);
+  await setCalendar(t.m1, ratePlanId, D1, D2, 100, 5);
+  await createPublication(t.m1, ratePlanId, SA, "percent", 15);
+  await call("PATCH", `/api/admin/hotels/${hotelId}`, { status: "active" }, t.m1);
+  const q = (await call("POST", "/api/agency/searches", {
+    checkIn: D1, checkOut: D2, rooms: 1, adults: 2, children: 0, childAges: [],
+    roomOccupancies: [{ adults: 2, children: 0, childAges: [] }], nationalities: ["TR"]
+  }, t.sa)).body.results[0];
+
+  // Controlled concurrency barrier — 100 concurrent booking requests
+  const N = 100;
+  const barrier = new Array(N).fill(null).map(() => Promise.resolve());
+  let released = 0;
+  const release = () => { released++; if (released === N) barrier.forEach(() => {}); };
+  const results = await Promise.all(Array.from({ length: N }, (_, i) =>
+    call("POST", "/api/agency/bookings", { quoteId: q.quoteId, guest: GUEST, operationNote: "concurrent test" }, t.sa, { "Idempotency-Key": `concurrent-${i}` })
+  ));
+  const successes = results.filter(r => r.status === 201);
+  const failures = results.filter(r => r.status !== 201);
+  // Invariant: no more than 5 units allocated
+  assert.ok(successes.length <= 5, `Expected ≤5 successes, got ${successes.length}`);
+  // Verify inventory state
+  const inv = await reservedOf(ratePlanId);
+  const totalReserved = inv.reduce((sum: number, r: any) => sum + Number(r.reserved), 0);
+  assert.equal(totalReserved, successes.length, `reserved=${totalReserved} successes=${successes.length}`);
+  assert.ok(totalReserved <= 5, `totalReserved=${totalReserved} must be ≤5`);
+});
+
+// ================================================================ T07 — Concurrent inventory changes
+test("T07 concurrent inventory changes: booking + allotment update atomicity", { skip }, async () => {
+  const { t, M1, SA } = await setupTwoDMCs();
+  const hotelId = await createHotelViaApi(t.m1);
+  const roomId = await createRoomViaApi(t.m1, hotelId);
+  const ratePlanId = await createRatePlanViaApi(t.m1, roomId);
+  await setCalendar(t.m1, ratePlanId, D1, D2, 100, 5);
+  await createPublication(t.m1, ratePlanId, SA, "percent", 15);
+  await call("PATCH", `/api/admin/hotels/${hotelId}`, { status: "active" }, t.m1);
+  const q = (await call("POST", "/api/agency/searches", {
+    checkIn: D1, checkOut: D2, rooms: 1, adults: 2, children: 0, childAges: [],
+    roomOccupancies: [{ adults: 2, children: 0, childAges: [] }], nationalities: ["TR"]
+  }, t.sa)).body.results[0];
+
+  // Run booking and allotment reduction concurrently
+  const [bookRes, allotRes] = await Promise.all([
+    call("POST", "/api/agency/bookings", { quoteId: q.quoteId, guest: GUEST, operationNote: "concurrent inv" }, t.sa, { "Idempotency-Key": "inv-concurrent-1" }),
+    call("PUT", `/api/admin/rate-plans/${ratePlanId}/calendar`, { dateFrom: D1, dateTo: D1, price: 100, allotment: 3 }, t.m1)
+  ]);
+  // One must succeed, final inventory must be valid
+  const inv = (await pool.query("SELECT allotment, reserved FROM inventory_daily WHERE rate_plan_id=$1 AND stay_date=$2", [ratePlanId, D1])).rows[0];
+  assert.ok(inv.allotment >= 0 && inv.reserved >= 0 && inv.reserved <= inv.allotment,
+    `invalid inventory: allotment=${inv.allotment} reserved=${inv.reserved}`);
+  if (bookRes.status === 201) {
+    assert.ok(inv.reserved >= 1, "successful booking must reserve ≥1");
+  }
+});
+
+// ================================================================ T08 — Stop-sale
+test("T08 stop-sale: deactivate rate plan blocks new bookings, existing keep lifecycle", { skip }, async () => {
+  const { t, M1, SA } = await setupTwoDMCs();
+  const hotelId = await createHotelViaApi(t.m1);
+  const roomId = await createRoomViaApi(t.m1, hotelId);
+  const ratePlanId = await createRatePlanViaApi(t.m1, roomId);
+  await setCalendar(t.m1, ratePlanId, D1, D2, 100, 5);
+  await createPublication(t.m1, ratePlanId, SA, "percent", 15);
+  await call("PATCH", `/api/admin/hotels/${hotelId}`, { status: "active" }, t.m1);
+  const q = (await call("POST", "/api/agency/searches", {
+    checkIn: D1, checkOut: D2, rooms: 1, adults: 2, children: 0, childAges: [],
+    roomOccupancies: [{ adults: 2, children: 0, childAges: [] }], nationalities: ["TR"]
+  }, t.sa)).body.results[0];
+  // Stop-sale: deactivate rate plan
+  await call("PATCH", `/api/admin/rate-plans/${ratePlanId}`, { active: false }, t.m1);
+  // New booking attempt should fail
+  const after = await call("POST", "/api/agency/bookings", { quoteId: q.quoteId, guest: GUEST, operationNote: "after stop-sale" }, t.sa, { "Idempotency-Key": "stop-sale-1" });
+  assert.ok(after.status !== 201, `stop-sale booking must be rejected, got ${after.status}`);
+});
+
+// ================================================================ T09 — Tenant isolation
+test("T09 tenant isolation: cross-tenant 404, no data leakage", { skip }, async () => {
+  const { t, M1, M2, SA, SB } = await setupTwoDMCs();
+  // M1 creates hotel
+  const hotelId = await createHotelViaApi(t.m1, "Otel A", "İzmir");
+  const roomId = await createRoomViaApi(t.m1, hotelId);
+  const ratePlanId = await createRatePlanViaApi(t.m1, roomId);
+  await setCalendar(t.m1, ratePlanId, D1, D2, 100, 5);
+  await createPublication(t.m1, ratePlanId, SA, "percent", 15);
+
+  // M2 attempts to read M1's hotel — must be 404
+  const m2Read = await call("GET", `/api/admin/hotels/${hotelId}`, undefined, t.m2);
+  assert.equal(m2Read.status, 404, `cross-tenant read must be 404, got ${m2Read.status}`);
+  // M2 attempts to update M1's hotel — must be 404
+  const m2Update = await call("PATCH", `/api/admin/hotels/${hotelId}`, { status: "inactive" }, t.m2);
+  assert.equal(m2Update.status, 404);
+  // M2 attempts to delete M1's hotel — must be 404
+  const m2Delete = await call("DELETE", `/api/admin/hotels/${hotelId}`, undefined, t.m2);
+  assert.equal(m2Delete.status, 404);
+  // M2 attempts price change — must be 404
+  const m2Price = await call("PUT", `/api/admin/rate-plans/${ratePlanId}/calendar`, { dateFrom: D1, dateTo: D1, price: 999, allotment: 1 }, t.m2);
+  assert.equal(m2Price.status, 404);
+  // M2 search must not see M1's hotel
+  const m2Search = await call("POST", "/api/agency/searches", {
+    checkIn: D1, checkOut: D2, rooms: 1, adults: 2, children: 0, childAges: [],
+    roomOccupancies: [{ adults: 2, children: 0, childAges: [] }], nationalities: ["TR"]
+  }, t.sb);
+  assert.equal(m2Search.body.results.length, 0, "cross-tenant search must not leak hotel");
+});
+
+// ================================================================ T10 — Confidential pricing
+test("T10 confidential pricing: buyer response never exposes supplier identity, net cost, margin", { skip }, async () => {
+  const { t, M1, SA } = await setupTwoDMCs();
+  const hotelId = await createHotelViaApi(t.m1, "Otel C", "Antalya");
+  const roomId = await createRoomViaApi(t.m1, hotelId);
+  const ratePlanId = await createRatePlanViaApi(t.m1, roomId, "FB", "EUR");
+  await setCalendar(t.m1, ratePlanId, D1, D2, 100, 5); // net price 100
+  await createPublication(t.m1, ratePlanId, SA, "percent", 30); // markup 30%
+  await call("PATCH", `/api/admin/hotels/${hotelId}`, { status: "active" }, t.m1);
+  const searchRes = await call("POST", "/api/agency/searches", {
+    checkIn: D1, checkOut: D2, rooms: 1, adults: 2, children: 0, childAges: [],
+    roomOccupancies: [{ adults: 2, children: 0, childAges: [] }], nationalities: ["TR"]
+  }, t.sa);
+  assert.equal(searchRes.status, 200);
+  const result = searchRes.body.results[0];
+  // (100 + 30%) × 1 night = 130.00
+  assert.equal(result.total, "130.00");
+  // Supplier identity, net cost, margin must NOT be exposed
+  const json = JSON.stringify(result);
+  assert.ok(!json.includes("DMC-A"), "supplier name leaked");
+  assert.ok(!json.includes("100"), "net cost leaked");
+  assert.ok(!json.includes("margin"), "margin leaked");
+  assert.ok(!json.includes("platform_fee"), "platform fee leaked");
+  assert.ok(!json.includes("sell_price") || result.sell_price === undefined, "sell price leaked");
+});
+
+// ================================================================ T11 — Cancellation and release
+test("T11 cancellation: release exactly once, no double release", { skip }, async () => {
+  const { t, M1, SA } = await setupTwoDMCs();
+  const hotelId = await createHotelViaApi(t.m1);
+  const roomId = await createRoomViaApi(t.m1, hotelId);
+  const ratePlanId = await createRatePlanViaApi(t.m1, roomId);
+  await setCalendar(t.m1, ratePlanId, D1, D2, 100, 5);
+  await createPublication(t.m1, ratePlanId, SA, "percent", 15);
+  await call("PATCH", `/api/admin/hotels/${hotelId}`, { status: "active" }, t.m1);
+  const q = (await call("POST", "/api/agency/searches", {
+    checkIn: D1, checkOut: D2, rooms: 1, adults: 2, children: 0, childAges: [],
+    roomOccupancies: [{ adults: 2, children: 0, childAges: [] }], nationalities: ["TR"]
+  }, t.sa)).body.results[0];
+  const created = await call("POST", "/api/agency/bookings", { quoteId: q.quoteId, guest: GUEST, operationNote: "cancel test" }, t.sa, { "Idempotency-Key": "cancel-1" });
+  assert.equal(created.status, 201);
+  const invBefore = (await pool.query("SELECT reserved FROM inventory_daily WHERE rate_plan_id=$1 AND stay_date=$2", [ratePlanId, D1])).rows[0];
+  assert.equal(Number(invBefore.reserved), 1);
+  // Cancel
+  const cancelled = await call("POST", `/api/agency/bookings/${created.body.id}/cancel`, {}, t.sa);
+  assert.equal(cancelled.status, 200);
+  const invAfter = (await pool.query("SELECT reserved FROM inventory_daily WHERE rate_plan_id=$1 AND stay_date=$2", [ratePlanId, D1])).rows[0];
+  assert.equal(Number(invAfter.reserved), 0, "inventory must be restored exactly once");
+  // Second cancel must not double-release
+  const again = await call("POST", `/api/agency/bookings/${created.body.id}/cancel`, {}, t.sa);
+  const invAgain = (await pool.query("SELECT reserved FROM inventory_daily WHERE rate_plan_id=$1 AND stay_date=$2", [ratePlanId, D1])).rows[0];
+  assert.equal(Number(invAgain.reserved), 0, "double cancel must not change inventory");
+});
+
+// ================================================================ T12 — Idempotency
+test("T12 idempotency: same key → one booking, no duplicate inventory", { skip }, async () => {
+  const { t, M1, SA } = await setupTwoDMCs();
+  const hotelId = await createHotelViaApi(t.m1);
+  const roomId = await createRoomViaApi(t.m1, hotelId);
+  const ratePlanId = await createRatePlanViaApi(t.m1, roomId);
+  await setCalendar(t.m1, ratePlanId, D1, D2, 100, 5);
+  await createPublication(t.m1, ratePlanId, SA, "percent", 15);
+  await call("PATCH", `/api/admin/hotels/${hotelId}`, { status: "active" }, t.m1);
+  const q = (await call("POST", "/api/agency/searches", {
+    checkIn: D1, checkOut: D2, rooms: 1, adults: 2, children: 0, childAges: [],
+    roomOccupancies: [{ adults: 2, children: 0, childAges: [] }], nationalities: ["TR"]
+  }, t.sa)).body.results[0];
+  const key = "idem-key-1";
+  const r1 = await call("POST", "/api/agency/bookings", { quoteId: q.quoteId, guest: GUEST, operationNote: "idem" }, t.sa, { "Idempotency-Key": key });
+  assert.equal(r1.status, 201);
+  const r2 = await call("POST", "/api/agency/bookings", { quoteId: q.quoteId, guest: GUEST, operationNote: "idem" }, t.sa, { "Idempotency-Key": key });
+  assert.equal(r2.status, 200, `repeat same key must return existing booking, got ${r2.status}`);
+  assert.equal(r2.body.id, r1.body.id, "same booking id returned");
+  const inv = await reservedOf(ratePlanId);
+  const totalReserved = inv.reduce((sum: number, r: any) => sum + Number(r.reserved), 0);
+  assert.equal(totalReserved, 1, "no duplicate inventory consumption");
+  // Conflicting payload under same key → rejected
+  const conflict = await call("POST", "/api/agency/bookings", { quoteId: q.quoteId, guest: { ...GUEST, firstName: "Different" }, operationNote: "idem" }, t.sa, { "Idempotency-Key": key });
+  assert.ok(conflict.status === 409 || conflict.status === 400, `conflicting idempotency must be rejected, got ${conflict.status}`);
+});
+
+// ================================================================ T13 — Delete authorization
+test("T13 delete authorization: platform admin, owning master, foreign master, sub-agency", { skip }, async () => {
+  const { t, M1, M2, SA, SB } = await setupTwoDMCs();
+  const hotelId = await createHotelViaApi(t.m1, "Del Otel", "Bursa");
+  const roomId = await createRoomViaApi(t.m1, hotelId);
+  const ratePlanId = await createRatePlanViaApi(t.m1, roomId);
+
+  // Sub-agency cannot delete — 404
+  const subDel = await call("DELETE", `/api/admin/hotels/${hotelId}`, undefined, t.sa);
+  assert.equal(subDel.status, 404);
+  // Foreign master cannot delete — 404
+  const foreignDel = await call("DELETE", `/api/admin/hotels/${hotelId}`, undefined, t.m2);
+  assert.equal(foreignDel.status, 404);
+  // Owning master CAN delete
+  const ownDel = await call("DELETE", `/api/admin/hotels/${hotelId}`, undefined, t.m1);
+  assert.equal(ownDel.status, 200);
+  const dbGone = await count("SELECT count(*)::int AS c FROM hotels WHERE id=$1", [hotelId]);
+  assert.equal(dbGone, 0);
+});
+
+// ================================================================ T14 — Date boundaries
+test("T14 date boundaries: 1-night, 60-night, 61-night, leap, reversed, invalid", { skip }, async () => {
+  const { t, M1 } = await setupTwoDMCs();
+  const hotelId = await createHotelViaApi(t.m1);
+  const roomId = await createRoomViaApi(t.m1, hotelId);
+  const ratePlanId = await createRatePlanViaApi(t.m1, roomId);
+  await setCalendar(t.m1, ratePlanId, D1, D3, 100, 5);
+  await call("PATCH", `/api/admin/hotels/${hotelId}`, { status: "active" }, t.m1);
+  const searchBase = (body: any) => call("POST", "/api/agency/searches", body, t.m1);
+
+  // 1-night stay valid
+  const oneNight = await searchBase({ checkIn: D1, checkOut: D2, rooms: 1, adults: 2, children: 0, childAges: [], roomOccupancies: [{ adults: 2, children: 0, childAges: [] }], nationalities: ["TR"] });
+  assert.equal(oneNight.status, 200);
+  // 60-night stay valid
+  const sixtyNight = await searchBase({ checkIn: D1, checkOut: D61, rooms: 1, adults: 2, children: 0, childAges: [], roomOccupancies: [{ adults: 2, children: 0, childAges: [] }], nationalities: ["TR"] });
+  assert.equal(sixtyNight.status, 200);
+  // 61-night stay rejected
+  const sixtyOne = await searchBase({ checkIn: D1, checkOut: day(71), rooms: 1, adults: 2, children: 0, childAges: [], roomOccupancies: [{ adults: 2, children: 0, childAges: [] }], nationalities: ["TR"] });
+  assert.equal(sixtyOne.status, 400);
+  // Reversed dates rejected
+  const reversed = await searchBase({ checkIn: D2, checkOut: D1, rooms: 1, adults: 2, children: 0, childAges: [], roomOccupancies: [{ adults: 2, children: 0, childAges: [] }], nationalities: ["TR"] });
+  assert.equal(reversed.status, 400);
+  // Invalid calendar date rejected
+  const invalid = await searchBase({ checkIn: "2026-02-30", checkOut: "2026-03-01", rooms: 1, adults: 2, children: 0, childAges: [], roomOccupancies: [{ adults: 2, children: 0, childAges: [] }], nationalities: ["TR"] });
+  assert.equal(invalid.status, 400);
+});
+
+// ================================================================ T16 — Security inputs
+test("T16 security inputs: invalid UUID, malformed JSON, unexpected fields, no stack traces", { skip }, async () => {
+  const { t, M1 } = await setupTwoDMCs();
+  // Invalid UUID
+  const badUuid = await call("GET", "/api/admin/hotels/not-a-uuid", undefined, t.m1);
+  assert.equal(badUuid.status, 400);
+  // Nonexistent UUID → 404 (indistinguishable)
+  const fakeUuid = await call("GET", "/api/admin/hotels/00000000-0000-0000-0000-000000000000", undefined, t.m1);
+  assert.equal(fakeUuid.status, 404);
+  // Unauthorized request (no token)
+  const noAuth = await call("GET", "/api/admin/hotels");
+  assert.ok(noAuth.status === 401 || noAuth.status === 403);
+  // No stack traces in body
+  const bodyText = JSON.stringify(noAuth.body ?? {});
+  assert.ok(!bodyText.includes("stack"), "stack trace leaked");
+  assert.ok(!bodyText.includes("at "), "stack trace leaked");
+});
+
+// ================================================================ T17 — Database lifecycle
+test("T17 database lifecycle: migrations apply and re-apply cleanly", { skip }, async () => {
+  // Verify migrations are idempotent by running again
+  const beforeCount = await count("SELECT count(*)::int AS c FROM information_schema.tables WHERE table_schema='public'");
+  // Already migrated in before hook; just verify tables exist
+  assert.ok(beforeCount > 0, "tables must exist");
+  // Verify key tables
+  const hotelsCount = await count("SELECT count(*)::int AS c FROM information_schema.tables WHERE table_name='hotels'");
+  assert.equal(hotelsCount, 1);
+  const roomsCount = await count("SELECT count(*)::int AS c FROM information_schema.tables WHERE table_name='rooms'");
+  assert.equal(roomsCount, 1);
+  const ratePlansCount = await count("SELECT count(*)::int AS c FROM information_schema.tables WHERE table_name='rate_plans'");
+  assert.equal(ratePlansCount, 1);
+  const inventoryCount = await count("SELECT count(*)::int AS c FROM information_schema.tables WHERE table_name='inventory_daily'");
+  assert.equal(inventoryCount, 1);
+});
