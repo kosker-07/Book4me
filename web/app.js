@@ -127,15 +127,27 @@ const askInline=(title,action)=>{
  root.append(controls);view().prepend(root);
 };
 async function hotels(){
- const data=await api('/api/backoffice/hotels'),items=data.items||[];
- const list=el('div');
- for(const h of items)list.append(el('div',{cls:'room'},[node('h3',h.name),node('p',h.location+' · '+(statusTR[h.status]||h.status)),btn('Otel yönetimi',()=>hotelDetail(h.id))]));
- view().append(card('Oteller',list));
- if(session.user?.role==='system_admin'){
+ const data=await api('/api/admin/hotels'),items=data.items||[];
+ const list=el('div',{cls:'scroll'}),table=el('table',{cls:'list'}),head=el('tr');
+ for(const x of ['Otel','Konum','Durum','Odalar','Fiyat planları','Yayınlar','Sahip acente','İşlem'])head.append(node('th',x));
+ table.append(head);
+ for(const h of items){
+  const tr=el('tr',{testid:'hotel-row-'+h.id});
+  for(const x of [h.name,h.location,statusTR[h.status]||h.status,h.room_count,h.rate_plan_count,h.publication_count,h.owner_agency_name||''])tr.append(node('td',x));
+  const actions=el('td',{},[
+   btn('Yönet',()=>hotelDetail(h.id),false,'hotel-manage-'+h.id),
+   h.status!=='active'?btn('Etkinleştir',async()=>{await api('/api/admin/hotels/'+encodeURIComponent(h.id),{method:'PATCH',body:{status:'active'}});await hotels()},false,'hotel-activate-'+h.id):btn('Pasifleştir',async()=>{await api('/api/admin/hotels/'+encodeURIComponent(h.id),{method:'PATCH',body:{status:'inactive'}});await hotels()},false,'hotel-deactivate-'+h.id),
+   btn('Sil',async()=>{if(await askInline('Otel silinsin mi? Bu işlem geri alınamaz.')){try{await api('/api/admin/hotels/'+encodeURIComponent(h.id),{method:'DELETE'});await hotels()}catch(e){fail(e)}}},false,'hotel-delete-'+h.id)
+  ]);
+  tr.append(actions);table.append(tr);
+ }
+ list.append(table);
+ view().append(card('Oteller ('+items.length+')',list));
+ if(['system_admin','back_office','master_agency'].includes(session.user?.role)){
   const agencies=(await api('/api/admin/agencies')).items.filter(a=>a.type==='master');
-  view().append(editor('Yeni otel','/api/admin/hotels','POST',[
+  view().append(card('Yeni otel',editor('Yeni otel oluştur','/api/admin/hotels','POST',[
    ['Otel adı','name'],['Konum','location'],choice('Sahip ana acente','ownerAgencyId',agencies.map(a=>[a.id,a.name]))
-  ],()=>go('hotels')));
+  ],()=>hotels())));
  }
 }
 async function hotelDetail(id){
@@ -149,17 +161,28 @@ async function hotelDetail(id){
  const rooms=h.rooms||[],plans=h.ratePlans||[],publications=h.publications||[];
  for(const room of rooms){
   const section=el('div',{cls:'room'},[node('h3',room.name+' · '+room.max_adults+' yetişkin / '+room.max_children+' çocuk')]);
-  section.append(btn('Odayı düzenle',()=>{clear();view().append(editor('Oda düzenle','/api/admin/rooms/'+room.id,'PATCH',[
-   ['Oda adı','name','text',room.name],['Yetişkin kapasitesi','maxAdults','number',room.max_adults],
-   ['Çocuk kapasitesi','maxChildren','number',room.max_children]
-  ],()=>hotelDetail(id),numKeys('maxAdults','maxChildren')))},false));
-  section.append(btn('Fiyat planı ekle',()=>ratePlanCreate(id,room),false));
-  for(const plan of plans.filter(x=>x.room_id===room.id))section.append(el('div',{cls:'room'},[
-   node('p',plan.board_name+' · '+plan.currency),
-   ...(!termsValid(plan.cancellation_policy,plan.payment_terms)?[node('p','Koşullar eksik – yayınlanamaz')]:[]),
-   btn('Takvim',()=>rateCalendar(id,plan)),btn('Yayınlar',()=>publicationEditor(id,plan,publications)),btn('Fiyat planını düzenle',()=>ratePlanEdit(id,plan))
-  ]));
-  view().append(card('Oda',section));
+  const roomActions=el('div',{cls:'actions'},[
+   btn('Düzenle',()=>{clear();view().append(editor('Oda düzenle','/api/admin/rooms/'+room.id,'PATCH',[
+    ['Oda adı','name','text',room.name],['Yetişkin kapasitesi','maxAdults','number',room.max_adults],
+    ['Çocuk kapasitesi','maxChildren','number',room.max_children]
+   ],()=>hotelDetail(id),numKeys('maxAdults','maxChildren')))},false,'room-edit-'+room.id),
+   btn(room.active?'Pasif':'Aktif',async()=>{await api('/api/admin/rooms/'+encodeURIComponent(room.id),{method:'PATCH',body:{active:!room.active}});await hotelDetail(id)},false,'room-toggle-'+room.id),
+   btn('Sil',async()=>{if(await askInline('Oda silinsin mi? Tüm fiyat planları da silinecek.')){try{await api('/api/admin/rooms/'+encodeURIComponent(room.id),{method:'DELETE'});await hotelDetail(id)}catch(e){fail(e)}}},false,'room-delete-'+room.id)
+  ]);
+  section.append(roomActions);
+  section.append(btn('Fiyat planı ekle',()=>ratePlanCreate(id,room),false,'room-rate-add-'+room.id));
+  for(const plan of plans.filter(x=>x.room_id===room.id)){
+   const planRow=el('div',{cls:'room'},[
+    node('p',plan.board_name+' · '+plan.currency+' · '+(plan.active?'Aktif':'Pasif')),
+    ...(!termsValid(plan.cancellation_policy,plan.payment_terms)?[node('p','Koşullar eksik – yayınlanamaz')]:[]),
+    btn('Takvim',()=>rateCalendar(id,plan),false,'plan-calendar-'+plan.id),
+    btn('Yayınlar',()=>publicationEditor(id,plan,publications),false,'plan-pubs-'+plan.id),
+    btn('Düzenle',()=>ratePlanEdit(id,plan),false,'plan-edit-'+plan.id),
+    btn('Sil',async()=>{if(await askInline('Fiyat planı silinsin mi? Tüm tarih bazlı fiyat ve kontenjanlar silinecek.')){try{await api('/api/admin/rate-plans/'+encodeURIComponent(plan.id),{method:'DELETE'});await hotelDetail(id)}catch(e){fail(e)}}},false,'plan-delete-'+plan.id)
+   ]);
+   view().append(card('Fiyat planı · '+plan.board_name,planRow));
+  }
+  view().append(card('Oda · '+room.name,section));
  }
  view().append(editor('Yeni oda','/api/admin/hotels/'+id+'/rooms','POST',[
   ['Oda adı','name'],['Açıklama','description'],['Yetişkin kapasitesi','maxAdults','number',2],['Çocuk kapasitesi','maxChildren','number',0]
@@ -226,12 +249,13 @@ async function rateCalendar(hotelId,plan){
 async function publicationEditor(hotelId,plan,publications){
  clear();view().append(btn('Otele dön',()=>hotelDetail(hotelId)));
  for(const pub of publications.filter(x=>x.rate_plan_id===plan.id)){
-  view().append(card(pub.agency_name,el('div',{},[
+  view().append(card(pub.agency_name,el('div',{cls:'actions'},[
    node('p',(pub.active?'Aktif':'Pasif')+' · '+pub.markup_type+' '+pub.markup_value),
    btn(pub.active?'Yayını kapat':'Yayını aç',()=>askInline('Yayın durumu değiştirilsin mi?',async()=>{
     await api('/api/admin/publications/'+pub.id,{method:'PATCH',body:{active:!pub.active}});
     await hotelDetail(hotelId);
-   }))
+   })),
+   btn('Sil',async()=>{if(await askInline('Yayın silinsin mi?')){try{await api('/api/admin/publications/'+encodeURIComponent(pub.id),{method:'DELETE'});await hotelDetail(hotelId)}catch(e){fail(e)}}},false,'pub-delete-'+pub.id)
   ])));
  }
  const agencies=(await api('/api/admin/publication-agencies?ratePlanId='+encodeURIComponent(plan.id))).items;
