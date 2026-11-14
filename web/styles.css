@@ -51,3 +51,5 @@ input:focus-visible,select:focus-visible,button:focus-visible,textarea:focus-vis
 .layout{min-height:calc(100vh - 108px)}.login-wrap{min-height:calc(100vh - 108px)}
 @media(max-width:850px){.topbar{height:92px;min-height:92px}.topbar .logo{width:276px;height:92px;max-width:55vw}.sidebar{top:92px}.layout,.login-wrap{min-height:calc(100vh - 92px)}}
 @media(max-width:480px){.topbar{height:75px;min-height:75px}.topbar .logo{width:225px;height:75px;max-width:52vw}.sidebar{top:75px}.layout,.login-wrap{min-height:calc(100vh - 75px)}}
+
+.danger-text{color:var(--danger-text)}
