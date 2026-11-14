@@ -60,3 +60,89 @@ test("AG4: disabled agents do not call a model", async () => {
   const result = await runAgent({ store, model }, agent, { tenantId: null, trigger: "test", prompt: "Test" });
   assert.equal(result.status, "disabled");
 });
+
+// AG11 (owner rule D3): read tools hand the model only buyer-facing booking data. The seller DMC, its net
+// prices, markups, the platform fee and the contract behind a booking never leave the database through a tool.
+test("AG11 read tools never select seller identity, net prices, markups, platform fee or contract data", async () => {
+  const sql: string[] = [];
+  const db = { query: async (text: string) => { sql.push(text.toLowerCase()); return { rows: [{}] }; } };
+  const tools = platformTools(db);
+  const call = async (name: string, input: unknown) => {
+    const tool = tools.find(t => t.name === name);
+    assert.ok(tool, name);
+    await tool.run(input, ctx);
+  };
+  await call("getBooking", { bookingId: id });
+  await call("listBookings", {});
+  await call("getAgencySummary", { agencyId: id });
+  await call("getDailyStats", {});
+  await call("listOpenApprovals", {});
+  assert.ok(sql.length >= 5);
+  const forbidden = ["owner_agency_id", "inventory_daily", "booking_price_snapshots", "agency_hotel_sales", "markup",
+    "platform_fee", "net_price", "netprice", "sell_price", "hotel_contracts", "contract_id", "distribution_rules"];
+  for (const text of sql) for (const f of forbidden) assert.ok(!text.includes(f), `tool SQL exposes ${f}: ${text.slice(0, 160)}`);
+});
+
+
+test("AG12: fake model request and audit never receive confidential seller fields", async () => {
+  const secret = "SELLER_SECRET_DMC_92847";
+  const netPrice = "9173.42";
+  const margin = "18.73";
+  const fee = "6.41";
+  const requests: Array<Parameters<ModelClient["complete"]>[0]> = [];
+  const audits: unknown[] = [];
+  const db = { query: async (sql: string) => ({
+    rows: sql.includes("booking_status_history") ? [] : [{ id, seller_dmc_name: secret,
+      owner_agency_id: "22222222-2222-4222-8222-222222222222",
+      net_price: netPrice, markup_percent: margin, platform_fee: fee, booking_no: "B4B-TEST", status: "confirmed", hotel_name: "Test Hotel",
+      room_name: "Standard", total: "12000.00", currency: "EUR", agency_name: "Buyer Agency" }],
+  }) };
+  const tools = platformTools(db);
+  const model: ModelClient = { complete: async request => {
+    requests.push(structuredClone(request));
+    if (requests.length === 1) return {
+      content: [{ type: "tool_use", id: "tool-1", name: "getBooking", input: { bookingId: id } }],
+      stopReason: "tool_use", inputTokens: 1, outputTokens: 1,
+    };
+    return { content: [{ type: "text", text: "Booking reviewed" }],
+      stopReason: "end_turn", inputTokens: 1, outputTokens: 1 };
+  } };
+  const store: RunStore = {
+    tokensUsedToday: async () => 0, startRun: async () => id,
+    addUsage: async () => {}, finishRun: async () => {},
+    audit: async entry => { audits.push(entry); },
+    enqueueApproval: async () => { throw new Error("Unexpected approval"); },
+  };
+  const agent = makePlatformAgent("reservations",
+    { enabled: true, model: "fake", dailyTokenBudget: 200000 }, tools);
+  const result = await runAgent({ store, model }, agent,
+    { tenantId: null, trigger: "confidentiality-test", prompt: "Review booking B4B-TEST" });
+  assert.equal(result.status, "done");
+  assert.equal(requests.length, 2);
+  assert.ok(JSON.stringify(requests[1]).includes("B4B-TEST"), "model must receive the booking");
+  const observed = JSON.stringify({ requests, audits });
+  for (const value of [secret, netPrice, margin, fee, "owner_agency_id", "platform_fee", "net_price"]) {
+    assert.ok(!observed.includes(value), `Confidential value reached model or audit: ${value}`);
+  }
+});
+
+test("AG13: model identifier comes from agent registry configuration", async () => {
+  const configuredModel = "config-selected-model-test";
+  let observedModel: string | undefined;
+  const model: ModelClient = { complete: async req => {
+    observedModel = req.model;
+    return { content: [{ type: "text", text: "ok" }], stopReason: "end_turn",
+      inputTokens: 1, outputTokens: 1 };
+  } };
+  const store: RunStore = {
+    tokensUsedToday: async () => 0, startRun: async () => id,
+    addUsage: async () => {}, finishRun: async () => {},
+    audit: async () => {}, enqueueApproval: async () => id,
+  };
+  const agent = makePlatformAgent("reservations",
+    { enabled: true, model: configuredModel, dailyTokenBudget: 200000 }, []);
+  const result = await runAgent({ store, model }, agent,
+    { tenantId: null, trigger: "config-test", prompt: "test" });
+  assert.equal(result.status, "done");
+  assert.equal(observedModel, configuredModel);
+});

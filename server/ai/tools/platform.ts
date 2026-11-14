@@ -18,6 +18,11 @@ const platform = (ctx: ToolContext): void => {
   if (ctx.tenantId !== null) throw new Error("PLATFORM_ONLY");
 };
 const json = (value: unknown): string => JSON.stringify(value).slice(0, 8000);
+// Defense in depth: never forward unexpected SQL columns into a model context.
+const bookingSafe = (row: Record<string, unknown>): Record<string, unknown> => {
+  const allowed = ["id","booking_no","status","check_in","check_out","total","currency","hotel_name","room_name","agency_name"];
+  return Object.fromEntries(allowed.filter(k => Object.hasOwn(row,k)).map(k => [k,row[k]]));
+};
 const schema = (properties: Record<string, unknown>, required: string[] = []) => ({ type: "object", properties, required, additionalProperties: false });
 const idField = { type: "string", format: "uuid" };
 const textField = { type: "string", maxLength: 500 };
@@ -64,7 +69,7 @@ export function platformTools(db: Db): AgentTool[] {
       const rows = (await db.query(`SELECT ${bookingColumns} ${bookingJoin} WHERE b.id=$1`, [id])).rows;
       if (!rows.length) return json({ error: "NOT_FOUND" });
       const history = (await db.query("SELECT from_status,to_status,created_at FROM booking_status_history WHERE booking_id=$1 ORDER BY id DESC LIMIT 5", [id])).rows;
-      return json({ ...rows[0], history });
+      return json({ ...bookingSafe(rows[0] as Record<string, unknown>), history });
     }),
     build("listBookings", schema({ status: { type: "string", maxLength: 40 }, from: { type: "string", format: "date" }, to: { type: "string", format: "date" }, limit: { type: "integer", minimum: 1, maximum: 50 } }), async (input, ctx) => {
       platform(ctx); const v = object(input);
@@ -80,7 +85,7 @@ export function platformTools(db: Db): AgentTool[] {
       return json((await db.query(`SELECT ${bookingColumns} ${bookingJoin}
         WHERE ($1::text IS NULL OR b.status=$1) AND ($2::date IS NULL OR b.check_in >= $2::date)
           AND ($3::date IS NULL OR b.check_out <= $3::date)
-        ORDER BY b.created_at DESC LIMIT $4`, [status, from, to, limit])).rows);
+        ORDER BY b.created_at DESC LIMIT $4`, [status, from, to, limit])).rows.map(r => bookingSafe(r as Record<string, unknown>)));
     }),
     build("getAgencySummary", schema({ agencyId: idField }, ["agencyId"]), async (input, ctx) => {
       platform(ctx); const id = uuid(object(input).agencyId);
