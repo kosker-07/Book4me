@@ -349,7 +349,7 @@ app.post("/api/agency/searches", authenticate, roles("sub_agency"), requireAgenc
     timings.pricing = performance.now() - pricingStart;
     const winnerStart = performance.now();
     const winners = chooseWinners(offers);
-    timings.winners = performance.now() - winnerStart;
+    timings.chooseWinnersMs = performance.now() - winnerStart;
     const locationRaw = req.body?.location ?? "";
     if (typeof locationRaw !== "string" || locationRaw.length > 100)
       return res.status(400).json({ error: "INVALID_LOCATION" });
@@ -402,7 +402,7 @@ app.post("/api/agency/searches", authenticate, roles("sub_agency"), requireAgenc
     timings.signQuote = signingMs;
     timings.json = performance.now() - serializationStart - signingMs;
     timings.total = performance.now() - profileStart;
-    if (profile) console.info("SEARCH_PROFILE", JSON.stringify({ ...timings, candidates: rows.length, winners: winners.length, returned: results.length }));
+    if (profile) console.info("SEARCH_PROFILE", JSON.stringify({ ...timings, candidates: rows.length, winnerCount: winners.length, returned: results.length }));
     res.json({ results, pagination: { page, limit, total: filteredWinners.length, hasMore: start + limit < filteredWinners.length } });
   } catch (error) { next(error); }
 });
