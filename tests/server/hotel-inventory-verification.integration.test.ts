@@ -322,23 +322,24 @@ test("T06 concurrent reservations: 100 requests vs 5 units, max 5 allocated", { 
     roomOccupancies: [{ adults: 2, children: 0, childAges: [] }], nationalities: ["TR"]
   }, t.sa)).body.results[0];
 
-  // Controlled concurrency barrier — 100 concurrent booking requests
+  // 100 concurrent booking requests against 5 units of allotment, all fired at once.
   const N = 100;
-  const barrier = new Array(N).fill(null).map(() => Promise.resolve());
-  let released = 0;
-  const release = () => { released++; if (released === N) barrier.forEach(() => {}); };
   const results = await Promise.all(Array.from({ length: N }, (_, i) =>
     call("POST", "/api/agency/bookings", { quoteId: q.quoteId, guest: guestFor(), otherGuests: OTHER_GUESTS, operationNote: "concurrent test" }, t.sa, { "Idempotency-Key": `concurrent-${i}` })
   ));
   const successes = results.filter(r => r.status === 201);
-  const failures = results.filter(r => r.status !== 201);
-  // Invariant: no more than 5 units allocated
-  assert.ok(successes.length <= 5, `Expected ≤5 successes, got ${successes.length}`);
-  // Verify inventory state
+  const soldOut = results.filter(r => r.status === 409 && r.body?.error === "ALLOTMENT_UNAVAILABLE");
+  const other = results.filter(r => r.status !== 201 && !(r.status === 409 && r.body?.error === "ALLOTMENT_UNAVAILABLE"));
+  // Exact accounting: exactly 5 succeed and exactly 95 are rejected as sold out. Anything else
+  // (500, 422, a different 409) is a real failure, not a pass.
+  assert.equal(successes.length, 5, `exactly 5 bookings must succeed, got ${successes.length}`);
+  assert.equal(soldOut.length, 95, `exactly 95 must be ALLOTMENT_UNAVAILABLE, got ${soldOut.length}`);
+  assert.deepEqual(other.map(r => `${r.status}:${r.body?.error ?? ""}`), [], "no unexpected failure mode");
+  // Inventory is fully consumed and never oversold.
   const inv = await reservedOf(ratePlanId);
   const totalReserved = inv.reduce((sum: number, r: any) => sum + Number(r.reserved), 0);
-  assert.equal(totalReserved, successes.length, `reserved=${totalReserved} successes=${successes.length}`);
-  assert.ok(totalReserved <= 5, `totalReserved=${totalReserved} must be ≤5`);
+  assert.equal(totalReserved, 5, `reserved=${totalReserved} must be exactly 5`);
+  assert.ok(inv.every((r: any) => Number(r.reserved) <= Number(r.allotment)), "no night is oversold");
 });
 
 // ================================================================ T07 — Concurrent inventory changes
@@ -475,8 +476,10 @@ test("T11 cancellation: release exactly once, no double release", { skip }, asyn
   assert.equal(cancelled.status, 200);
   const invAfter = (await pool.query("SELECT reserved FROM inventory_daily WHERE rate_plan_id=$1 AND stay_date=$2", [ratePlanId, D1])).rows[0];
   assert.equal(Number(invAfter.reserved), 0, "inventory must be restored exactly once");
-  // Second cancel must not double-release
+  // Second cancel must be refused explicitly and must not double-release.
   const again = await call("POST", `/api/agency/bookings/${created.body.id}/cancel`, {}, t.sa);
+  assert.equal(again.status, 409, `second cancel must be 409, got ${again.status}`);
+  assert.equal(again.body.error, "CANCEL_NOT_ALLOWED");
   const invAgain = (await pool.query("SELECT reserved FROM inventory_daily WHERE rate_plan_id=$1 AND stay_date=$2", [ratePlanId, D1])).rows[0];
   assert.equal(Number(invAgain.reserved), 0, "double cancel must not change inventory");
 });
@@ -615,18 +618,25 @@ test("T16 security inputs: invalid UUID, malformed JSON, unexpected fields, no s
 });
 
 // ================================================================ T17 — Database lifecycle
-test("T17 database lifecycle: migrations apply and re-apply cleanly", { skip }, async () => {
-  // Verify migrations are idempotent by running again
-  const beforeCount = await count("SELECT count(*)::int AS c FROM information_schema.tables WHERE table_schema='public'");
-  // Already migrated in before hook; just verify tables exist
-  assert.ok(beforeCount > 0, "tables must exist");
-  // Verify key tables
-  const hotelsCount = await count("SELECT count(*)::int AS c FROM information_schema.tables WHERE table_name='hotels'");
-  assert.equal(hotelsCount, 1);
-  const roomsCount = await count("SELECT count(*)::int AS c FROM information_schema.tables WHERE table_name='rooms'");
-  assert.equal(roomsCount, 1);
-  const ratePlansCount = await count("SELECT count(*)::int AS c FROM information_schema.tables WHERE table_name='rate_plans'");
-  assert.equal(ratePlansCount, 1);
-  const inventoryCount = await count("SELECT count(*)::int AS c FROM information_schema.tables WHERE table_name='inventory_daily'");
-  assert.equal(inventoryCount, 1);
+test("T17 database lifecycle: every migration is applied and a rerun finds nothing pending", { skip }, async () => {
+  const { listMigrations } = await import("../../server/migrate");
+  const files = listMigrations().map(f => f.name);
+  assert.ok(files.length > 0, "migration files exist");
+  const recorded = (await pool.query("SELECT name, sha256 FROM schema_migrations ORDER BY name")).rows;
+  const recordedNames = recorded.map((r: any) => r.name);
+
+  // Every file on disk is recorded exactly once ...
+  assert.deepEqual(recordedNames, files, "every migration file is recorded, in order, once");
+  // ... and its recorded hash still matches the file (migrations are immutable).
+  const byName = new Map(recorded.map((r: any) => [r.name, r.sha256]));
+  for (const f of listMigrations()) assert.equal(byName.get(f.name), f.sha256, `${f.name} is unchanged since it ran`);
+  // No duplicates: a migration must never have been applied twice.
+  assert.equal(new Set(recordedNames).size, recordedNames.length, "no migration applied twice");
+
+  // Rerun the runner itself: it must report success and add no rows (nothing pending).
+  const before = recordedNames.length;
+  const { execFileSync } = await import("node:child_process");
+  execFileSync("npx", ["tsx", "server/migrate.ts"], { env: process.env, stdio: "pipe" });
+  const after = (await pool.query("SELECT count(*)::int AS c FROM schema_migrations")).rows[0].c;
+  assert.equal(after, before, "a second run applies nothing");
 });

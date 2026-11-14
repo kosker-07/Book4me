@@ -16,8 +16,8 @@ const page = await context.newPage();
 const errors = [];
 page.on("pageerror", e => errors.push("pageerror: " + e.message));
 page.on("console", m => {
-  // The post-delete existence check intentionally requests a gone hotel and logs a 404.
-  if (m.type() === "error" && !/status of 404/.test(m.text())) errors.push("console: " + m.text());
+  // Expected by design: the delete-guard 409 and the post-delete existence check 404.
+  if (m.type() === "error" && !/status of (404|409)/.test(m.text())) errors.push("console: " + m.text());
 });
 page.on("requestfailed", r => errors.push("requestfailed: " + r.url()));
 
@@ -125,20 +125,39 @@ try {
   assert.match(calendarText, /"price": "100\.00"/, "calendar shows the saved nightly price");
   assert.match(calendarText, /"allotment": 5/, "calendar shows the saved allotment");
 
-  // Deleting the hotel removes the row; contract links are unlinked server-side.
+  // J2: a non-empty hotel must be refused with a readable reason, never silently cascaded.
   await page.getByTestId("nav-hotels").click();
   await page.waitForLoadState("networkidle");
   await page.getByTestId("hotel-delete-" + hotelId).click();
-  // The confirmation lives in the inline notice; click its own Onayla button.
   await page.locator("div.notice button").first().click();
-  // The row must disappear from the refreshed list, and the API must agree the hotel is gone.
-  await page.locator(`tr[data-testid="hotel-row-${hotelId}"]`).waitFor({ state: "detached", timeout: 20000 });
+  const refusal = page.getByTestId("error-message");
+  await refusal.filter({ hasText: "Otel silinemez" }).waitFor({ state: "visible", timeout: 20000 });
+  const refusalText = await refusal.textContent();
+  assert.match(refusalText, /kontrat/, `refusal names the blocker, got: ${refusalText}`);
+  assert.equal(await page.locator(`tr[data-testid="hotel-row-${hotelId}"]`).count(), 1, "hotel survives the refused delete");
+
+  // A second, empty hotel proves the success path still works through the same button.
+  await page.getByTestId("nav-hotels").click();
+  const emptyForm = cardWith("Yeni otel").locator("form");
+  await emptyForm.waitFor({ state: "visible" });
+  const emptyName = "E2E Boş Otel " + Date.now();
+  await emptyForm.locator('input[name="name"]').fill(emptyName);
+  await emptyForm.locator('input[name="location"]').fill("Ankara");
+  await emptyForm.locator('select[name="ownerAgencyId"]').selectOption({ label: dmcName });
+  await emptyForm.locator('button[type="submit"]').click();
+  const emptyRow = page.locator('tr[data-testid^="hotel-row-"]').filter({ hasText: emptyName }).first();
+  await emptyRow.waitFor({ state: "visible" });
+  const emptyId = (await emptyRow.getAttribute("data-testid")).replace("hotel-row-", "");
+  await page.getByTestId("hotel-delete-" + emptyId).click();
+  await page.locator("div.notice button").first().click();
+  await page.locator(`tr[data-testid="hotel-row-${emptyId}"]`).waitFor({ state: "detached", timeout: 20000 });
   const gone = await page.evaluate(async id => {
     const r = await fetch("/api/admin/hotels/" + id, { credentials: "same-origin", headers: { "X-Requested-With": "bed4book" } });
     return r.status;
-  }, hotelId);
-  assert.equal(gone, 404, "deleted hotel no longer exists");
-  await expectSaved("hotel delete");
+  }, emptyId);
+  assert.equal(gone, 404, "deleted empty hotel no longer exists");
+  // And the non-empty hotel is still there, untouched.
+  assert.equal(await page.evaluate(async id => (await fetch("/api/admin/hotels/" + id, { credentials: "same-origin", headers: { "X-Requested-With": "bed4book" } })).status, hotelId), 200, "non-empty hotel survives");
 
   assert.deepEqual(errors, [], "no browser errors");
   console.log("ok - T15 hotel, room, rate plan, calendar and delete E2E");
