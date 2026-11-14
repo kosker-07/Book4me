@@ -112,6 +112,12 @@ test("J11a phase-1 API: DMC setup, distribution, search, booking, voucher, cance
   assert.equal((await call("PATCH", `/api/backoffice/bookings/${booking.body.id}/status`, { status: "approved" }, s.t.bo)).status, 200);
   const voucher = await call("GET", `/api/agency/bookings/${booking.body.id}/voucher`, undefined, s.t.b);
   assert.equal(voucher.status, 200); assert.equal(voucher.buf.subarray(0, 5).toString(), "%PDF-");
+  const proforma = await call("GET", `/api/agency/bookings/${booking.body.id}/proforma`, undefined, s.t.b);
+  assert.equal(proforma.status, 200, JSON.stringify(proforma.body));
+  assert.equal(proforma.buf.subarray(0, 5).toString(), "%PDF-");
+  const proformaText = await pdfText(proforma.buf);
+  assert.match(proformaText, /BED4BOOK/i, "BED4BOOK must be the proforma seller");
+  assert.ok(!proformaText.includes("Ana Acente Bir"), "seller DMC name leaked into proforma");
   const opLedger = await call("GET", "/api/finance/ledger", undefined, s.t.admin);
   assert.equal(opLedger.status, 200); assert.ok(opLedger.body.entries.length > 0);
   const aBalance = await call("GET", "/api/finance/balances?book=operator", undefined, s.t.m1);
@@ -121,6 +127,9 @@ test("J11a phase-1 API: DMC setup, distribution, search, booking, voucher, cance
   assert.ok(bBalance.body.items.every((x: any) => x.party_agency_id === s.M2));
   assert.equal((await call("PATCH", `/api/backoffice/bookings/${booking.body.id}/status`, { status: "cancelled" }, s.t.bo)).status, 200);
   assert.deepEqual(await reservedOf(s.ratePlanId), [0, 0, 0], "inventory released once");
+  const secondCancel = await call("PATCH", `/api/backoffice/bookings/${booking.body.id}/status`, { status: "cancelled" }, s.t.bo);
+  assert.equal(secondCancel.status, 409, JSON.stringify(secondCancel.body));
+  assert.deepEqual(await reservedOf(s.ratePlanId), [0, 0, 0], "second cancellation must not release inventory again");
   const entries = (await pool.query("SELECT kind,count(*)::int AS n FROM ledger_entries WHERE booking_id=$1 GROUP BY kind", [booking.body.id])).rows;
   assert.ok(entries.some((e: any) => e.kind === "reversal"), JSON.stringify(entries));
 });
