@@ -60,6 +60,8 @@ const M = [
     "  if (!target) throw httpError(400, \"TARGET_MUST_BE_ACTIVE_SUB_AGENCY\");"]] },
   { id: "M18", what: "Voucher otel adını konumla değiştir", expect: ["A2"], edits: [["server/app.ts",
     "bookingNo: b.booking_no, status: b.status, hotelName: b.hotel_name,", "bookingNo: b.booking_no, status: b.status, hotelName: b.hotel_location,"]] },
+  { id: "M32", what: "transient AI provider error is never retried (mail lost)", expect: ["IN11:"], edits: [["server/ai/jobs.ts",
+    "  if(isTransientAiError(error)&&attempts<MAX_AI_JOB_ATTEMPTS){", "  if(false&&attempts<MAX_AI_JOB_ATTEMPTS){"]] },
   { id: "M31", what: "quote token readable", expect: ["quotes:"], unit: ["quotes: encrypted q3"], edits: [["server/quotes.ts",
     '  return `q3.${iv.toString("base64url")}.${encrypted.toString("base64url")}.${cipher.getAuthTag().toString("base64url")}`;',
     '  return `q2.${Buffer.from(JSON.stringify(payload)).toString("base64url")}.plain`;']] },
@@ -78,6 +80,10 @@ const M = [
   { id: "M24", what: "Rezervasyonda ödeme para birimi kur değişimini kontrol etme", expect: ["N12"], edits: [["server/app.ts",
     "  if (!payment || payment.historyId !== paymentFxRateId) throw httpError(409, \"PRICE_CHANGED\", { reason: \"FX_RATE_CHANGED\" });", ""]] }
 ];
+
+M.push({ id: "M36", what: "Browser idle expiry not enforced", expect: ["SI4"], edits: [["server/security.ts",
+  "const exp = claims.max === undefined ? nowSec + TOKEN_TTL_SECONDS : Math.min(nowSec + IDLE_TTL_SECONDS, claims.max);",
+  "const exp = claims.max === undefined ? nowSec + TOKEN_TTL_SECONDS : claims.max;"]] });
 
 const args = process.argv.slice(2);
 const dryRun = args.includes("--dry-run"), unitOnly = args.includes("--unit-only");
