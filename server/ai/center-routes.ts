@@ -10,8 +10,13 @@ aiCenterRouter.use("/api/ai", authenticate, (req: AuthedRequest, res, next) => {
     return res.status(404).json({ error: "NOT_FOUND" });
   next();
 });
+// Agent configuration and notification rules: system administrator only.
 const write = (req: AuthedRequest, res: any, next: any) =>
   req.auth?.role === "system_admin" ? next() : res.status(403).json({ error: "FORBIDDEN" });
+// Platform approval decisions: the operator (system administrator) and the back office it authorizes.
+// DMC and sub-agency roles never reach this point (the /api/ai gate above answers 404).
+const approver = (req: AuthedRequest, res: any, next: any) =>
+  req.auth?.role === "system_admin" || req.auth?.role === "back_office" ? next() : res.status(403).json({ error: "FORBIDDEN" });
 const wrap = (fn: any) => async (req: any, res: any, next: any) => {
   try { await fn(req, res); } catch (error) { next(error); }
 };
@@ -57,7 +62,7 @@ aiCenterRouter.get("/api/ai/approvals", wrap(async (req: any, res: any) => {
   res.json({ items:r.rows });
 }));
 for (const decision of ["approve","reject"] as const) {
-  aiCenterRouter.post(`/api/ai/approvals/:id/${decision}`, write, wrap(async (req: AuthedRequest, res: any) => {
+  aiCenterRouter.post(`/api/ai/approvals/:id/${decision}`, approver, wrap(async (req: AuthedRequest, res: any) => {
     if (!idOK(req.params.id)) return missing(res);
     if (req.body && (typeof req.body !== "object" || Array.isArray(req.body) ||
         (req.body.note !== undefined && (typeof req.body.note !== "string" || req.body.note.length > 500))))

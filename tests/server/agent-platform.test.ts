@@ -60,3 +60,25 @@ test("AG4: disabled agents do not call a model", async () => {
   const result = await runAgent({ store, model }, agent, { tenantId: null, trigger: "test", prompt: "Test" });
   assert.equal(result.status, "disabled");
 });
+
+// AG11 (owner rule D3): read tools hand the model only buyer-facing booking data. The seller DMC, its net
+// prices, markups, the platform fee and the contract behind a booking never leave the database through a tool.
+test("AG11 read tools never select seller identity, net prices, markups, platform fee or contract data", async () => {
+  const sql: string[] = [];
+  const db = { query: async (text: string) => { sql.push(text.toLowerCase()); return { rows: [] }; } };
+  const tools = platformTools(db);
+  const call = async (name: string, input: unknown) => {
+    const tool = tools.find(t => t.name === name);
+    assert.ok(tool, name);
+    await tool.run(input, ctx);
+  };
+  await call("getBooking", { bookingId: id });
+  await call("listBookings", {});
+  await call("getAgencySummary", { agencyId: id });
+  await call("getDailyStats", {});
+  await call("listOpenApprovals", {});
+  assert.ok(sql.length >= 5);
+  const forbidden = ["owner_agency_id", "inventory_daily", "booking_price_snapshots", "agency_hotel_sales", "markup",
+    "platform_fee", "net_price", "netprice", "sell_price", "hotel_contracts", "contract_id", "distribution_rules"];
+  for (const text of sql) for (const f of forbidden) assert.ok(!text.includes(f), `tool SQL exposes ${f}: ${text.slice(0, 160)}`);
+});
