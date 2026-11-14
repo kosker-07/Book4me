@@ -1,8 +1,7 @@
-// Signed quote tokens (version 2). A search writes nothing to the database: each winning offer is returned as
-// an HMAC-signed token that the booking request must present. A quote never reserves inventory; it carries the
-// decision trace (contract, nationalities, matched rules, prices, FX rates) that the booking re-validates and
-// then freezes in its snapshot. Version 1 tokens are rejected (they carry no nationality or FX information).
-import { createHmac, timingSafeEqual } from "node:crypto";
+// Confidential authenticated quote tokens (version 3). Search does not reserve inventory.
+// AES-256-GCM hides contract, rate-plan, agency and rule identifiers from buyers.
+// Old q1/q2 tokens are intentionally invalidated; booking still revalidates every quote.
+import { createCipheriv, createDecipheriv, createHash, randomBytes } from "node:crypto";
 
 export const QUOTE_TTL_SECONDS = 30 * 60;
 
@@ -36,24 +35,34 @@ export interface QuotePayload {
   exp: number; // unix seconds — price validity, not an inventory hold
 }
 
-const mac = (body: string, secret: string) => createHmac("sha256", `bed4book-quote:${secret}`).update(body).digest();
+const encryptionKey = (secret: string) => createHash("sha256").update("bed4book-quote-enc:" + secret).digest();
 
 export function signQuote(p: Omit<QuotePayload, "v" | "exp">, secret: string, now = Date.now()): string {
   const payload: QuotePayload = { v: 2, ...p, exp: Math.floor(now / 1000) + QUOTE_TTL_SECONDS };
-  const body = Buffer.from(JSON.stringify(payload)).toString("base64url");
-  return `q2.${body}.${mac(body, secret).toString("base64url")}`;
+  const iv = randomBytes(12);
+  const cipher = createCipheriv("aes-256-gcm", encryptionKey(secret), iv);
+  const encrypted = Buffer.concat([cipher.update(JSON.stringify(payload), "utf8"), cipher.final()]);
+  return `q3.${iv.toString("base64url")}.${encrypted.toString("base64url")}.${cipher.getAuthTag().toString("base64url")}`;
 }
 
 export type QuoteCheck = { ok: true; quote: QuotePayload } | { ok: false; error: "INVALID_QUOTE" | "QUOTE_EXPIRED" };
 
 export function verifyQuote(token: unknown, secret: string, now = Date.now()): QuoteCheck {
   if (typeof token !== "string") return { ok: false, error: "INVALID_QUOTE" };
-  const [prefix, body, sig] = token.split(".");
-  if (prefix !== "q2" || !body || !sig) return { ok: false, error: "INVALID_QUOTE" };
-  const expected = mac(body, secret), actual = Buffer.from(sig, "base64url");
-  if (actual.length !== expected.length || !timingSafeEqual(actual, expected)) return { ok: false, error: "INVALID_QUOTE" };
+  const parts = token.split(".");
+  if (parts.length !== 4 || parts[0] !== "q3") return { ok: false, error: "INVALID_QUOTE" };
+  const [, ivPart, ciphertextPart, tagPart] = parts;
+  if (!ivPart || !ciphertextPart || !tagPart || !/^[A-Za-z0-9_-]+$/.test(ivPart + ciphertextPart + tagPart)) return { ok: false, error: "INVALID_QUOTE" };
   let q: QuotePayload;
-  try { q = JSON.parse(Buffer.from(body, "base64url").toString("utf8")); } catch { return { ok: false, error: "INVALID_QUOTE" }; }
+  try {
+    const iv = Buffer.from(ivPart, "base64url");
+    const ciphertext = Buffer.from(ciphertextPart, "base64url");
+    const tag = Buffer.from(tagPart, "base64url");
+    if (iv.length !== 12 || tag.length !== 16 || !ciphertext.length) return { ok: false, error: "INVALID_QUOTE" };
+    const decipher = createDecipheriv("aes-256-gcm", encryptionKey(secret), iv);
+    decipher.setAuthTag(tag);
+    q = JSON.parse(Buffer.concat([decipher.update(ciphertext), decipher.final()]).toString("utf8"));
+  } catch { return { ok: false, error: "INVALID_QUOTE" }; }
   if (q?.v !== 2 || !Number.isFinite(q.exp) || !Array.isArray(q.nationalities) || !Array.isArray(q.roomOccupancies) || q.roomOccupancies.length !== q.rooms) return { ok: false, error: "INVALID_QUOTE" };
   if (q.exp <= Math.floor(now / 1000)) return { ok: false, error: "QUOTE_EXPIRED" };
   return { ok: true, quote: q };
