@@ -113,7 +113,7 @@ test("J11a phase-1 API: DMC setup, distribution, search, booking, voucher, cance
   const voucher = await call("GET", `/api/agency/bookings/${booking.body.id}/voucher`, undefined, s.t.b);
   assert.equal(voucher.status, 200); assert.equal(voucher.buf.subarray(0, 5).toString(), "%PDF-");
   const proforma = await call("GET", `/api/agency/bookings/${booking.body.id}/proforma`, undefined, s.t.b);
-  assert.equal(proforma.status, 200, JSON.stringify(proforma.body));
+  assert.equal(proforma.status, 201, JSON.stringify(proforma.body));
   assert.equal(proforma.buf.subarray(0, 5).toString(), "%PDF-");
   const proformaText = await pdfText(proforma.buf);
   assert.match(proformaText, /BED4BOOK/i, "BED4BOOK must be the proforma seller");
