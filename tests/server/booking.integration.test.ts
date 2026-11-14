@@ -572,7 +572,8 @@ test("room distribution: booking detail returns signed per-room occupancy", { sk
 
 
 test("J13 pagination filters location before slicing and validates bounds", { skip }, async () => {
-  // 120 independently published winners with a unique hotel name at position 51.
+  // Exactly 120 independently published winners with a unique hotel name at position 51.
+  await pool.query("DELETE FROM agency_hotel_sales WHERE agency_id=$1",[SA]);
   const ids: string[] = [];
   for (let i=0;i<120;i++) {
     const hotel=randomUUID(),room=randomUUID(),plan=randomUUID();
@@ -589,10 +590,11 @@ test("J13 pagination filters location before slicing and validates bounds", { sk
   const total=first.body.pagination.total;
   assert.equal(first.body.results.length,50);
   assert.equal(first.body.pagination.hasMore,true);
-  assert.ok(total>=120);
+  assert.equal(total,120);
   const third=await search(tok.a!,{...base,limit:50,page:3});
   assert.equal(third.status,200,third.raw);
-  assert.equal(third.body.results.length,Math.min(50,total-100));
+  assert.equal(third.body.results.length,20);
+  assert.equal(third.body.pagination.hasMore,false);
   const last=await search(tok.a!,{...base,limit:50,page:Math.ceil(total/50)});
   assert.equal(last.body.pagination.hasMore,false);
   for(const bad of [{limit:101},{page:0}])assert.equal((await search(tok.a!,bad)).status,400);
