@@ -23,8 +23,14 @@ export const pgRunStore = (db: Db): RunStore => ({
     const id = (await db.query(
       "INSERT INTO approval_queue(run_id, agent_id, tenant_id, action, payload, summary, risk, amount_eur) VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id",
       [a.runId, a.agentId, a.tenantId, a.action, JSON.stringify(a.payload), a.summary.slice(0, 500), a.risk, a.amountEur ?? null])).rows[0].id;
-    if (a.tenantId === null) await recordOwnerNotification(db,"approval:"+id,
-      {kind:"approval",risk:a.risk,amountEur:a.amountEur},"AI approval pending: "+a.action);
+    if (a.tenantId === null) {
+      try {
+        await recordOwnerNotification(db,"approval:"+id,
+          {kind:"approval",risk:a.risk,amountEur:a.amountEur},"AI approval pending: "+a.action);
+      } catch (error) {
+        console.error("owner notification failed after approval creation", error);
+      }
+    }
     return id;
   }
 });
