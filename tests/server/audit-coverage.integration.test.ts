@@ -94,9 +94,16 @@ test("A2 hotel create, update, status change and delete are each audited", { ski
   assert.equal((await call("PATCH", `/api/admin/hotels/${hotel.body.id}`, { status: "active" }, t)).status, 200);
   await expectAudit(mark, "hotel.status.active", "hotel");
 
+  // A hotel is only deletable while empty and draft/inactive (J2 guard), so delete a fresh empty one.
+  const empty = await call("POST", "/api/admin/hotels", { name: "Audit Boş Otel", location: "Bursa", ownerAgencyId: agency.body.id }, t);
+  assert.equal(empty.status, 201);
   mark = await auditMark();
-  assert.equal((await call("DELETE", `/api/admin/hotels/${hotel.body.id}`, undefined, t)).status, 200);
+  assert.equal((await call("DELETE", `/api/admin/hotels/${empty.body.id}`, undefined, t)).status, 200);
   await expectAudit(mark, "hotel.deleted", "hotel");
+  // A non-empty/active hotel is refused and must not leave a false hotel.deleted audit.
+  mark = await auditMark();
+  assert.equal((await call("DELETE", `/api/admin/hotels/${hotel.body.id}`, undefined, t)).status, 409);
+  assert.deepEqual(await auditSince(mark), [], "refused delete writes no audit");
 });
 
 test("A3 room create, update and delete are each audited", { skip }, async () => {
