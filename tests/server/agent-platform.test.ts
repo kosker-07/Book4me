@@ -125,3 +125,24 @@ test("AG12: fake model request and audit never receive confidential seller field
     assert.ok(!observed.includes(value), `Confidential value reached model or audit: ${value}`);
   }
 });
+
+test("AG13: model identifier comes from agent registry configuration", async () => {
+  const configuredModel = "config-selected-model-test";
+  let observedModel: string | undefined;
+  const model: ModelClient = { complete: async req => {
+    observedModel = req.model;
+    return { content: [{ type: "text", text: "ok" }], stopReason: "end_turn",
+      inputTokens: 1, outputTokens: 1 };
+  } };
+  const store: RunStore = {
+    tokensUsedToday: async () => 0, startRun: async () => id,
+    addUsage: async () => {}, finishRun: async () => {},
+    audit: async () => {}, enqueueApproval: async () => id,
+  };
+  const agent = makePlatformAgent("reservations",
+    { enabled: true, model: configuredModel, dailyTokenBudget: 200000 }, []);
+  const result = await runAgent({ store, model }, agent,
+    { tenantId: null, trigger: "config-test", prompt: "test" });
+  assert.equal(result.status, "done");
+  assert.equal(observedModel, configuredModel);
+});
