@@ -235,7 +235,7 @@ test("T05 allotment boundaries: 0, 1, 5 units; negative impossible", { skip }, a
   await setCalendar(t.m1, ratePlanId, D1, D2, 100, 5);
   // Allotment 0
   await call("PUT", `/api/admin/rate-plans/${ratePlanId}/calendar`, { dateFrom: D1, dateTo: D1, price: 100, allotment: 0 }, t.m1);
-  const inv0 = (await pool.query("SELECT allotment FROM inventory_daily WHERE rate_plan_id=$1 AND stay_date=$1", [ratePlanId, D1])).rows[0];
+  const inv0 = (await pool.query("SELECT allotment FROM inventory_daily WHERE rate_plan_id=$1 AND stay_date=$2", [ratePlanId, D1])).rows[0];
   assert.equal(inv0.allotment, 0);
   // Negative allotment should be rejected by DB CHECK
   await assert.rejects(
