@@ -102,3 +102,13 @@ Mevcut hosting satın alımı, seçilen mimariyle uyumluluk kontrolünden geçir
 
 ---
 **Belge sonu — BED4BOOK Proje Şartnamesi v1.0**
+
+
+## Arayüz Dili (owner kararı, 14.11.2026)
+1. Öncelik sırası: (a) kullanıcının profilde kayıtlı dil seçimi → (b) ilk girişte tarayıcı dili (Accept-Language / navigator.language) → (c) desteklenmeyen dilde İngilizce.
+2. IP veya konum tabanlı dil tespiti kullanılmaz.
+3. Desteklenen diller: İngilizce (varsayılan), Türkçe, Arapça, Rusça. Arapça sağdan sola (RTL) düzende eksiksiz çalışır.
+4. Her ekranda dil seçici bulunur; seçim kullanıcı profiline kaydedilir ve tüm cihazlarda geçerlidir.
+5. Voucher ve proforma ekran dilinden bağımsızdır: acentenin "belge dili" ayarına göre basılır (varsayılan İngilizce).
+6. Sistem tarafı (e-postalar, ajan isimleri, sistem logları, API hata kodları) İngilizce kalır.
+7. Hata mesajları API'de kod olarak döner; metne çevirme arayüzde yapılır.
