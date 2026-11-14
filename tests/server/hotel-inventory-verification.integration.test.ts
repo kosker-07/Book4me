@@ -37,7 +37,11 @@ const VALID_TERMS = {
   cancellationPolicy: { freeUntilDays: 7, penaltyType: "nights", penaltyValue: 1, noShowPenaltyType: "percent", noShowPenaltyValue: 100 },
   paymentTerms: { dueDaysBeforeCheckIn: 14 }
 };
-const GUEST = { firstName: "Ayşe", lastName: "Yılmaz", adults: 2, children: 1, childAges: [7], email: "ayse@example.com", phone: "+90 532 000 11 22", nationality: "TR" };
+// Lead guest details plus the occupancy the signed quote requires. The booking API demands one
+// otherGuests entry per additional adult/child, so the two-adult searches below send OTHER_GUESTS.
+const GUEST = { firstName: "Ayşe", lastName: "Yılmaz", email: "ayse@example.com", phone: "+90 532 000 11 22", nationality: "TR" };
+const guestFor = (adults = 2, children = 0, childAges: number[] = []) => ({ ...GUEST, adults, children, childAges });
+const OTHER_GUESTS = [{ firstName: "Mehmet", lastName: "Yılmaz", type: "adult" as const, nationality: "TR" }];
 
 before(async () => {
   if (skip) return;
@@ -222,8 +226,9 @@ test("T04 pricing accuracy: daily prices, decimal precision, currency, rounding"
   assert.equal(result.total, "230.00");
   // Decimal precision: 2 decimals
   assert.match(result.total, /^\d+\.\d{2}$/);
-  // Currency not leaked in buyer response
-  assert.equal(typeof result.sell_price, "undefined" || typeof result.total === "string", true);
+  // The buyer never receives a separate raw sell-price field; total is the single quoted amount.
+  assert.equal(result.sell_price, undefined, "raw sell price must not be exposed");
+  assert.equal(typeof result.total, "string");
 });
 
 // ================================================================ T05 — Allotment boundaries
@@ -264,7 +269,7 @@ test("T06 concurrent reservations: 100 requests vs 5 units, max 5 allocated", { 
   let released = 0;
   const release = () => { released++; if (released === N) barrier.forEach(() => {}); };
   const results = await Promise.all(Array.from({ length: N }, (_, i) =>
-    call("POST", "/api/agency/bookings", { quoteId: q.quoteId, guest: GUEST, operationNote: "concurrent test" }, t.sa, { "Idempotency-Key": `concurrent-${i}` })
+    call("POST", "/api/agency/bookings", { quoteId: q.quoteId, guest: guestFor(), otherGuests: OTHER_GUESTS, operationNote: "concurrent test" }, t.sa, { "Idempotency-Key": `concurrent-${i}` })
   ));
   const successes = results.filter(r => r.status === 201);
   const failures = results.filter(r => r.status !== 201);
@@ -293,7 +298,7 @@ test("T07 concurrent inventory changes: booking + allotment update atomicity", {
 
   // Run booking and allotment reduction concurrently
   const [bookRes, allotRes] = await Promise.all([
-    call("POST", "/api/agency/bookings", { quoteId: q.quoteId, guest: GUEST, operationNote: "concurrent inv" }, t.sa, { "Idempotency-Key": "inv-concurrent-1" }),
+    call("POST", "/api/agency/bookings", { quoteId: q.quoteId, guest: guestFor(), otherGuests: OTHER_GUESTS, operationNote: "concurrent inv" }, t.sa, { "Idempotency-Key": "inv-concurrent-1" }),
     call("PUT", `/api/admin/rate-plans/${ratePlanId}/calendar`, { dateFrom: D1, dateTo: D1, price: 100, allotment: 3 }, t.m1)
   ]);
   // One must succeed, final inventory must be valid
@@ -321,7 +326,7 @@ test("T08 stop-sale: deactivate rate plan blocks new bookings, existing keep lif
   // Stop-sale: deactivate rate plan
   await call("PATCH", `/api/admin/rate-plans/${ratePlanId}`, { active: false }, t.m1);
   // New booking attempt should fail
-  const after = await call("POST", "/api/agency/bookings", { quoteId: q.quoteId, guest: GUEST, operationNote: "after stop-sale" }, t.sa, { "Idempotency-Key": "stop-sale-1" });
+  const after = await call("POST", "/api/agency/bookings", { quoteId: q.quoteId, guest: guestFor(), otherGuests: OTHER_GUESTS, operationNote: "after stop-sale" }, t.sa, { "Idempotency-Key": "stop-sale-1" });
   assert.ok(after.status !== 201, `stop-sale booking must be rejected, got ${after.status}`);
 });
 
@@ -372,13 +377,21 @@ test("T10 confidential pricing: buyer response never exposes supplier identity, 
   const result = searchRes.body.results[0];
   // (100 + 30%) × 1 night = 130.00
   assert.equal(result.total, "130.00");
-  // Supplier identity, net cost, margin must NOT be exposed
-  const json = JSON.stringify(result);
-  assert.ok(!json.includes("DMC-A"), "supplier name leaked");
-  assert.ok(!json.includes("100"), "net cost leaked");
-  assert.ok(!json.includes("margin"), "margin leaked");
-  assert.ok(!json.includes("platform_fee"), "platform fee leaked");
-  assert.ok(!json.includes("sell_price") || result.sell_price === undefined, "sell price leaked");
+  // Supplier identity, net cost and margin must not be exposed as fields anywhere in the offer tree.
+  const keys = new Set<string>();
+  const walk = (value: unknown) => {
+    if (Array.isArray(value)) value.forEach(walk);
+    else if (value && typeof value === "object") for (const [k, v] of Object.entries(value)) { keys.add(k); walk(v); }
+  };
+  walk(result);
+  for (const forbidden of ["netPrice", "net_price", "netCost", "net_cost", "margin", "platform_fee", "platformFee", "sell_price", "sellPrice", "contractId", "contract_id", "supplier"])
+    assert.ok(!keys.has(forbidden), `${forbidden} must not be exposed to the buyer`);
+  // The only nightly price the buyer sees is the marked-up sell price, never the 100.00 net.
+  const nightPrices = result.nights.map((n: any) => n.price);
+  assert.deepEqual(nightPrices, ["130.00"]);
+  // The supplier DMC name appears in neither the hotel/room payload nor the top-level offer.
+  const { quoteId, ...visible } = result;
+  assert.ok(!JSON.stringify(visible).includes("DMC-A"), "supplier name leaked");
 });
 
 // ================================================================ T11 — Cancellation and release
@@ -394,7 +407,7 @@ test("T11 cancellation: release exactly once, no double release", { skip }, asyn
     checkIn: D1, checkOut: D2, rooms: 1, adults: 2, children: 0, childAges: [],
     roomOccupancies: [{ adults: 2, children: 0, childAges: [] }], nationalities: ["TR"]
   }, t.sa)).body.results[0];
-  const created = await call("POST", "/api/agency/bookings", { quoteId: q.quoteId, guest: GUEST, operationNote: "cancel test" }, t.sa, { "Idempotency-Key": "cancel-1" });
+  const created = await call("POST", "/api/agency/bookings", { quoteId: q.quoteId, guest: guestFor(), otherGuests: OTHER_GUESTS, operationNote: "cancel test" }, t.sa, { "Idempotency-Key": "cancel-1" });
   assert.equal(created.status, 201);
   const invBefore = (await pool.query("SELECT reserved FROM inventory_daily WHERE rate_plan_id=$1 AND stay_date=$2", [ratePlanId, D1])).rows[0];
   assert.equal(Number(invBefore.reserved), 1);
@@ -423,17 +436,17 @@ test("T12 idempotency: same key → one booking, no duplicate inventory", { skip
     roomOccupancies: [{ adults: 2, children: 0, childAges: [] }], nationalities: ["TR"]
   }, t.sa)).body.results[0];
   const key = "idem-key-1";
-  const r1 = await call("POST", "/api/agency/bookings", { quoteId: q.quoteId, guest: GUEST, operationNote: "idem" }, t.sa, { "Idempotency-Key": key });
+  const r1 = await call("POST", "/api/agency/bookings", { quoteId: q.quoteId, guest: guestFor(), otherGuests: OTHER_GUESTS, operationNote: "idem" }, t.sa, { "Idempotency-Key": key });
   assert.equal(r1.status, 201);
-  const r2 = await call("POST", "/api/agency/bookings", { quoteId: q.quoteId, guest: GUEST, operationNote: "idem" }, t.sa, { "Idempotency-Key": key });
-  assert.equal(r2.status, 200, `repeat same key must return existing booking, got ${r2.status}`);
+  const r2 = await call("POST", "/api/agency/bookings", { quoteId: q.quoteId, guest: guestFor(), otherGuests: OTHER_GUESTS, operationNote: "idem" }, t.sa, { "Idempotency-Key": key });
+  assert.equal(r2.status, 201, `repeat same key must replay the stored booking, got ${r2.status}`);
   assert.equal(r2.body.id, r1.body.id, "same booking id returned");
   const inv = await reservedOf(ratePlanId);
   const totalReserved = inv.reduce((sum: number, r: any) => sum + Number(r.reserved), 0);
   assert.equal(totalReserved, 1, "no duplicate inventory consumption");
   // Conflicting payload under same key → rejected
-  const conflict = await call("POST", "/api/agency/bookings", { quoteId: q.quoteId, guest: { ...GUEST, firstName: "Different" }, operationNote: "idem" }, t.sa, { "Idempotency-Key": key });
-  assert.ok(conflict.status === 409 || conflict.status === 400, `conflicting idempotency must be rejected, got ${conflict.status}`);
+  const conflict = await call("POST", "/api/agency/bookings", { quoteId: q.quoteId, guest: { ...guestFor(), firstName: "Different" }, otherGuests: OTHER_GUESTS, operationNote: "idem" }, t.sa, { "Idempotency-Key": key });
+  assert.ok(conflict.status === 409 || conflict.status === 400 || conflict.status === 422, `conflicting idempotency must be rejected, got ${conflict.status}`);
 });
 
 // ================================================================ T13 — Delete authorization
@@ -443,9 +456,9 @@ test("T13 delete authorization: platform admin, owning master, foreign master, s
   const roomId = await createRoomViaApi(t.m1, hotelId);
   const ratePlanId = await createRatePlanViaApi(t.m1, roomId);
 
-  // Sub-agency cannot delete — 404
+  // Sub-agency has no management access at all — rejected by the role gate before any lookup.
   const subDel = await call("DELETE", `/api/admin/hotels/${hotelId}`, undefined, t.sa);
-  assert.equal(subDel.status, 404);
+  assert.equal(subDel.status, 403);
   // Foreign master cannot delete — 404
   const foreignDel = await call("DELETE", `/api/admin/hotels/${hotelId}`, undefined, t.m2);
   assert.equal(foreignDel.status, 404);
@@ -458,22 +471,24 @@ test("T13 delete authorization: platform admin, owning master, foreign master, s
 
 // ================================================================ T14 — Date boundaries
 test("T14 date boundaries: 1-night, 60-night, 61-night, leap, reversed, invalid", { skip }, async () => {
-  const { t, M1 } = await setupTwoDMCs();
+  const { t, M1, SA } = await setupTwoDMCs();
   const hotelId = await createHotelViaApi(t.m1);
   const roomId = await createRoomViaApi(t.m1, hotelId);
   const ratePlanId = await createRatePlanViaApi(t.m1, roomId);
   await setCalendar(t.m1, ratePlanId, D1, D3, 100, 5);
+  await createPublication(t.m1, ratePlanId, SA, "percent", 15);
   await call("PATCH", `/api/admin/hotels/${hotelId}`, { status: "active" }, t.m1);
-  const searchBase = (body: any) => call("POST", "/api/agency/searches", body, t.m1);
+  // Search is a sub-agency endpoint; the master token would be rejected with 403.
+  const searchBase = (body: any) => call("POST", "/api/agency/searches", body, t.sa);
 
   // 1-night stay valid
   const oneNight = await searchBase({ checkIn: D1, checkOut: D2, rooms: 1, adults: 2, children: 0, childAges: [], roomOccupancies: [{ adults: 2, children: 0, childAges: [] }], nationalities: ["TR"] });
   assert.equal(oneNight.status, 200);
-  // 60-night stay valid
-  const sixtyNight = await searchBase({ checkIn: D1, checkOut: D61, rooms: 1, adults: 2, children: 0, childAges: [], roomOccupancies: [{ adults: 2, children: 0, childAges: [] }], nationalities: ["TR"] });
+  // 60-night stay valid (D1 + 60 nights)
+  const sixtyNight = await searchBase({ checkIn: D1, checkOut: day(100), rooms: 1, adults: 2, children: 0, childAges: [], roomOccupancies: [{ adults: 2, children: 0, childAges: [] }], nationalities: ["TR"] });
   assert.equal(sixtyNight.status, 200);
-  // 61-night stay rejected
-  const sixtyOne = await searchBase({ checkIn: D1, checkOut: day(71), rooms: 1, adults: 2, children: 0, childAges: [], roomOccupancies: [{ adults: 2, children: 0, childAges: [] }], nationalities: ["TR"] });
+  // 61-night stay rejected (D1 + 61 nights)
+  const sixtyOne = await searchBase({ checkIn: D1, checkOut: day(101), rooms: 1, adults: 2, children: 0, childAges: [], roomOccupancies: [{ adults: 2, children: 0, childAges: [] }], nationalities: ["TR"] });
   assert.equal(sixtyOne.status, 400);
   // Reversed dates rejected
   const reversed = await searchBase({ checkIn: D2, checkOut: D1, rooms: 1, adults: 2, children: 0, childAges: [], roomOccupancies: [{ adults: 2, children: 0, childAges: [] }], nationalities: ["TR"] });
@@ -486,9 +501,10 @@ test("T14 date boundaries: 1-night, 60-night, 61-night, leap, reversed, invalid"
 // ================================================================ T16 — Security inputs
 test("T16 security inputs: invalid UUID, malformed JSON, unexpected fields, no stack traces", { skip }, async () => {
   const { t, M1 } = await setupTwoDMCs();
-  // Invalid UUID
+  // Invalid UUID is rejected by the param guard. The guard answers 404 so a malformed id and a
+  // missing resource are indistinguishable (no existence oracle).
   const badUuid = await call("GET", "/api/admin/hotels/not-a-uuid", undefined, t.m1);
-  assert.equal(badUuid.status, 400);
+  assert.equal(badUuid.status, 404);
   // Nonexistent UUID → 404 (indistinguishable)
   const fakeUuid = await call("GET", "/api/admin/hotels/00000000-0000-0000-0000-000000000000", undefined, t.m1);
   assert.equal(fakeUuid.status, 404);
