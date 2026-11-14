@@ -55,3 +55,51 @@ test("OW4: owner assistant tools are strictly read-only",{skip},async()=>{
   assert.ok(tools.every(t=>t.risk==="low"));
   assert.ok(!tools.some(t=>["draftReply","changeBookingStatus","requestRefund"].includes(t.name)));
 });
+
+test("OW5: approval creation survives owner notification persistence failure",async()=>{
+  const {pgRunStore}=await import("../../server/ai/store");
+  const approvalId="11111111-1111-4111-8111-111111111111";
+  const queries:string[]=[];
+  const fakeDb={query:async(sql:string)=>{
+    queries.push(sql);
+    if(sql.includes("INSERT INTO approval_queue"))return {rows:[{id:approvalId}]};
+    if(sql.includes("SELECT match_kind"))throw new Error("NOTIFICATION_DB_FAILURE");
+    return {rows:[]};
+  }};
+  const previous=console.error;
+  const errors:unknown[][]=[];
+  console.error=(...args:unknown[])=>{errors.push(args)};
+  try{
+    const id=await pgRunStore(fakeDb).enqueueApproval({
+      runId:approvalId,agentId:"reservations",tenantId:null,
+      action:"requestRefund",payload:{},summary:"Approval test",risk:"high"
+    });
+    assert.equal(id,approvalId);
+    assert.equal(queries.filter(q=>q.includes("INSERT INTO approval_queue")).length,1);
+    assert.equal(errors.length,1,"notification failure must be logged");
+    assert.match(String(errors[0]?.[0]),/owner notification failed/);
+  }finally{console.error=previous}
+});
+
+test("OW6: digest without AI_CENTER_URL omits link, retains pending approval",async()=>{
+  const prevUrl=process.env.AI_CENTER_URL,prevOwner=process.env.OWNER_EMAIL;
+  delete process.env.AI_CENTER_URL;
+  process.env.OWNER_EMAIL="owner@example.com";
+  const now=new Date("2026-11-14T09:00:00Z");
+  let mailText="";
+  const fakeDb={query:async(sql:string,params?:unknown[])=>{
+    if(sql.includes("owner_notification_deliveries WHERE"))return {rows:[]};
+    if(sql.includes("SELECT id,summary,channel FROM owner_notifications"))return {rows:[]};
+    if(sql.includes("SELECT id,agent_id FROM approval_queue"))return {rows:[{id:"approval-123",agent_id:"reservations"}]};
+    if(sql.includes("INSERT INTO email_outbox")){mailText=JSON.stringify(params);return {rows:[{id:"mail-1"}]}};
+    return {rows:[{id:"mail-1"}]};
+  }};
+  try{
+    await sendOwnerDigest(fakeDb,now);
+    assert.ok(!mailText.includes("aget.bed4book.com"));
+    assert.ok(!mailText.includes("?page=ai-center"));
+  }finally{
+    if(prevUrl===undefined)delete process.env.AI_CENTER_URL;else process.env.AI_CENTER_URL=prevUrl;
+    if(prevOwner===undefined)delete process.env.OWNER_EMAIL;else process.env.OWNER_EMAIL=prevOwner;
+  }
+});
