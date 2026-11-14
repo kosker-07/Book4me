@@ -20,9 +20,46 @@ export const dictionaries = {
   }
 };
 export const supportedLanguages = ["en", "tr"];
+export const languageLabels = { en: "English", tr: "Türkçe" };
 export function browserLanguage(value = navigator.language) { return /^tr(?:-|$)/i.test(value) ? "tr" : "en"; }
 let language = browserLanguage();
+let persistedLanguage = null;
 export function setLanguage(value) { language = supportedLanguages.includes(value) ? value : browserLanguage(); document.documentElement.lang = language; return language; }
 export function getLanguage() { return language; }
+export function preferredLanguage(profileLanguage, browser = browserLanguage()) {
+  return supportedLanguages.includes(profileLanguage) ? profileLanguage : browserLanguage(browser);
+}
+export function hydrateLanguage(profileLanguage, browser = browserLanguage()) {
+  persistedLanguage = supportedLanguages.includes(profileLanguage) ? profileLanguage : null;
+  return setLanguage(preferredLanguage(persistedLanguage, browser));
+}
+export async function saveLanguage(value, apiRequest) {
+  if (!supportedLanguages.includes(value)) throw new RangeError("Unsupported language");
+  if (typeof apiRequest !== "function") throw new TypeError("API request function required");
+  const result = await apiRequest("/api/me/language", { method: "PATCH", body: { language: value } });
+  if (result.language !== value) throw new Error("Language preference was not persisted");
+  persistedLanguage = value;
+  return setLanguage(value);
+}
+export function createLanguageSelector({ onChange, value = getLanguage() } = {}) {
+  const select = document.createElement("select");
+  select.dataset.testid = "language-selector";
+  select.setAttribute("aria-label", "Language / Dil");
+  for (const code of supportedLanguages) {
+    const option = document.createElement("option");
+    option.value = code;
+    option.textContent = languageLabels[code];
+    select.append(option);
+  }
+  select.value = supportedLanguages.includes(value) ? value : getLanguage();
+  select.addEventListener("change", async () => {
+    const previous = getLanguage();
+    try {
+      if (onChange) await onChange(select.value);
+      else setLanguage(select.value);
+    } catch (error) { select.value = previous; throw error; }
+  });
+  return select;
+}
 export function t(key) { return dictionaries[language][key] ?? dictionaries.en[key] ?? key; }
 export function equalKeys() { return Object.keys(dictionaries.en).sort().join("|") === Object.keys(dictionaries.tr).sort().join("|"); }
