@@ -337,13 +337,23 @@ app.post("/api/agency/searches", authenticate, roles("sub_agency"), requireAgenc
       });
     // Winner selection runs across the full candidate set; pagination only limits serialization.
     const winners = chooseWinners(offers);
+    const locationRaw = req.body?.location ?? "";
+    if (typeof locationRaw !== "string" || locationRaw.length > 100)
+      return res.status(400).json({ error: "INVALID_LOCATION" });
+    const locationQuery = locationRaw.trim().toLocaleLowerCase("tr");
+    const filteredWinners = locationQuery
+      ? winners.filter(w => {
+          const hotel = byRatePlan.get(w.ratePlanId)!;
+          return (hotel.hotel_name + " " + hotel.location).toLocaleLowerCase("tr").includes(locationQuery);
+        })
+      : winners;
     const pageRaw = req.body?.page ?? 1;
     const limitRaw = req.body?.limit ?? 50;
     if (!Number.isInteger(pageRaw) || pageRaw < 1 || !Number.isInteger(limitRaw) || limitRaw < 1 || limitRaw > 100)
       return res.status(400).json({ error: "INVALID_PAGINATION" });
     const page = pageRaw as number, limit = limitRaw as number;
     const start = (page - 1) * limit;
-    const results = winners.slice(start, start + limit).map(w => {
+    const results = filteredWinners.slice(start, start + limit).map(w => {
       const row = byRatePlan.get(w.ratePlanId)!, digits = row.minor_units, contractFx = fx.get(w.currency)!;
       const pay = payment ?? { code: w.currency, minorUnits: digits };
       const payFx = fx.get(pay.code)!;
@@ -371,7 +381,7 @@ app.post("/api/agency/searches", authenticate, roles("sub_agency"), requireAgenc
                                              toEurPerUnit: payFx.eurPerUnit, validAt: [contractFx.validAt, payFx.validAt].filter(Boolean) } } : {})
       };
     });
-    res.json({ results, pagination: { page, limit, total: winners.length, hasMore: start + limit < winners.length } });
+    res.json({ results, pagination: { page, limit, total: filteredWinners.length, hasMore: start + limit < filteredWinners.length } });
   } catch (error) { next(error); }
 });
 
