@@ -1711,6 +1711,69 @@ async function hotelDetail(id) {
       view().append(card("Fiyat planı · " + plan.board_name, planRow));
     }
     view().append(card("Oda · " + room.name, section));
+=======
+      ),
+    );
+    section.append(roomActions);
+    section.append(
+      btn(
+        "Fiyat planı ekle",
+        () => ratePlanCreate(id, room),
+        false,
+        "room-rate-add-" + room.id,
+      ),
+    );
+    for (const plan of plans.filter((x) => x.room_id === room.id)) {
+      const planRow = el("div", { cls: "room" }, [
+        node(
+          "p",
+          plan.board_name +
+            " · " +
+            plan.currency +
+            " · " +
+            (plan.active ? "Aktif" : "Pasif"),
+        ),
+        ...(!termsValid(plan.cancellation_policy, plan.payment_terms)
+          ? [node("p", "Koşullar eksik – yayınlanamaz")]
+          : []),
+        btn(
+          "Takvim",
+          () => rateCalendar(id, plan),
+          false,
+          "plan-calendar-" + plan.id,
+        ),
+        btn(
+          "Yayınlar",
+          () => publicationEditor(id, plan, publications),
+          false,
+          "plan-pubs-" + plan.id,
+        ),
+        btn(
+          "Düzenle",
+          () => ratePlanEdit(id, plan),
+          false,
+          "plan-edit-" + plan.id,
+        ),
+        btn(
+          "Sil",
+          () =>
+            askInline(
+              "Fiyat planı silinsin mi? Yalnızca rezervasyonu olmayan plan silinebilir.",
+              async () => {
+                await api(
+                  "/api/admin/rate-plans/" + encodeURIComponent(plan.id),
+                  { method: "DELETE" },
+                );
+                await hotelDetail(id);
+              },
+            ),
+          false,
+          "plan-delete-" + plan.id,
+        ),
+      ]);
+      view().append(card("Fiyat planı · " + plan.board_name, planRow));
+    }
+    view().append(card("Oda · " + room.name, section));
   }
   view().append(
     editor(

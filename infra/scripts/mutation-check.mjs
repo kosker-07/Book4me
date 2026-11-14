@@ -86,6 +86,10 @@ const M = [
     "  if (totalDays > 400) throw httpError(400, \"DATE_RANGE_TOO_LONG\", { days: totalDays, max: 400 });", ""]] }
 ];
 
+M.push({ id: "M36", what: "Browser idle expiry not enforced", expect: ["SI4"], edits: [["server/security.ts",
+  "const exp = claims.max === undefined ? nowSec + TOKEN_TTL_SECONDS : Math.min(nowSec + IDLE_TTL_SECONDS, claims.max);",
+  "const exp = claims.max === undefined ? nowSec + TOKEN_TTL_SECONDS : claims.max;"]] });
+
 const args = process.argv.slice(2);
 const dryRun = args.includes("--dry-run"), unitOnly = args.includes("--unit-only");
 const onlyArg = args[args.indexOf("--only") + 1];
