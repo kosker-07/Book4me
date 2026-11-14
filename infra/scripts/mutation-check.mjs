@@ -63,7 +63,7 @@ const M = [
   { id: "M29", what: "DMC can read AI runs (operator gate removed)", expect: ["AP6"], edits: [["server/ai/center-routes.ts",
     '  if (req.auth?.role !== "system_admin" && req.auth?.role !== "back_office")',
     '  if (req.auth?.role === undefined)']] },
-  { id: "M30", what: "seller DMC identity reaches the AI model", expect: ["AG11"], unit: ["AG11 read tools"], edits: [["server/ai/tools/platform.ts",
+  { id: "M30", what: "seller DMC identity reaches the AI model", expect: ["AG11"], edits: [["server/ai/tools/platform.ts",
     "    b.total, b.currency, h.name AS hotel_name, r.name AS room_name, a.name AS agency_name`;",
     "    b.total, b.currency, h.name AS hotel_name, h.owner_agency_id, r.name AS room_name, a.name AS agency_name`;"]] },
   { id: "M31", what: "quote token readable", expect: ["quotes:"], unit: ["quotes: encrypted q3"], edits: [["server/quotes.ts",
