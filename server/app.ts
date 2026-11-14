@@ -335,7 +335,15 @@ app.post("/api/agency/searches", authenticate, roles("sub_agency"), requireAgenc
         if (r.source === "distribution_rule") candidate.markup = { type: "percent", value: "0" };
         return [priceCandidate(candidate, occupancy, stay.checkIn, stay.checkOut, stay.rooms, comparisonRates(fx), nationalities)];
       });
-    const results = chooseWinners(offers).map(w => {
+    // Winner selection runs across the full candidate set; pagination only limits serialization.
+    const winners = chooseWinners(offers);
+    const pageRaw = req.body?.page ?? 1;
+    const limitRaw = req.body?.limit ?? 50;
+    if (!Number.isInteger(pageRaw) || pageRaw < 1 || !Number.isInteger(limitRaw) || limitRaw < 1 || limitRaw > 100)
+      return res.status(400).json({ error: "INVALID_PAGINATION" });
+    const page = pageRaw as number, limit = limitRaw as number;
+    const start = (page - 1) * limit;
+    const results = winners.slice(start, start + limit).map(w => {
       const row = byRatePlan.get(w.ratePlanId)!, digits = row.minor_units, contractFx = fx.get(w.currency)!;
       const pay = payment ?? { code: w.currency, minorUnits: digits };
       const payFx = fx.get(pay.code)!;
@@ -363,7 +371,7 @@ app.post("/api/agency/searches", authenticate, roles("sub_agency"), requireAgenc
                                              toEurPerUnit: payFx.eurPerUnit, validAt: [contractFx.validAt, payFx.validAt].filter(Boolean) } } : {})
       };
     });
-    res.json({ results });
+    res.json({ results, pagination: { page, limit, total: winners.length, hasMore: start + limit < winners.length } });
   } catch (error) { next(error); }
 });
 
