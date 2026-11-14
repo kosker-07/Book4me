@@ -82,3 +82,43 @@ test("AG11 read tools never select seller identity, net prices, markups, platfor
     "platform_fee", "net_price", "netprice", "sell_price", "hotel_contracts", "contract_id", "distribution_rules"];
   for (const text of sql) for (const f of forbidden) assert.ok(!text.includes(f), `tool SQL exposes ${f}: ${text.slice(0, 160)}`);
 });
+
+
+test("AG12: fake model request and audit never receive confidential seller fields", async () => {
+  const secret = "SELLER_SECRET_DMC_92847";
+  const netPrice = "9173.42";
+  const margin = "18.73";
+  const fee = "6.41";
+  const requests: Array<Parameters<ModelClient["complete"]>[0]> = [];
+  const audits: unknown[] = [];
+  const db = { query: async () => ({
+    rows: [{ id, booking_no: "B4B-TEST", status: "confirmed", hotel_name: "Test Hotel",
+      room_name: "Standard", total: "12000.00", currency: "EUR", agency_name: "Buyer Agency" }],
+  }) };
+  const tools = platformTools(db);
+  const model: ModelClient = { complete: async request => {
+    requests.push(structuredClone(request));
+    if (requests.length === 1) return {
+      content: [{ type: "tool_use", id: "tool-1", name: "getBooking", input: { bookingId: id } }],
+      stopReason: "tool_use", inputTokens: 1, outputTokens: 1,
+    };
+    return { content: [{ type: "text", text: "Booking reviewed" }],
+      stopReason: "end_turn", inputTokens: 1, outputTokens: 1 };
+  } };
+  const store: RunStore = {
+    tokensUsedToday: async () => 0, startRun: async () => id,
+    addUsage: async () => {}, finishRun: async () => {},
+    audit: async entry => { audits.push(entry); },
+    enqueueApproval: async () => { throw new Error("Unexpected approval"); },
+  };
+  const agent = makePlatformAgent("reservations",
+    { enabled: true, model: "fake", dailyTokenBudget: 200000 }, tools);
+  const result = await runAgent({ store, model }, agent,
+    { tenantId: null, trigger: "confidentiality-test", prompt: "Review booking B4B-TEST" });
+  assert.equal(result.status, "done");
+  assert.equal(requests.length, 2);
+  const observed = JSON.stringify({ requests, audits });
+  for (const value of [secret, netPrice, margin, fee, "owner_agency_id", "platform_fee", "net_price"]) {
+    assert.ok(!observed.includes(value), `Confidential value reached model or audit: ${value}`);
+  }
+});
