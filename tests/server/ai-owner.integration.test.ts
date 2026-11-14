@@ -87,7 +87,7 @@ test("OW6: digest without AI_CENTER_URL omits link, retains pending approval",as
   process.env.OWNER_EMAIL="owner@example.com";
   const now=new Date("2026-11-14T09:00:00Z");
   let mailText="";
-  const fakeDb={query:async(sql:string,params?:unknown[])=>{
+  const fakeDb={query:async(sql:string,params?:any[])=>{
     if(sql.includes("owner_notification_deliveries WHERE"))return {rows:[]};
     if(sql.includes("SELECT id,summary,channel FROM owner_notifications"))return {rows:[]};
     if(sql.includes("SELECT id,agent_id FROM approval_queue"))return {rows:[{id:"approval-123",agent_id:"reservations"}]};
