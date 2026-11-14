@@ -569,3 +569,37 @@ test("room distribution: booking detail returns signed per-room occupancy", { sk
   assert.equal(detail.status, 200, detail.raw);
   assert.deepEqual(detail.body.room_occupancies, STAY.roomOccupancies);
 });
+
+
+test("J13 pagination filters location before slicing and validates bounds", { skip }, async () => {
+  // 120 independently published winners with a unique hotel name at position 51.
+  const ids: string[] = [];
+  for (let i=0;i<120;i++) {
+    const hotel=randomUUID(),room=randomUUID(),plan=randomUUID();
+    ids.push(hotel);
+    await pool.query("INSERT INTO hotels(id,owner_agency_id,name,location,status) VALUES($1,$2,$3,$4,'active')",[hotel,M1,i===50?"Unique J13 Destination":"J13 Hotel "+String(i).padStart(3,"0"),"J13 City"]);
+    await pool.query("INSERT INTO rooms(id,hotel_id,name,max_adults,max_children) VALUES($1,$2,'Double',2,2)",[room,hotel]);
+    await pool.query("INSERT INTO rate_plans(id,room_id,board_name,currency,cancellation_policy,payment_terms) VALUES($1,$2,'AI','EUR',$3::jsonb,$4::jsonb)",[plan,room,JSON.stringify(VALID_TERMS.cancellationPolicy),JSON.stringify(VALID_TERMS.paymentTerms)]);
+    await pool.query("INSERT INTO inventory_daily(rate_plan_id,stay_date,price,allotment) VALUES($1,$2,100,5),($1,$3,100,5)",[plan,CHECK_IN,NIGHT2]);
+    await pool.query("INSERT INTO agency_hotel_sales(agency_id,hotel_id,rate_plan_id,markup_type,markup_value) VALUES($1,$2,$3,'percent',10)",[SA,hotel,plan]);
+  }
+  const base={...STAY};
+  const first=await search(tok.a!,{...base,limit:50,page:1});
+  assert.equal(first.status,200,first.raw);
+  const total=first.body.pagination.total;
+  assert.equal(first.body.results.length,50);
+  assert.equal(first.body.pagination.hasMore,true);
+  assert.ok(total>=120);
+  const third=await search(tok.a!,{...base,limit:50,page:3});
+  assert.equal(third.status,200,third.raw);
+  assert.equal(third.body.results.length,Math.min(50,total-100));
+  const last=await search(tok.a!,{...base,limit:50,page:Math.ceil(total/50)});
+  assert.equal(last.body.pagination.hasMore,false);
+  for(const bad of [{limit:101},{page:0}])assert.equal((await search(tok.a!,bad)).status,400);
+  const filtered=await search(tok.a!,{location:"Unique J13 Destination",limit:50,page:1});
+  assert.equal(filtered.status,200,filtered.raw);
+  assert.equal(filtered.body.pagination.total,1);
+  assert.equal(filtered.body.results[0].hotel.name,"Unique J13 Destination");
+  const pages=[];for(let p=1;p<=Math.ceil(total/50);p++){const x=await search(tok.a!,{page:p,limit:50});pages.push(...x.body.results)}
+  assert.equal(new Set(pages.map(x=>x.quoteId)).size,pages.length,"no duplicate offers between pages");
+});
