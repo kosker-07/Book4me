@@ -7,6 +7,7 @@ import { randomUUID } from "node:crypto";
 import type { AddressInfo } from "node:net";
 
 process.env.SESSION_SECRET ||= "perf-smoke-secret-at-least-32-characters";
+process.env.SEARCH_PROFILE ||= "1";
 const HOTELS = Number(process.env.PERF_HOTELS || 200), NIGHTS = 60, SEARCHES = Number(process.env.PERF_SEARCHES || 200), CONCURRENCY = 100;
 const SEARCH_LIMIT_MS = Number(process.env.PERF_SEARCH_P95_MS || 500);
 const BOOK_LIMIT_MS = Number(process.env.PERF_BOOK_P95_MS || 800);
