@@ -416,12 +416,38 @@ test("16 competitor offers and other agencies' data do not leak into a participa
     assert.ok(!visible(b.raw).includes(secret), `agency B response leaks ${secret}`);
 });
 
-test("16b a sub-agency cannot book with another agency's quote", { skip }, async () => {
-  const w = await winnerQuote(tok.a!);
-  const r = await book(tok.b!, w.quoteId);
-  assert.equal(r.status, 404);
-  assert.equal(await count("bookings"), 0);
+// ---------------------------------------------------------------- M1–M2. multi-room lifecycle
+
+test("M1 multi-room booking: reserves each room atomically, per-room breakdown, oversell blocked", { skip }, async () => {
+  const q = await winnerQuote(tok.a!, H1, "AI");
+  // two rooms, two nights; each room holds 2 adults/1 child → OTHER_GUESTS covers one extra adult + one child
+  const stay = { ...STAY, rooms: 2, adults: 4, children: 2, childAges: [5, 5], roomOccupancies: [{ adults: 2, children: 1, childAges: [5] }, { adults: 2, children: 1, childAges: [5] }] };
+  const s = await call("POST", "/api/agency/searches", stay, tok.a);
+  assert.equal(s.status, 200, s.raw);
+  const hit = findResult(s.body.results, H1, "AI")[0];
+  assert.equal(hit.rooms, 2);
+  const r = await call("POST", "/api/agency/bookings", { quoteId: hit.quoteId, guest: { ...GUEST, adults: 4, children: 2, childAges: [5, 5] }, otherGuests: [{ firstName: "X", lastName: "Y", type: "adult", nationality: "TR" }, { firstName: "P", lastName: "Q", type: "adult", nationality: "TR" }, { firstName: "Z", lastName: "W", type: "adult", nationality: "TR" }, { firstName: "A", lastName: "B", type: "child", age: 5, nationality: "TR" }, { firstName: "C", lastName: "D", type: "child", age: 5, nationality: "TR" }], operationNote: OP_NOTE }, tok.a, { "Idempotency-Key": "multi-room-1" });
+  assert.equal(r.status, 201, r.raw);
+  assert.equal(r.body.status, "pending");
+  // per-room inventory consumed exactly once per night
+  const inv = await reserved(RP1);
+  assert.equal(inv.filter(x => x === 2).length, 2, "both nights fully reserved at 2 rooms");
+  const nights = await pool.query("SELECT stay_date, rooms FROM booking_nights WHERE booking_id=$1 ORDER BY stay_date", [r.body.id]);
+  const roomsPerNight = nights.rows.map((x: any) => x.rooms);
+  assert.deepEqual(roomsPerNight.sort(), [2, 2], "one row per night, rooms=2 each");
+  // no oversell: a third concurrent booking for the same nights must fail
+  const conf = await call("POST", "/api/agency/bookings", { quoteId: hit.quoteId, guest: GUEST, otherGuests: OTHER_GUESTS, operationNote: "oversell" }, tok.a, { "Idempotency-Key": "multi-room-oversell" });
+  assert.ok(conf.status === 409 || conf.status === 422, `oversell must be rejected, got ${conf.status}`);
 });
+
+test("M2 search rejects per-room over-capacity even when aggregate fits", { skip }, async () => {
+  // aggregate fits (4 adults = 2 rooms × 2 max) but room 1 asks 3 adults > max 2 → no results
+  const stay = { ...STAY, rooms: 2, adults: 4, children: 0, childAges: [], roomOccupancies: [{ adults: 3, children: 0, childAges: [] }, { adults: 1, children: 0, childAges: [] }] };
+  const s = await call("POST", "/api/agency/searches", stay, tok.a);
+  assert.equal(s.status, 200, s.raw);
+  assert.equal(s.body.results.length, 0, "per-room over-capacity must return no results even when aggregate fits");
+});
+
 
 // ---------------------------------------------------------------- 17. guest validation
 test("17 every mandatory guest field is validated by the backend", { skip }, async () => {

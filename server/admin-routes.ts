@@ -91,7 +91,23 @@ function patchSet(fields: Record<string, unknown>, columns: Record<string, strin
   return { sets: sets.join(", "), values };
 }
 
-// ---------------------------------------------------------------- hotels
+// List hotels visible to the caller: platform-wide or owned by their agency.
+adminRouter.get("/api/admin/hotels", ...managers, h(async (req, res) => {
+  const result = await pool.query(
+    `SELECT h.id, h.name, h.location, h.category, h.status, h.created_at, h.updated_at,
+            h.owner_agency_id, a.name AS owner_agency_name, a.type AS owner_agency_type,
+            (SELECT count(*)::int FROM rooms r WHERE r.hotel_id = h.id) AS room_count,
+            (SELECT count(*)::int FROM rate_plans rp JOIN rooms r ON r.id = rp.room_id WHERE r.hotel_id = h.id) AS rate_plan_count,
+            (SELECT count(*)::int FROM agency_hotel_sales s JOIN rate_plans rp ON rp.id = s.rate_plan_id
+              JOIN rooms r ON r.id = rp.room_id WHERE r.hotel_id = h.id AND s.active) AS publication_count
+       FROM hotels h JOIN agencies a ON a.id = h.owner_agency_id
+      WHERE $1::boolean OR h.owner_agency_id = $2
+      ORDER BY h.name`,
+    [isPlatformWide(req.auth!.role), req.auth!.agencyId]
+  );
+  res.json({ items: result.rows });
+}));
+
 adminRouter.post("/api/admin/hotels", ...managers, h(async (req, res) => {
   const { name, location, category, description, amenities, images, operationalNotes } = req.body || {};
   if (!text(name, 200) || !text(location, 200)) throw httpError(400, "HOTEL_NAME_AND_LOCATION_REQUIRED");
@@ -124,6 +140,45 @@ adminRouter.get("/api/admin/hotels/:id", ...managers, h(async (req, res) => {
   res.json({ ...hotel, rooms, ratePlans, publications });
 }));
 
+adminRouter.delete("/api/admin/hotels/:id", ...managers, h(async (req, res) => {
+  const id = uuidParam(req);
+  const owner = await ownedHotel(pool, req, HOTEL_SQL, id);
+  // A hotel is deletable only while it is empty and draft/inactive. Everything that would otherwise
+  // silently vanish (contracts, inventory, publications, bookings) blocks it. Guard and delete are a
+  // single statement, so two concurrent callers cannot both pass the check.
+  const result = await withTransaction(async client => {
+    const del = await client.query(
+      `DELETE FROM hotels h
+        WHERE h.id = $1
+          AND h.status IN ('draft','inactive')
+          AND NOT EXISTS (SELECT 1 FROM hotel_contracts hc WHERE hc.hotel_id = h.id)
+          AND NOT EXISTS (SELECT 1 FROM inventory_daily i
+                            JOIN rate_plans rp ON rp.id = i.rate_plan_id
+                            JOIN rooms r ON r.id = rp.room_id
+                           WHERE r.hotel_id = h.id)
+          AND NOT EXISTS (SELECT 1 FROM agency_hotel_sales s WHERE s.hotel_id = h.id)
+          AND NOT EXISTS (SELECT 1 FROM bookings b WHERE b.hotel_id = h.id)`, [id]);
+    if (del.rowCount !== 1) {
+      const b = (await client.query(
+        `SELECT h.status,
+                (SELECT count(*)::int FROM hotel_contracts hc WHERE hc.hotel_id = h.id) AS contracts,
+                (SELECT count(*)::int FROM inventory_daily i
+                   JOIN rate_plans rp ON rp.id = i.rate_plan_id JOIN rooms r ON r.id = rp.room_id
+                  WHERE r.hotel_id = h.id) AS inventory_days,
+                (SELECT count(*)::int FROM agency_hotel_sales s WHERE s.hotel_id = h.id) AS publications,
+                (SELECT count(*)::int FROM bookings bo WHERE bo.hotel_id = h.id) AS bookings
+           FROM hotels h WHERE h.id = $1`, [id])).rows[0];
+      throw httpError(409, "HOTEL_NOT_EMPTY", {
+        contracts: b?.contracts ?? 0, inventoryDays: b?.inventory_days ?? 0,
+        publications: b?.publications ?? 0, bookings: b?.bookings ?? 0, status: b?.status ?? null
+      });
+    }
+    await audit(client, req.auth!.sub, owner.owner_agency_id, "hotel.deleted", "hotel", id);
+    return { ok: true, id };
+  });
+  res.json(result);
+}));
+
 adminRouter.patch("/api/admin/hotels/:id", ...managers, h(async (req, res) => {
   const id = uuidParam(req), b = req.body || {};
   if (b.status !== undefined && !["draft", "active", "inactive"].includes(b.status)) throw httpError(400, "INVALID_STATUS");
@@ -154,6 +209,19 @@ adminRouter.post("/api/admin/hotels/:id/rooms", ...managers, h(async (req, res) 
     await audit(client, req.auth!.sub, owner.owner_agency_id, "room.created", "room", id, { after: await rowJson(client, "rooms", id) });
   });
   res.status(201).json({ id, hotelId, name: name.trim(), maxAdults, maxChildren, active: true });
+}));
+
+adminRouter.delete("/api/admin/rooms/:id", ...managers, h(async (req, res) => {
+  const id = uuidParam(req);
+  const owner = await ownedHotel(pool, req, ROOM_SQL, id);
+  // Refuse if there are rate plans or bookings referencing this room.
+  const hasRatePlans = (await pool.query("SELECT 1 FROM rate_plans WHERE room_id = $1 LIMIT 1", [id])).rowCount;
+  if (hasRatePlans) throw httpError(409, "ROOM_HAS_RATE_PLANS");
+  await withTransaction(async client => {
+    await client.query("DELETE FROM rooms WHERE id = $1", [id]);
+    await audit(client, req.auth!.sub, owner.owner_agency_id, "room.deleted", "room", id);
+  });
+  res.json({ ok: true, id });
 }));
 
 adminRouter.patch("/api/admin/rooms/:id", ...managers, h(async (req, res) => {
@@ -204,6 +272,21 @@ adminRouter.post("/api/admin/rooms/:id/rate-plans", ...managers, h(async (req, r
   res.status(201).json({ id, roomId, boardName: boardName.trim(), currency, active: true, contractId: contract });
 }));
 
+adminRouter.delete("/api/admin/rate-plans/:id", ...managers, h(async (req, res) => {
+  const id = uuidParam(req);
+  const owner = await ownedHotel(pool, req, RATE_PLAN_SQL, id);
+  // Refuse if there are inventory rows or publications referencing this rate plan.
+  const hasInventory = (await pool.query("SELECT 1 FROM inventory_daily WHERE rate_plan_id = $1 LIMIT 1", [id])).rowCount;
+  if (hasInventory) throw httpError(409, "RATE_PLAN_HAS_INVENTORY");
+  const hasPublications = (await pool.query("SELECT 1 FROM agency_hotel_sales WHERE rate_plan_id = $1 LIMIT 1", [id])).rowCount;
+  if (hasPublications) throw httpError(409, "RATE_PLAN_HAS_PUBLICATIONS");
+  await withTransaction(async client => {
+    await client.query("DELETE FROM rate_plans WHERE id = $1", [id]);
+    await audit(client, req.auth!.sub, owner.owner_agency_id, "rate_plan.deleted", "rate_plan", id);
+  });
+  res.json({ ok: true, id });
+}));
+
 adminRouter.patch("/api/admin/rate-plans/:id", ...managers, h(async (req, res) => {
   const id = uuidParam(req), b = req.body || {};
   if (!optBool(b.active)) throw httpError(400, "INVALID_RATE_PLAN");
@@ -219,42 +302,70 @@ adminRouter.patch("/api/admin/rate-plans/:id", ...managers, h(async (req, res) =
   const row = await withTransaction(async client => {
     const before = await rowJson(client, "rate_plans", id);
     const r = (await client.query(`UPDATE rate_plans SET ${sets} WHERE id = $1 RETURNING id, board_name, currency, active`, [id, ...values])).rows[0];
-    await audit(client, req.auth!.sub, owner.owner_agency_id, "rate_plan.updated", "rate_plan", id, { before, after: await rowJson(client, "rate_plans", id) });
+    // A stop-sale is the operationally significant event; record it as such instead of burying it
+    // in a generic update, mirroring hotel.status.*. Other edits stay "rate_plan.updated".
+    const activeChanged = b.active !== undefined && before.active !== r.active;
+    const action = activeChanged ? (r.active ? "rate_plan.reactivated" : "rate_plan.stop_sale") : "rate_plan.updated";
+    await audit(client, req.auth!.sub, owner.owner_agency_id, action, "rate_plan", id, { before, after: await rowJson(client, "rate_plans", id) });
     return r;
   });
   res.json(row);
 }));
 
-// Daily net price and allotment for an inclusive date range (bulk upsert).
+// Daily net price and allotment for one or more inclusive date ranges (bulk upsert).
 adminRouter.put("/api/admin/rate-plans/:id/calendar", ...managers, h(async (req, res) => {
   const id = uuidParam(req), { dateFrom, dateTo, price, allotment } = req.body || {};
+  const extra = req.body?.extra_ranges === undefined ? [] : req.body.extra_ranges;
+  if (!Array.isArray(extra)) throw httpError(400, "INVALID_EXTRA_RANGE");
   if (!isCalendarDate(dateFrom) || !isCalendarDate(dateTo) || dateTo < dateFrom) throw httpError(400, "INVALID_DATE_RANGE");
-  const days = nightsBetween(dateFrom, dateTo).length + 1;
-  if (days > 400) throw httpError(400, "DATE_RANGE_TOO_LONG");
   if (!Number.isInteger(allotment) || allotment < 0 || allotment > 10000) throw httpError(400, "INVALID_ALLOTMENT");
+  if (extra.length > 20) throw httpError(400, "TOO_MANY_EXTRA_RANGES", { max: 20 });
   const owner = await ownedHotel(pool, req, RATE_PLAN_SQL, id);
   const digits = await currencyDigitsOfRatePlan(id);
-  // non-negative, at most as many decimals as the rate plan currency has (EUR 2, JPY 0, KWD 3)
   if (typeof price !== "number" || !Number.isFinite(price) || price < 0 || price > 1e9 || !hasAtMostDecimals(price, digits))
     throw httpError(400, "INVALID_PRICE", { maxDecimals: digits });
   const storedPrice = formatMinor(parseMinor(price, digits), digits);
+
+  const ranges: { dateFrom: string; dateTo: string }[] = [{ dateFrom, dateTo }];
+  for (const e of extra) {
+    if (!e || !isCalendarDate(e.dateFrom) || !isCalendarDate(e.dateTo) || e.dateTo < e.dateFrom)
+      throw httpError(400, "INVALID_EXTRA_RANGE");
+    ranges.push({ dateFrom: e.dateFrom, dateTo: e.dateTo });
+  }
+  const totalDays = ranges.reduce((sum, r) => sum + nightsBetween(r.dateFrom, r.dateTo).length + 1, 0);
+  if (totalDays > 400) throw httpError(400, "DATE_RANGE_TOO_LONG", { days: totalDays, max: 400 });
+
+  const starts = ranges.map(r => r.dateFrom), ends = ranges.map(r => r.dateTo);
   const result = await withTransaction(async client => {
+    // Reserved nights across every range must fit the new allotment before anything is written.
     const below = await client.query(
-      "SELECT stay_date::text AS date, reserved FROM inventory_daily WHERE rate_plan_id = $1 AND stay_date BETWEEN $2::date AND $3::date AND reserved > $4 ORDER BY stay_date",
-      [id, dateFrom, dateTo, allotment]);
+      `SELECT stay_date::text AS date, reserved FROM inventory_daily
+        WHERE rate_plan_id = $1 AND reserved > $4
+          AND EXISTS (SELECT 1 FROM unnest($2::date[], $3::date[]) AS r(f, t)
+                       WHERE inventory_daily.stay_date BETWEEN r.f AND r.t)
+        ORDER BY stay_date`, [id, starts, ends, allotment]);
     if (below.rowCount) throw httpError(409, "ALLOTMENT_BELOW_RESERVED", { dates: below.rows });
-    const rangeJson = async () => (await client.query(
-      `SELECT coalesce(json_agg(json_build_object('date', stay_date::text, 'price', price::text, 'allotment', allotment, 'reserved', reserved)
-              ORDER BY stay_date), '[]'::json) AS j FROM inventory_daily WHERE rate_plan_id = $1 AND stay_date BETWEEN $2::date AND $3::date`,
-      [id, dateFrom, dateTo])).rows[0].j;
-    const before = await rangeJson();
-    const up = await client.query(
+
+    const auditRows = async () => (await client.query(
+      `SELECT stay_date::text AS date, price::text AS price, allotment, reserved FROM inventory_daily
+        WHERE rate_plan_id = $1
+          AND EXISTS (SELECT 1 FROM unnest($2::date[], $3::date[]) AS r(f, t)
+                       WHERE inventory_daily.stay_date BETWEEN r.f AND r.t)
+        ORDER BY stay_date`, [id, starts, ends])).rows;
+    const before = await auditRows();
+
+    // Dates are generated inside SQL; the union of ranges is expanded and de-duplicated there.
+    await client.query(
       `INSERT INTO inventory_daily(rate_plan_id, stay_date, price, allotment)
-       SELECT $1, d::date, $4::numeric, $5 FROM generate_series($2::date, $3::date, interval '1 day') AS d
+       SELECT $1, d::date, $4::numeric, $5
+         FROM unnest($2::date[], $3::date[]) AS r(f, t)
+         CROSS JOIN LATERAL generate_series(r.f::timestamp, r.t::timestamp, interval '1 day') AS d
        ON CONFLICT (rate_plan_id, stay_date) DO UPDATE SET price = EXCLUDED.price, allotment = EXCLUDED.allotment`,
-      [id, dateFrom, dateTo, storedPrice, allotment]);
-    await audit(client, req.auth!.sub, owner.owner_agency_id, "calendar.updated", "rate_plan", id, { before, after: await rangeJson() });
-    return { ratePlanId: id, dateFrom, dateTo, days: up.rowCount, price: storedPrice, allotment };
+      [id, starts, ends, storedPrice, allotment]);
+
+    await audit(client, req.auth!.sub, owner.owner_agency_id, "calendar.updated", "rate_plan", id,
+      { before, after: await auditRows() });
+    return { ratePlanId: id, ranges, days: totalDays, price: storedPrice, allotment };
   });
   res.json(result);
 }));
@@ -301,6 +412,22 @@ adminRouter.post("/api/admin/publications", ...managers, h(async (req, res) => {
     return r;
   });
   res.status(201).json(row);
+}));
+
+adminRouter.delete("/api/admin/publications/:id", ...managers, h(async (req, res) => {
+  const id = uuidParam(req);
+  const owner = await ownedHotel(pool, req, PUBLICATION_SQL, id);
+  // Refuse if there are bookings referencing this publication's rate plan.
+  const ratePlanId = (await pool.query("SELECT rate_plan_id FROM agency_hotel_sales WHERE id = $1", [id])).rows[0]?.rate_plan_id;
+  if (ratePlanId) {
+    const hasBookings = (await pool.query("SELECT 1 FROM bookings WHERE rate_plan_id = $1 LIMIT 1", [ratePlanId])).rowCount;
+    if (hasBookings) throw httpError(409, "PUBLICATION_HAS_BOOKINGS");
+  }
+  await withTransaction(async client => {
+    await client.query("DELETE FROM agency_hotel_sales WHERE id = $1", [id]);
+    await audit(client, req.auth!.sub, owner.owner_agency_id, "publication.deleted", "publication", id);
+  });
+  res.json({ ok: true, id });
 }));
 
 adminRouter.patch("/api/admin/publications/:id", ...managers, h(async (req, res) => {

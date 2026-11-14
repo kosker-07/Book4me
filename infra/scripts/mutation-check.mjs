@@ -78,7 +78,12 @@ const M = [
   { id: "M23", what: "Rezervasyonda kontrat para birimi kur değişimini kontrol etme", expect: ["N12"], edits: [["server/app.ts",
     "  if (!contract || contract.historyId !== fxRateId) throw httpError(409, \"PRICE_CHANGED\", { reason: \"FX_RATE_CHANGED\" });", ""]] },
   { id: "M24", what: "Rezervasyonda ödeme para birimi kur değişimini kontrol etme", expect: ["N12"], edits: [["server/app.ts",
-    "  if (!payment || payment.historyId !== paymentFxRateId) throw httpError(409, \"PRICE_CHANGED\", { reason: \"FX_RATE_CHANGED\" });", ""]] }
+    "  if (!payment || payment.historyId !== paymentFxRateId) throw httpError(409, \"PRICE_CHANGED\", { reason: \"FX_RATE_CHANGED\" });", ""]] },
+  { id: "M26", what: "Otel silme korumasını kaldır (boş olmayan otel silinir)", expect: ["T13"], edits: [["server/admin-routes.ts",
+    "          AND h.status IN ('draft','inactive')\n          AND NOT EXISTS (SELECT 1 FROM hotel_contracts hc WHERE hc.hotel_id = h.id)\n          AND NOT EXISTS (SELECT 1 FROM inventory_daily i\n                            JOIN rate_plans rp ON rp.id = i.rate_plan_id\n                            JOIN rooms r ON r.id = rp.room_id\n                           WHERE r.hotel_id = h.id)\n          AND NOT EXISTS (SELECT 1 FROM agency_hotel_sales s WHERE s.hotel_id = h.id)\n          AND NOT EXISTS (SELECT 1 FROM bookings b WHERE b.hotel_id = h.id)",
+    "          AND h.status IN ('draft','inactive')"]] },
+  { id: "M27", what: "extra_range toplam gün sınırını kaldır", expect: ["T05b"], edits: [["server/admin-routes.ts",
+    "  if (totalDays > 400) throw httpError(400, \"DATE_RANGE_TOO_LONG\", { days: totalDays, max: 400 });", ""]] }
 ];
 
 M.push({ id: "M36", what: "Browser idle expiry not enforced", expect: ["SI4"], edits: [["server/security.ts",

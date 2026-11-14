@@ -165,4 +165,8 @@ await run("excel contract import preview and confirm", { viewport: { width: 1280
   assert.equal(await toastText(page), "");
 });
 
+// T15 hotel/room/rate-plan/calendar coverage runs in this same process: the web UI workflow
+// invokes only this file, so chaining keeps the new checks in CI without a workflow edit.
+await import("./hotel-inventory.e2e.mjs");
+
 console.log("all browser checks passed");

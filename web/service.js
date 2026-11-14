@@ -97,6 +97,17 @@ export async function api(
     err.code = data.error || "HTTP_" + res.status;
     err.status = res.status;
     err.fields = data.fields;
+    for (const k of [
+      "contracts",
+      "inventoryDays",
+      "publications",
+      "bookings",
+      "status",
+      "reason",
+      "days",
+      "max",
+    ])
+      if (data[k] !== undefined) err[k] = data[k];
     throw err;
   }
   return data;
