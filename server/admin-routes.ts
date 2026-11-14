@@ -312,60 +312,60 @@ adminRouter.patch("/api/admin/rate-plans/:id", ...managers, h(async (req, res) =
   res.json(row);
 }));
 
-// Daily net price and allotment for an inclusive date range (bulk upsert).
+// Daily net price and allotment for one or more inclusive date ranges (bulk upsert).
 adminRouter.put("/api/admin/rate-plans/:id/calendar", ...managers, h(async (req, res) => {
   const id = uuidParam(req), { dateFrom, dateTo, price, allotment } = req.body || {};
-  const extra = Array.isArray(req.body?.extra_ranges) ? req.body.extra_ranges : undefined;
+  const extra = req.body?.extra_ranges === undefined ? [] : req.body.extra_ranges;
+  if (!Array.isArray(extra)) throw httpError(400, "INVALID_EXTRA_RANGE");
   if (!isCalendarDate(dateFrom) || !isCalendarDate(dateTo) || dateTo < dateFrom) throw httpError(400, "INVALID_DATE_RANGE");
-  const days = nightsBetween(dateFrom, dateTo).length + 1;
-  if (days > 400) throw httpError(400, "DATE_RANGE_TOO_LONG");
   if (!Number.isInteger(allotment) || allotment < 0 || allotment > 10000) throw httpError(400, "INVALID_ALLOTMENT");
+  if (extra.length > 20) throw httpError(400, "TOO_MANY_EXTRA_RANGES", { max: 20 });
   const owner = await ownedHotel(pool, req, RATE_PLAN_SQL, id);
   const digits = await currencyDigitsOfRatePlan(id);
   if (typeof price !== "number" || !Number.isFinite(price) || price < 0 || price > 1e9 || !hasAtMostDecimals(price, digits))
     throw httpError(400, "INVALID_PRICE", { maxDecimals: digits });
   const storedPrice = formatMinor(parseMinor(price, digits), digits);
-  const rows = [{ dateFrom, dateTo }];
-  if (extra) {
-    for (let i = 0; i < extra.length; i++) {
-      const e = extra[i];
-      if (!e || !isCalendarDate(e.dateFrom) || !isCalendarDate(e.dateTo) || e.dateTo < e.dateFrom)
-        throw httpError(400, "INVALID_EXTRA_RANGE");
-      const n = nightsBetween(e.dateFrom, e.dateTo).length + 1;
-      if (n > 400) throw httpError(400, "EXTRA_RANGE_TOO_LONG");
-      rows.push(e as { dateFrom: string; dateTo: string });
-    }
+
+  const ranges: { dateFrom: string; dateTo: string }[] = [{ dateFrom, dateTo }];
+  for (const e of extra) {
+    if (!e || !isCalendarDate(e.dateFrom) || !isCalendarDate(e.dateTo) || e.dateTo < e.dateFrom)
+      throw httpError(400, "INVALID_EXTRA_RANGE");
+    ranges.push({ dateFrom: e.dateFrom, dateTo: e.dateTo });
   }
+  const totalDays = ranges.reduce((sum, r) => sum + nightsBetween(r.dateFrom, r.dateTo).length + 1, 0);
+  if (totalDays > 400) throw httpError(400, "DATE_RANGE_TOO_LONG", { days: totalDays, max: 400 });
+
+  const starts = ranges.map(r => r.dateFrom), ends = ranges.map(r => r.dateTo);
   const result = await withTransaction(async client => {
-    const before = await client.query(
-      `SELECT stay_date::text AS date, price, allotment, reserved FROM inventory_daily WHERE rate_plan_id = $1 AND stay_date BETWEEN $2::date AND $3::date ORDER BY stay_date`,
-      [id, dateFrom, dateTo]);
-    const allDates = new Set<string>();
-    for (const r of rows) {
-      const d1 = new Date(r.dateFrom), d2 = new Date(r.dateTo);
-      for (let d = new Date(d1); d <= d2; d.setDate(d.getDate() + 1)) allDates.add(d.toISOString().slice(0, 10));
-    }
+    // Reserved nights across every range must fit the new allotment before anything is written.
     const below = await client.query(
-      `SELECT stay_date::text AS date, reserved FROM inventory_daily WHERE rate_plan_id = $1 AND stay_date = ANY($2::date[]) AND reserved > $3 ORDER BY stay_date`,
-      [id, Array.from(allDates), allotment]);
+      `SELECT stay_date::text AS date, reserved FROM inventory_daily
+        WHERE rate_plan_id = $1 AND reserved > $4
+          AND EXISTS (SELECT 1 FROM unnest($2::date[], $3::date[]) AS r(f, t)
+                       WHERE inventory_daily.stay_date BETWEEN r.f AND r.t)
+        ORDER BY stay_date`, [id, starts, ends, allotment]);
     if (below.rowCount) throw httpError(409, "ALLOTMENT_BELOW_RESERVED", { dates: below.rows });
-    const upsert = async (f: string, t: string) => await client.query(
+
+    const auditRows = async () => (await client.query(
+      `SELECT stay_date::text AS date, price::text AS price, allotment, reserved FROM inventory_daily
+        WHERE rate_plan_id = $1
+          AND EXISTS (SELECT 1 FROM unnest($2::date[], $3::date[]) AS r(f, t)
+                       WHERE inventory_daily.stay_date BETWEEN r.f AND r.t)
+        ORDER BY stay_date`, [id, starts, ends])).rows;
+    const before = await auditRows();
+
+    // Dates are generated inside SQL; the union of ranges is expanded and de-duplicated there.
+    await client.query(
       `INSERT INTO inventory_daily(rate_plan_id, stay_date, price, allotment)
-       SELECT $1, d::date, $4::numeric, $5 FROM generate_series($2::date, $3::date, interval '1 day') AS d
+       SELECT $1, d::date, $4::numeric, $5
+         FROM unnest($2::date[], $3::date[]) AS r(f, t)
+         CROSS JOIN LATERAL generate_series(r.f::timestamp, r.t::timestamp, interval '1 day') AS d
        ON CONFLICT (rate_plan_id, stay_date) DO UPDATE SET price = EXCLUDED.price, allotment = EXCLUDED.allotment`,
-      [id, f, t, storedPrice, allotment]);
-    const after = async () => (await client.query(
-      `SELECT coalesce(json_agg(json_build_object('date', stay_date::text, 'price', price::text, 'allotment', allotment, 'reserved', reserved)
-              ORDER BY stay_date), '[]'::json) AS j FROM inventory_daily WHERE rate_plan_id = $1 AND stay_date BETWEEN $2::date AND $3::date`,
-      [id, dateFrom, dateTo])).rows[0].j;
-    const beforeRange = await (await client.query(
-      `SELECT stay_date::text AS date, price, allotment, reserved FROM inventory_daily WHERE rate_plan_id = $1 AND stay_date BETWEEN $2::date AND $3::date ORDER BY stay_date`,
-      [id, dateFrom, dateTo])).rows;
-    await upsert(dateFrom, dateTo);
-    for (const e of rows.slice(1)) await upsert(e.dateFrom, e.dateTo);
+      [id, starts, ends, storedPrice, allotment]);
+
     await audit(client, req.auth!.sub, owner.owner_agency_id, "calendar.updated", "rate_plan", id,
-      { before: beforeRange, after: await after() });
-    return { ratePlanId: id, dateFrom, dateTo, days: rows.reduce((s, r) => s + nightsBetween(r.dateFrom, r.dateTo).length + 1, 0), price: storedPrice, allotment };
+      { before, after: await auditRows() });
+    return { ratePlanId: id, ranges, days: totalDays, price: storedPrice, allotment };
   });
   res.json(result);
 }));

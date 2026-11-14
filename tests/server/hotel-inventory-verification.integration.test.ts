@@ -249,6 +249,65 @@ test("T05 allotment boundaries: 0, 1, 5 units; negative impossible", { skip }, a
   );
 });
 
+// ================================================================ T05b — extra_ranges hardening (J3)
+test("T05b calendar extra_ranges: multi-range upsert, caps, atomic refusal, full audit", { skip }, async () => {
+  const { t } = await setupTwoDMCs();
+  const hotelId = await createHotelViaApi(t.m1);
+  const roomId = await createRoomViaApi(t.m1, hotelId);
+  const ratePlanId = await createRatePlanViaApi(t.m1, roomId);
+  const d = (o: number) => new Date(Date.now() + o * 86400000).toISOString().slice(0, 10);
+
+  // valid multi-range write: primary + 2 extras
+  const ok = await call("PUT", `/api/admin/rate-plans/${ratePlanId}/calendar`, {
+    dateFrom: d(10), dateTo: d(12), price: 100, allotment: 5,
+    extra_ranges: [{ dateFrom: d(20), dateTo: d(21) }, { dateFrom: d(30), dateTo: d(30) }]
+  }, t.m1);
+  assert.equal(ok.status, 200, JSON.stringify(ok.body));
+  assert.equal(ok.body.days, 6, "3 + 2 + 1 days written");
+  const rows = (await pool.query("SELECT stay_date::text AS dt FROM inventory_daily WHERE rate_plan_id=$1 ORDER BY stay_date", [ratePlanId])).rows.map((r: any) => r.dt);
+  assert.deepEqual(rows, [d(10), d(11), d(12), d(20), d(21), d(30)], "exactly the requested dates exist");
+
+  // reversed extra range → 400
+  const reversed = await call("PUT", `/api/admin/rate-plans/${ratePlanId}/calendar`, {
+    dateFrom: d(40), dateTo: d(41), price: 100, allotment: 5,
+    extra_ranges: [{ dateFrom: d(50), dateTo: d(49) }]
+  }, t.m1);
+  assert.equal(reversed.status, 400);
+  assert.equal(reversed.body.error, "INVALID_EXTRA_RANGE");
+
+  // 21 extra ranges → 400
+  const many = Array.from({ length: 21 }, (_, i) => ({ dateFrom: d(100 + i), dateTo: d(100 + i) }));
+  const tooMany = await call("PUT", `/api/admin/rate-plans/${ratePlanId}/calendar`, { dateFrom: d(60), dateTo: d(61), price: 100, allotment: 5, extra_ranges: many }, t.m1);
+  assert.equal(tooMany.status, 400);
+  assert.equal(tooMany.body.error, "TOO_MANY_EXTRA_RANGES");
+
+  // total > 400 days → 400 DATE_RANGE_TOO_LONG (primary 200 + extra 250)
+  const overCap = await call("PUT", `/api/admin/rate-plans/${ratePlanId}/calendar`, {
+    dateFrom: d(200), dateTo: d(399), price: 100, allotment: 5,
+    extra_ranges: [{ dateFrom: d(500), dateTo: d(749) }]
+  }, t.m1);
+  assert.equal(overCap.status, 400);
+  assert.equal(overCap.body.error, "DATE_RANGE_TOO_LONG");
+
+  // extra range below reserved → 409 and nothing written
+  await pool.query("UPDATE inventory_daily SET reserved = 4 WHERE rate_plan_id=$1 AND stay_date=$2", [ratePlanId, d(20)]);
+  const before = (await pool.query("SELECT count(*)::int AS c FROM inventory_daily WHERE rate_plan_id=$1", [ratePlanId])).rows[0].c;
+  const below = await call("PUT", `/api/admin/rate-plans/${ratePlanId}/calendar`, {
+    dateFrom: d(400), dateTo: d(400), price: 100, allotment: 2,
+    extra_ranges: [{ dateFrom: d(20), dateTo: d(20) }]
+  }, t.m1);
+  assert.equal(below.status, 409);
+  assert.equal(below.body.error, "ALLOTMENT_BELOW_RESERVED");
+  const after = (await pool.query("SELECT count(*)::int AS c FROM inventory_daily WHERE rate_plan_id=$1", [ratePlanId])).rows[0].c;
+  assert.equal(after, before, "refused write creates nothing");
+
+  // audit covers every range
+  const audit = (await pool.query(
+    "SELECT after FROM audit_logs WHERE action='calendar.updated' AND entity_id=$1 ORDER BY id DESC LIMIT 1", [ratePlanId])).rows[0];
+  const auditedDates = new Set(audit.after.map((r: any) => r.date));
+  for (const expected of [d(10), d(11), d(12), d(20), d(21), d(30)]) assert.ok(auditedDates.has(expected), `audit covers ${expected}`);
+});
+
 // ================================================================ T06 — Concurrent reservations
 test("T06 concurrent reservations: 100 requests vs 5 units, max 5 allocated", { skip }, async () => {
   const { t, M1, SA } = await setupTwoDMCs();
