@@ -50,7 +50,8 @@ export async function sendOwnerDigest(db:Db,now=new Date()):Promise<boolean>{
   const digest=rows.filter(x=>x.channel==="digest").slice(0,10).map(x=>x.summary);
   const count=rows.filter(x=>x.channel==="count_only").length;
   const approvals=(await db.query("SELECT id,agent_id FROM approval_queue WHERE state='pending' AND tenant_id IS NULL ORDER BY created_at LIMIT 10")).rows;
-  const lines=[...digest,...approvals.map(a=>("Pending approval ("+a.agent_id+") — AI Center: ")+(process.env.AI_CENTER_URL||"https://aget.bed4book.com")+"?page=ai-center&approval="+a.id)];
+  const centerUrl=process.env.AI_CENTER_URL?.trim();
+  const lines=[...digest,...approvals.map(a=>"Pending approval ("+a.agent_id+")"+(centerUrl?" — AI Center: "+centerUrl+"?page=ai-center&approval="+a.id:""))];
   if(count)lines.push("Other notifications: "+count);
   const text=lines.slice(0,10).map((x,i)=>(i+1)+". "+x).join("\n")||"No notifications today.";
   // Idempotent outbox key prevents duplicate email even across worker restarts.
