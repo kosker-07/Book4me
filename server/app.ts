@@ -2,6 +2,7 @@ import express, { NextFunction, Request, Response } from "express";
 import path from "node:path";
 import type { PoolClient } from "pg";
 import { transition } from "./booking-transition";
+import { priceForOccupancy, OccupancyPrices } from "./occupancy-pricing";
 import { createHash, randomUUID } from "node:crypto";
 import { pool, withTransaction } from "./db";
 import { bootstrapAdmin } from "./bootstrap-admin";
@@ -196,7 +197,8 @@ interface CandidateRow {
   room_id: string; room_name: string; room_key: string; max_adults: number; max_children: number;
   hotel_id: string; hotel_name: string; hotel_group_key: string | null; location: string; category: string | null;
   markup_type: "percent" | "fixed"; markup_value: string;
-  source: string; platform_margin_percent: string; buyer_markup_percent: string; platform_fee_percent: string; nights: { date: string; price: string }[];
+  source: string; platform_margin_percent: string; buyer_markup_percent: string; platform_fee_percent: string;
+  nights: { date: string; price: string; occ: OccupancyPrices | null; min: number | null; rel: number | null }[];
 }
 
 /** Published, active, bookable rate plans with allotment for every night, whose contract is active and valid
@@ -216,7 +218,7 @@ async function loadCandidates(db: { query: PoolClient["query"] }, agencyId: stri
               ELSE '0' END AS buyer_markup_percent,
             CASE WHEN s.source = 'publication' AND h.owner_agency_id = buyer.parent_agency_id
               THEN coalesce(parent.platform_fee_percent, 0)::text ELSE '0' END AS platform_fee_percent,
-            json_agg(json_build_object('date', d.stay_date::text, 'price', d.price::text) ORDER BY d.stay_date) AS nights
+            json_agg(json_build_object('date', d.stay_date::text, 'price', d.price::text, 'occ', d.occupancy_prices, 'min', d.min_stay, 'rel', d.release_days) ORDER BY d.stay_date) AS nights
        FROM effective_agency_sales($1) s
        JOIN agencies sa ON sa.id = s.agency_id AND sa.active
        JOIN agencies buyer ON buyer.id = s.agency_id
@@ -259,6 +261,25 @@ async function loadRules(db: { query: PoolClient["query"] }, contractIds: string
 const fitsOccupancy = (row: { max_adults: number; max_children: number }, occupancies: { adults: number; children: number }[]) =>
   occupancies.every(room => room.adults <= row.max_adults && room.children <= row.max_children);
 
+type RoomOcc = { adults: number; children?: number; childAges?: number[] };
+const todayUtc = () => new Date().toISOString().slice(0, 10);
+const daysBetween = (a: string, b: string) => Math.round((Date.parse(b + "T00:00:00Z") - Date.parse(a + "T00:00:00Z")) / 86_400_000);
+/** Minimum stay and release are read from the arrival night. null = allowed, otherwise the reason. */
+function stayRestriction(arrival: { min?: number | null; rel?: number | null } | undefined, checkIn: string, checkOut: string): string | null {
+  if (!arrival) return null;
+  if (arrival.min && daysBetween(checkIn, checkOut) < arrival.min) return "MIN_STAY";
+  if (arrival.rel !== null && arrival.rel !== undefined && daysBetween(todayUtc(), checkIn) < arrival.rel) return "RELEASE_PASSED";
+  return null;
+}
+/** Per-room nets for a night priced by occupancy; null when any room's occupancy is not priced. */
+function roomNets(occ: OccupancyPrices | null | undefined, rooms: RoomOcc[] | null | undefined): number[] | null | undefined {
+  if (!occ) return undefined;                       // classic: one room price for every occupancy
+  if (!rooms || !rooms.length) return null;
+  const out: number[] = [];
+  for (const r of rooms) { const v = priceForOccupancy(occ, r.adults, Array.isArray(r.childAges) ? r.childAges : []); if (v === null) return null; out.push(v); }
+  return out;
+}
+
 const toCandidate = (row: CandidateRow): Candidate => ({
   ratePlanId: row.rate_plan_id, hotelId: row.hotel_id, roomId: row.room_id, board: row.board_name,
   ...(row.hotel_group_key ? { hotelGroupKey: row.hotel_group_key } : {}), ...(row.room_key ? { roomKey: row.room_key } : {}),
@@ -300,18 +321,20 @@ app.post("/api/agency/searches", authenticate, roles("sub_agency"), requireAgenc
         eligibilityOf.set(r.rate_plan_id, e);
         return e.eligible;   // ineligible contracts never compete and are never shown
       })
-      .map(r => {
+      .filter(r => stayRestriction(r.nights[0], stay.checkIn, stay.checkOut) === null)
+      .flatMap(r => {
         const candidate = toCandidate(r);
-        if (r.source === "distribution_rule") {
-          candidate.nights = r.nights.map(n => ({
-            date: n.date,
-            netPrice: formatMinor(priceMarketplaceChain(
-              parseMinor(n.price, r.minor_units), r.platform_margin_percent,
-              r.buyer_markup_percent, r.minor_units).saleMinor, r.minor_units)
-          }));
-          candidate.markup = { type: "percent", value: "0" };
-        }
-        return priceCandidate(candidate, occupancy, stay.checkIn, stay.checkOut, stay.rooms, comparisonRates(fx), nationalities);
+        const perRoom = r.nights.map(n => roomNets(n.occ, stay.roomOccupancies));
+        if (perRoom.some(x => x === null)) return [];   // an occupancy the contract does not price is not sold
+        const chain = (v: string | number) => r.source === "distribution_rule"
+          ? formatMinor(priceMarketplaceChain(parseMinor(v, r.minor_units), r.platform_margin_percent, r.buyer_markup_percent, r.minor_units).saleMinor, r.minor_units)
+          : v;
+        candidate.nights = r.nights.map((n, i) => ({
+          date: n.date, netPrice: chain(n.price),
+          ...(perRoom[i] ? { roomNetPrices: perRoom[i]!.map(v => chain(formatMinor(Math.round(v * 10 ** r.minor_units), r.minor_units))) } : {})
+        }));
+        if (r.source === "distribution_rule") candidate.markup = { type: "percent", value: "0" };
+        return [priceCandidate(candidate, occupancy, stay.checkIn, stay.checkOut, stay.rooms, comparisonRates(fx), nationalities)];
       });
     const results = chooseWinners(offers).map(w => {
       const row = byRatePlan.get(w.ratePlanId)!, digits = row.minor_units, contractFx = fx.get(w.currency)!;
@@ -333,7 +356,7 @@ app.post("/api/agency/searches", authenticate, roles("sub_agency"), requireAgenc
         cancellationPolicy: row.cancellation_policy,
         paymentTerms: row.payment_terms,
         checkIn: stay.checkIn, checkOut: stay.checkOut, rooms: stay.rooms, nationalities,
-        nights: w.nights.map((n, i) => ({ date: n.date, price: formatMinor(w.nightSellMinor[i]!, digits) })),
+        nights: w.nights.map((n, i) => ({ date: n.date, price: formatMinor(w.nightSellMinor[i]!, digits), ...(n.roomNetPrices ? { allRooms: true } : {}) })),
         total: formatMinor(w.totalMinor, digits),
         currency: w.currency,
         payment: { currency: pay.code, total: formatMinor(paymentAmountMinor, pay.minorUnits) },
@@ -432,32 +455,44 @@ function saleNightMinor(netMinor: number, sale: Sale): number {
 }
 
 /** Atomically decrements every night and writes the nightly price snapshot. Throws 409 on any failure. */
+/** Per-room nets of one inventory night: [price] x rooms for classic plans, one occupancy price per room otherwise. */
+function nightNets(row: { price: string; occupancy_prices: OccupancyPrices | null }, rooms: number, occupancies: RoomOcc[] | null | undefined, digits: number) {
+  const per = roomNets(row.occupancy_prices, occupancies);
+  if (per === null) throw httpError(409, "OCCUPANCY_NOT_PRICED");
+  return per === undefined ? null : per.map(v => Math.round(v * 10 ** digits));
+}
+
+/** Atomically decrements every night and writes the nightly price snapshot. Throws 409 on any failure. */
 async function reserveNights(client: PoolClient, bookingId: string, ratePlanId: string, checkIn: string, checkOut: string,
-                             rooms: number, sale: Sale, expectedTotalMinor: number) {
+                             rooms: number, sale: Sale, expectedTotalMinor: number, occupancies?: RoomOcc[] | null) {
   const digits = sale.minorUnits;
-  const nights: { date: string; inventoryId: string; netMinor: number; sellMinor: number }[] = [];
+  const nights: { date: string; inventoryId: string; netMinor: number; sellMinor: number; perRoom: number[] | null }[] = [];
   for (const date of nightsBetween(checkIn, checkOut)) {
     const updated = await client.query(
       `UPDATE inventory_daily SET reserved = reserved + $3
         WHERE rate_plan_id = $1 AND stay_date = $2::date AND allotment - reserved >= $3
-      RETURNING id, price::text AS price`,
+      RETURNING id, price::text AS price, occupancy_prices, min_stay AS min, release_days AS rel`,
       [ratePlanId, date, rooms]);
     if (updated.rowCount !== 1) throw httpError(409, "ALLOTMENT_UNAVAILABLE");
+    if (!nights.length && stayRestriction(updated.rows[0], checkIn, checkOut)) throw httpError(409, "STAY_RESTRICTED", { reason: stayRestriction(updated.rows[0], checkIn, checkOut) });
     const netMinor = parseMinor(updated.rows[0].price, digits);
-    nights.push({ date, inventoryId: updated.rows[0].id, netMinor, sellMinor: saleNightMinor(netMinor, sale) });
+    const perRoom = nightNets(updated.rows[0], rooms, occupancies, digits);
+    nights.push({ date, inventoryId: updated.rows[0].id, netMinor, sellMinor: perRoom ? perRoom.reduce((s, v) => s + saleNightMinor(v, sale), 0) : saleNightMinor(netMinor, sale), perRoom });
   }
-  const totalMinor = nights.reduce((s, n) => s + n.sellMinor, 0) * rooms;
+  const totalMinor = nights.reduce((s, n) => s + n.sellMinor * (n.perRoom ? 1 : rooms), 0);
   if (totalMinor !== expectedTotalMinor) throw httpError(409, "PRICE_CHANGED");
-  for (const n of nights) {
+  for (const night of nights) for (const [roomNo, n] of (night.perRoom
+      ? night.perRoom.map((net, i) => [i + 1, { ...night, netMinor: net, sellMinor: saleNightMinor(net, sale), rooms: 1 }] as const)
+      : [[1, { ...night, rooms }] as const])) {
     const breakdown = sale.source === "distribution_rule"
       ? priceMarketplaceChain(n.netMinor, sale.platformMarginPercent, sale.buyerMarkupPercent, digits)
       : null;
     await client.query(
       `INSERT INTO booking_nights(booking_id, stay_date, inventory_id, rooms, net_price, markup_type, markup_value, sell_price, currency,
         marketplace_platform_margin_percent, marketplace_platform_margin, marketplace_buyer_cost,
-        marketplace_buyer_markup_percent, marketplace_buyer_markup, marketplace_platform_fee_percent, marketplace_platform_fee)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)`,
-      [bookingId, n.date, n.inventoryId, rooms, formatMinor(n.netMinor, digits),
+        marketplace_buyer_markup_percent, marketplace_buyer_markup, marketplace_platform_fee_percent, marketplace_platform_fee, room_no)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)`,
+      [bookingId, n.date, n.inventoryId, n.rooms, formatMinor(n.netMinor, digits),
        sale.markup.type, normalizeDecimal(sale.markup.value), formatMinor(n.sellMinor, digits), sale.currency,
        breakdown?.platformMarginPercent ?? null,
        breakdown ? formatMinor(breakdown.platformMarginMinor, digits) : null,
@@ -465,18 +500,24 @@ async function reserveNights(client: PoolClient, bookingId: string, ratePlanId: 
        breakdown?.buyerMarkupPercent ?? null,
        breakdown ? formatMinor(breakdown.buyerMarkupMinor, digits) : null,
        sale.source === "publication" ? sale.platformFeePercent : null,
-       sale.source === "publication" ? formatMinor(platformFeeMinor(n.netMinor, sale.platformFeePercent, digits), digits) : null]);
+       sale.source === "publication" ? formatMinor(platformFeeMinor(n.netMinor, sale.platformFeePercent, digits), digits) : null, roomNo]);
   }
   return totalMinor;
 }
 
 /** The current price of the quoted nights without touching inventory (used for drafts). */
-async function currentTotalMinor(client: PoolClient, ratePlanId: string, checkIn: string, checkOut: string, rooms: number, sale: Sale) {
+async function currentTotalMinor(client: PoolClient, ratePlanId: string, checkIn: string, checkOut: string, rooms: number, sale: Sale, occupancies?: RoomOcc[] | null) {
   const rows = (await client.query(
-    "SELECT price::text AS price FROM inventory_daily WHERE rate_plan_id = $1 AND stay_date >= $2::date AND stay_date < $3::date ORDER BY stay_date",
+    `SELECT price::text AS price, occupancy_prices, min_stay AS min, release_days AS rel FROM inventory_daily
+      WHERE rate_plan_id = $1 AND stay_date >= $2::date AND stay_date < $3::date ORDER BY stay_date`,
     [ratePlanId, checkIn, checkOut])).rows;
   if (rows.length !== nightsBetween(checkIn, checkOut).length) throw httpError(409, "ALLOTMENT_UNAVAILABLE");
-  return rows.reduce((s: number, r: any) => s + saleNightMinor(parseMinor(r.price, sale.minorUnits), sale), 0) * rooms;
+  const restricted = stayRestriction(rows[0], checkIn, checkOut);
+  if (restricted) throw httpError(409, "STAY_RESTRICTED", { reason: restricted });
+  return rows.reduce((s: number, r: any) => {
+    const perRoom = nightNets(r, rooms, occupancies, sale.minorUnits);
+    return s + (perRoom ? perRoom.reduce((t, v) => t + saleNightMinor(v, sale), 0) : saleNightMinor(parseMinor(r.price, sale.minorUnits), sale) * rooms);
+  }, 0);
 }
 
 async function writeSnapshot(client: PoolClient, bookingId: string, sale: Sale, ratePlanId: string, nationalities: string[],
@@ -591,8 +632,8 @@ app.post("/api/agency/bookings", authenticate, roles("sub_agency"), requireAgenc
          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$9,$10,$11, CASE WHEN $11 = 'pending' THEN now() END, $12,$13,$14,$15,$16,$17,$18,$19,$20,$21::jsonb)`,
         [bookingId, bookingNo, agencyId, sale.hotelId, q.ratePlanId, q.checkIn, q.checkOut, q.rooms, quotedTotal, q.currency, status,
          guest.firstName, guest.lastName, guest.email, guest.phone, guest.nationality, adults, children, childAges, guest.operationNote, JSON.stringify(q.roomOccupancies)]);
-      if (!asDraft && !awaitingApproval) await reserveNights(client, bookingId, q.ratePlanId, q.checkIn, q.checkOut, q.rooms, sale, q.totalMinor);
-      else if ((await currentTotalMinor(client, q.ratePlanId, q.checkIn, q.checkOut, q.rooms, sale)) !== q.totalMinor) throw httpError(409, "PRICE_CHANGED");
+      if (!asDraft && !awaitingApproval) await reserveNights(client, bookingId, q.ratePlanId, q.checkIn, q.checkOut, q.rooms, sale, q.totalMinor, q.roomOccupancies);
+      else if ((await currentTotalMinor(client, q.ratePlanId, q.checkIn, q.checkOut, q.rooms, sale, q.roomOccupancies)) !== q.totalMinor) throw httpError(409, "PRICE_CHANGED");
       const guests = [{ firstName: guest.firstName, lastName: guest.lastName, type: "adult", age: null as number | null, nationality: guest.nationality, isLead: true },
                       ...otherGuests.map(g => ({ ...g, nationality: guest.nationality, isLead: false }))];
       for (const [i, g] of guests.entries())
@@ -649,7 +690,7 @@ app.post("/api/agency/bookings/:id/submit", authenticate, roles("sub_agency"), r
       await revalidateContract(client, sale, snap.contract_id, b.check_in, b.check_out, (snap.nationalities as string[]).map(x => x.trim()));
       await revalidateFx(client, sale.currency, snap.fx_rate_history_id === null ? null : Number(snap.fx_rate_history_id),
                          String(snap.payment_currency).trim(), snap.payment_fx_rate_history_id === null ? null : Number(snap.payment_fx_rate_history_id));
-      await reserveNights(client, bookingId, b.rate_plan_id, b.check_in, b.check_out, b.room_count, sale, parseMinor(b.quoted_total, sale.minorUnits));
+      await reserveNights(client, bookingId, b.rate_plan_id, b.check_in, b.check_out, b.room_count, sale, parseMinor(b.quoted_total, sale.minorUnits), b.room_occupancies);
       await client.query("INSERT INTO booking_status_history(booking_id,from_status,to_status,actor_id,note) VALUES ($1,'draft','pending',$2,'Submitted by sub-agency')",
         [bookingId, req.auth!.sub]);
       await audit(client, req.auth!.sub, agencyId, "booking.submitted", "booking", bookingId,
@@ -700,7 +741,7 @@ app.post("/api/dmc/credit-approvals/:id/approve", authenticate, roles("master_ag
       await revalidateContract(client, sale, snap.contract_id, b.check_in, b.check_out, (snap.nationalities as string[]).map(x => x.trim()));
       await revalidateFx(client, sale.currency, snap.fx_rate_history_id === null ? null : Number(snap.fx_rate_history_id),
                          String(snap.payment_currency).trim(), snap.payment_fx_rate_history_id === null ? null : Number(snap.payment_fx_rate_history_id));
-      await reserveNights(client, bookingId, b.rate_plan_id, b.check_in, b.check_out, b.room_count, sale, parseMinor(b.quoted_total, sale.minorUnits));
+      await reserveNights(client, bookingId, b.rate_plan_id, b.check_in, b.check_out, b.room_count, sale, parseMinor(b.quoted_total, sale.minorUnits), b.room_occupancies);
       await client.query("INSERT INTO booking_status_history(booking_id,from_status,to_status,actor_id,note) VALUES ($1,'awaiting_credit_approval','pending',$2,'Credit approved by DMC')",
         [bookingId, req.auth!.sub]);
       await audit(client, req.auth!.sub, b.agency_id, "booking.credit_approved", "booking", bookingId,
@@ -750,7 +791,9 @@ async function bookingDetail(bookingId: string, scopeSql: string, scopeParams: u
       WHERE b.id = $1 AND ${scopeSql}`, [bookingId, ...scopeParams])).rows[0];
   if (!b) return null;
   const nights = (await pool.query(
-    "SELECT stay_date::text AS date, rooms, sell_price, currency FROM booking_nights WHERE booking_id=$1 ORDER BY stay_date", [bookingId])).rows;
+    `SELECT stay_date::text AS date, sum(rooms)::int AS rooms, (sum(sell_price * rooms) / sum(rooms))::numeric(14,2)::text AS sell_price,
+            sum(sell_price * rooms)::numeric(14,2)::text AS night_total, currency
+       FROM booking_nights WHERE booking_id=$1 GROUP BY stay_date, currency ORDER BY stay_date`, [bookingId])).rows;
   const history = (await pool.query(
     "SELECT from_status, to_status, actor_id, note, created_at FROM booking_status_history WHERE booking_id=$1 ORDER BY id", [bookingId])).rows;
   const guests = (await pool.query(

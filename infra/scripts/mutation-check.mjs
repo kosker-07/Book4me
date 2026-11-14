@@ -60,6 +60,9 @@ const M = [
     "  if (!target) throw httpError(400, \"TARGET_MUST_BE_ACTIVE_SUB_AGENCY\");"]] },
   { id: "M18", what: "Voucher otel adını konumla değiştir", expect: ["A2"], edits: [["server/app.ts",
     "bookingNo: b.booking_no, status: b.status, hotelName: b.hotel_name,", "bookingNo: b.booking_no, status: b.status, hotelName: b.hotel_location,"]] },
+  { id: "M31", what: "quote token readable", expect: ["quotes:"], unit: ["quotes: encrypted q3"], edits: [["server/quotes.ts",
+    '  return `q3.${iv.toString("base64url")}.${encrypted.toString("base64url")}.${cipher.getAuthTag().toString("base64url")}`;',
+    '  return `q2.${Buffer.from(JSON.stringify(payload)).toString("base64url")}.plain`;']] },
   // ---- nationality-based contract pricing
   { id: "M19", what: "Uyruk hariç tutma kuralını yok say", expect: ["N04"], unit: ["eligibility: exclusion first"], edits: [["server/eligibility.ts",
     "  const excluded = rules.filter(r => r.type === \"exclude\" && appliesTo(r, nationality));", "  const excluded: NationalityRule[] = [];"]] },
