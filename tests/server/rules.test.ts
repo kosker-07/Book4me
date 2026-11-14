@@ -73,21 +73,35 @@ test("validation: guest fields", () => {
   assert.deepEqual(Object.keys(e).sort(), ["guest.email", "guest.firstName", "guest.lastName", "guest.nationality", "guest.phone", "operationNote"]);
 });
 
-test("quotes: signed, tamper-evident, expiring", () => {
+test("quotes: encrypted q3, confidential, tamper-evident, expiring, legacy rejected", () => {
   const secret = "unit-test-secret-with-at-least-32-chars";
-  const t = signQuote({ agencyId: "a", ratePlanId: "rp", contractId: "c", checkIn: "x", checkOut: "y", rooms: 1, adults: 2, children: 0, childAges: [],
+  const sensitive = ["seller-agency-uuid", "rate-plan-uuid", "contract-uuid", "rule-uuid"];
+  const t = signQuote({ agencyId: sensitive[0]!, ratePlanId: sensitive[1]!, contractId: sensitive[2]!, checkIn: "2030-01-01", checkOut: "2030-01-02", rooms: 1, adults: 2, children: 0, childAges: [],
     roomOccupancies: [{ adults: 2, children: 0, childAges: [] }],
-    nationalities: ["DE", "TR"], ruleIds: [null, "r1"], totalMinor: 100, currency: "EUR", minorUnits: 2, fxRateId: null,
+    nationalities: ["DE", "TR"], ruleIds: [null, sensitive[3]!], totalMinor: 100, currency: "EUR", minorUnits: 2, fxRateId: null,
     paymentCurrency: "EUR", paymentMinorUnits: 2, paymentAmountMinor: 100, paymentFxRateId: null }, secret, 0);
+  const parts = t.split(".");
+  assert.equal(parts.length, 4);
+  assert.equal(parts[0], "q3");
   assert.equal(verifyQuote(t, secret, 1000).ok, true);
-  const [p, body, sig] = t.split(".");
-  const forged = `${p}.${Buffer.from(JSON.stringify({ ...JSON.parse(Buffer.from(body!, "base64url").toString()), totalMinor: 1 })).toString("base64url")}.${sig}`;
-  assert.deepEqual(verifyQuote(forged, secret, 1000), { ok: false, error: "INVALID_QUOTE" });
+  for (const segment of parts.slice(1)) {
+    const decoded = Buffer.from(segment!, "base64url").toString("utf8");
+    for (const id of sensitive) {
+      assert.ok(!decoded.includes(id), "quote segment leaks internal identifier");
+      assert.ok(!t.includes(id), "quote string leaks internal identifier");
+    }
+  }
+  for (const index of [1, 2, 3]) {
+    const mutated = [...parts];
+    const raw = Buffer.from(mutated[index]!, "base64url");
+    raw[0] = raw[0]! ^ 1;
+    mutated[index] = raw.toString("base64url");
+    assert.deepEqual(verifyQuote(mutated.join("."), secret, 1000), { ok: false, error: "INVALID_QUOTE" });
+  }
   assert.deepEqual(verifyQuote(t, secret, 31 * 60 * 1000), { ok: false, error: "QUOTE_EXPIRED" });
   assert.deepEqual(verifyQuote(t, "another-secret-with-at-least-32-chars!!", 1000), { ok: false, error: "INVALID_QUOTE" });
-  // a version-1 token (no nationality / FX data) is never accepted
-  const v1Body = Buffer.from(JSON.stringify({ v: 1, agencyId: "a", exp: 9e9 })).toString("base64url");
-  assert.deepEqual(verifyQuote(`q1.${v1Body}.${sig}`, secret, 1000), { ok: false, error: "INVALID_QUOTE" });
+  const legacy = Buffer.from(JSON.stringify({ v: 2, agencyId: sensitive[0], exp: 9e9 })).toString("base64url");
+  assert.deepEqual(verifyQuote(`q2.${legacy}.old-signature`, secret, 1000), { ok: false, error: "INVALID_QUOTE" });
 });
 
 test("no explicit row locks or hold states in server code and migrations", async () => {
