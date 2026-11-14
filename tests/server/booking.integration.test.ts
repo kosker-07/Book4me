@@ -389,14 +389,31 @@ test("15c different sales conditions are separate products; conditions are not e
 
 test("16 competitor offers and other agencies' data do not leak into a participant's response", { skip }, async () => {
   const a = await search(tok.a!);
-  for (const secret of [RP1, RP2, RP3, RPUSD, M1, M2, SA, SB, "264.00", "\"net", "markup", "sell_price", "owner"])
-    assert.ok(!a.raw.includes(secret), `agency A response leaks ${secret}`);
+  // quoteId is a signed base64url blob: any short token can appear inside it by chance (measured
+  // ~6.8% of payloads contain "BB"), so substring-matching the raw body gives false positives.
+  // Inspect the structured offer instead and only scan the payload with the blob removed.
+  const visible = (raw: string) => raw.replace(/"quoteId":"[^"]*"/g, '"quoteId":"<signed>"');
+  const keysOf = (value: unknown, out = new Set<string>()): Set<string> => {
+    if (Array.isArray(value)) value.forEach(v => keysOf(v, out));
+    else if (value && typeof value === "object") for (const [k, v] of Object.entries(value)) { out.add(k); keysOf(v, out); }
+    return out;
+  };
+  const FORBIDDEN_KEYS = ["sell_price", "sellPrice", "netPrice", "net_price", "netCost", "margin", "platformFee",
+                          "platform_fee", "ownerAgencyId", "owner_agency_id", "contractId", "contract_id"];
+  const aKeys = keysOf(a.body.results);
+  for (const key of FORBIDDEN_KEYS) assert.ok(!aKeys.has(key), `agency A response exposes field ${key}`);
+  for (const secret of [RP1, RP2, RP3, RPUSD, M1, M2, SA, SB, "264.00", "\"net", "markup"])
+    assert.ok(!visible(a.raw).includes(secret), `agency A response leaks ${secret}`);
+
   const b = await search(tok.b!);
   const bWinner = findResult(b.body.results, H1, "AI");
   assert.equal(bWinner.length, 1);
   assert.equal(bWinner[0].total, "210.00"); // RP1 for B: (100 + 5 fixed) x 2
+  // B must not see any offer other than the winner it was quoted: no competitor board, no rival price.
+  assert.equal(b.body.results.length, 1, "only the winning offer is returned");
+  assert.ok(!keysOf(b.body.results).has("netPrice"), "agency B response exposes net price");
   for (const secret of ["220.00", "176.00", "BB", RP1, RP2, RP3])
-    assert.ok(!b.raw.includes(secret), `agency B response leaks ${secret}`);
+    assert.ok(!visible(b.raw).includes(secret), `agency B response leaks ${secret}`);
 });
 
 test("16b a sub-agency cannot book with another agency's quote", { skip }, async () => {

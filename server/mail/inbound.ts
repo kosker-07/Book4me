@@ -2,6 +2,7 @@
 // attachments are fetched with the receiving API using the owner's own key (platform key or the DMC's key).
 import { createHash } from "node:crypto";
 import { recordOwnerNotification } from "../ai/owner-notify";
+import { queuePlatformInbox } from "../ai/jobs";
 import { functionForAddress } from "./addresses";
 import { fetchReceivedEmail, ReceivedEmail } from "./provider";
 import type { Db } from "./outbox";
@@ -61,6 +62,9 @@ export async function handleInbound(deps: InboundDeps, tenantId: string | null, 
   if (tenantId === null && fn === "security") {
     await recordOwnerNotification(deps.db,"security-email:"+row.id,{kind:"alert",function:"security"},
       "New BED4BOOK security mailbox message. Review the platform inbox.");
+  }
+  if (tenantId === null && fn && ["reservations","accounting","contracts","support"].includes(fn)) {
+    await queuePlatformInbox(deps.db, row.id);
   }
   return { stored: true, deduplicated: false };
 }

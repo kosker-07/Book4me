@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - main
-      - feature/bed4book-v1-server-foundation
       - "claude/**"
     paths:
       - "server/**"
@@ -15,6 +14,7 @@ on:
       - "infra/**"
       - ".github/workflows/bed4book-v1-server.yml"
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - "server/**"
       - "tests/server/**"
@@ -23,6 +23,10 @@ on:
       - "tsconfig.server.json"
       - "infra/**"
       - ".github/workflows/bed4book-v1-server.yml"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
   server:
@@ -101,6 +105,7 @@ jobs:
 
   # M1–M24: each mutation must turn its expected test red; files are restored and verified with git diff.
   mutation:
+    if: github.event_name == 'push' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     needs: server
     services:
