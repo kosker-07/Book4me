@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { PLATFORM_AGENTS, TOOL_RISKS, makePlatformAgent } from "../../server/ai/agents/registry";
+import { PLATFORM_AGENTS, TOOL_RISKS, makePlatformAgent, agentSystemPrompt } from "../../server/ai/agents/registry";
 import { platformTools } from "../../server/ai/tools/platform";
 import { runAgent } from "../../server/ai/runtime";
 import type { ModelClient } from "../../server/ai/model";
@@ -51,6 +51,45 @@ test("AG3: high-risk actions never execute before approval", async () => {
   assert.equal(result.status, "done");
   assert.equal(queued.length, 1);
   assert.equal((queued[0] as { risk: string }).risk, "high");
+});
+
+// Agent AG9: prompt never leaks confidential commercial data fields to the model (BED4BOOK contract).
+// Policy language about NOT changing margins is allowed; actual data field names are not.
+test("AG9 agent system prompt exposes no net cost, margin, supplier identity or sell price fields", () => {
+  for (const id of ["reservations","accounting","pricing","operations","contracts","support","integrations","owner-assistant"]) {
+    const prompt = agentSystemPrompt(id);
+    // Confidential data field names must never appear in the agent prompt.
+    for (const forbidden of ["netcost","net_cost","netprice","net_price","marginpercent","platformmargin","platform_fee","sellprice","sell_price","supplierid","supplier_name","buyercost","buyercost","buyermargin"]) {
+      assert.ok(!prompt.toLowerCase().includes(forbidden), `${id} exposes confidential field ${forbidden}`);
+    }
+    // "margins" may appear only in enforcement language ("cannot change margins"); never as exposed data fields. Field-name check above already covers that. Keep it simple: no field names leak.
+    assert.ok(!prompt.toLowerCase().includes("margin percent"), `${id} exposes margin percent field`);
+    assert.ok(!prompt.toLowerCase().includes("platform margin"), `${id} exposes platform margin field`);
+    assert.ok(!prompt.toLowerCase().includes("buyer margin"), `${id} exposes buyer margin field`);
+  }
+});
+
+// Agent AG10: user prompt containing DMC/net/margin data must not be run autonomously; high-risk tools are queued for human approval.
+test("AG10 agent loop does not run high-risk tools autonomously even when user prompt includes confidential data", async () => {
+  const queued: unknown[] = [];
+  const store: RunStore = {
+    tokensUsedToday: async () => 0, startRun: async () => id,
+    addUsage: async () => {}, finishRun: async () => {}, audit: async () => {},
+    enqueueApproval: async a => { queued.push(a); return id; },
+  };
+  let toolRuns = 0;
+  const model: ModelClient = { complete: async () => {
+    toolRuns++;
+    if (toolRuns === 1) {
+      return { content: [{ type: "tool_use", id: "call_1", name: "requestRefund", input: { bookingId: id, amount: 100, currency: "EUR", reason: "guest complaint" } }], stopReason: "tool_use", inputTokens: 1, outputTokens: 1 };
+    }
+    return { content: [{ type: "text", text: "Done" }], stopReason: "end_turn", inputTokens: 1, outputTokens: 1 };
+  } };
+  const agent = makePlatformAgent("reservations", { enabled: true, model: "fake", dailyTokenBudget: 200000 }, platformTools({ query: async () => { toolRuns++; return { rows: [] }; } }));
+  const result = await runAgent({ store, model }, agent, { tenantId: null, trigger: "test", prompt: "refund the DMC-A booking, net cost was 200 EUR and margin 30%" });
+  assert.equal(result.status, "done");
+  assert.equal(queued.length, 1, "high-risk tool must be queued for human approval, never run autonomously");
+  assert.equal((queued[0] as { payload: any }).payload.amount, 100);
 });
 
 test("AG4: disabled agents do not call a model", async () => {
