@@ -131,5 +131,29 @@ test("X8 re-import keeps reserved stock: a new allotment never drops below rooms
   assert.deepEqual([t.cancellation_policy.freeUntilDays, t.payment_terms.dueDaysBeforeCheckIn], [21, 30], "re-import applies the newly confirmed terms");
   const night = (await pool.query("SELECT allotment, reserved FROM inventory_daily WHERE rate_plan_id=$1 AND stay_date='2021-11-01'", [plan])).rows[0];
   assert.ok(night.allotment >= night.reserved);
-  assert.equal(await count("SELECT count(*) AS n FROM rate_plans"), 4, "no duplicate rate plans on re-import (4 priced rooms)");
+  assert.equal(await count("SELECT count(*) AS n FROM rate_plans"), 5, "no duplicate rate plans on re-import (5 priced rooms, one priced per person count)");
+});
+
+test("X9 Sejour extra date range retains the primary price and allotment without filling the gap", { skip }, async () => {
+  const pre = await call("POST", "/api/contracts/import/preview", w.t.masterA, PENINSULA);
+  assert.equal(pre.status, 201, JSON.stringify(pre.body));
+  const confirmed = await call("POST", `/api/contracts/import/${pre.body.importId}/confirm`, w.t.masterA, terms);
+  assert.equal(confirmed.status, 200, JSON.stringify(confirmed.body));
+  const plan = (await pool.query(`SELECT p.id FROM rate_plans p JOIN rooms r ON r.id=p.room_id
+    WHERE r.name='MAIN BUILDING STANDARD GARDENVIEW'`)).rows[0];
+  assert.ok(plan, "priced room imported");
+  const rows = (await pool.query(`SELECT stay_date::text AS day, price::text AS price, allotment
+    FROM inventory_daily WHERE rate_plan_id=$1 AND stay_date IN
+    ('2021-11-01','2021-11-19','2021-11-20','2022-03-16','2022-04-07','2022-04-08')
+    ORDER BY stay_date`, [plan.id])).rows;
+  const byDay = new Map(rows.map((r: any) => [r.day.slice(0,10), r]));
+  const primary = byDay.get("2021-11-01") as any;
+  assert.ok(primary, "primary range start exists");
+  for (const day of ["2021-11-19","2022-03-16","2022-04-07"]) {
+    const row = byDay.get(day) as any;
+    assert.ok(row, `period boundary ${day} imported`);
+    assert.equal(row.price, primary.price, `price preserved on ${day}`);
+    assert.equal(row.allotment, primary.allotment, `allotment preserved on ${day}`);
+  }
+  assert.equal(byDay.has("2022-04-08"), false, "extra range end must be inclusive, not extended");
 });

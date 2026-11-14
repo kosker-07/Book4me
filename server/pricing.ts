@@ -44,7 +44,8 @@ export const nightlySellCents = (netCents: number, markup: Markup): number => ni
 
 export interface Occupancy { adults: number; children: number; childAges: number[] }
 
-export interface CandidateNight { date: string; netPrice: string | number }
+/** roomNetPrices: per-room net when rooms are priced by occupancy; then the night's sell price covers all rooms. */
+export interface CandidateNight { date: string; netPrice: string | number; roomNetPrices?: (string | number)[] }
 export interface Candidate {
   ratePlanId: string;
   hotelId: string;
@@ -103,11 +104,13 @@ export function priceCandidate(
   eurPerUnit: Map<string, number>, nationalities: readonly string[] = []
 ): PricedOffer {
   const digits = c.minorUnits ?? 2;
-  const nightSellMinor = c.nights.map(n => {
-    const net = parseMinor(n.netPrice, digits);
+  const sellOf = (value: string | number) => {
+    const net = parseMinor(value, digits);
     return nightlySellMinor(net, c.markup, digits) + platformFeeMinor(net, c.platformFeePercent ?? 0, digits);
-  });
-  const totalMinor = nightSellMinor.reduce((s, v) => s + v, 0) * rooms;
+  };
+  const byRoom = c.nights.some(n => n.roomNetPrices);
+  const nightSellMinor = c.nights.map(n => n.roomNetPrices ? n.roomNetPrices.reduce((s: number, v) => s + sellOf(v), 0) : sellOf(n.netPrice));
+  const totalMinor = nightSellMinor.reduce((s, v) => s + v, 0) * (byRoom ? 1 : rooms);
   const rate = c.currency === "EUR" ? 1 : eurPerUnit.get(c.currency);
   const eurCents = rate === undefined || !(rate > 0) ? null : Math.round((totalMinor * rate * 100) / 10 ** digits);
   return { ...c, equivalenceKey: equivalenceKey(c, occupancy, checkIn, checkOut, rooms, nationalities), nightSellMinor, totalMinor, eurCents };
