@@ -307,10 +307,20 @@ app.post("/api/agency/searches", authenticate, roles("sub_agency"), requireAgenc
     const requestedPayment = req.body?.paymentCurrency;
     if (requestedPayment !== undefined && (typeof requestedPayment !== "string" || !(await activeCurrency(pool, requestedPayment))))
       return res.status(400).json({ error: "PAYMENT_CURRENCY_NOT_SUPPORTED" });
-    const [rows, fx] = await Promise.all([loadCandidates(pool, agencyId, stay.checkIn, stay.checkOut, stay.rooms), loadFreshRates(pool)]);
+    const profile = process.env.SEARCH_PROFILE === "1";
+    const timings: Record<string, number> = {};
+    const profileStart = performance.now();
+    const [rows, fx] = await Promise.all([
+      (async () => { const t = performance.now(); const value = await loadCandidates(pool, agencyId, stay.checkIn, stay.checkOut, stay.rooms); timings.db = performance.now() - t; return value; })(),
+      (async () => { const t = performance.now(); const value = await loadFreshRates(pool); timings.fx = performance.now() - t; return value; })()
+    ]);
     const payment = requestedPayment ? await activeCurrency(pool, requestedPayment) : null;
     if (payment && !fx.get(payment.code)) return res.status(409).json({ error: "FX_RATE_UNAVAILABLE", currency: payment.code });
+    const rulesStart = performance.now();
     const rulesFor = rulesByContract(await loadRules(pool, [...new Set(rows.map(r => r.contract_id))]));
+    timings.rules = performance.now() - rulesStart;
+    const pricingStart = performance.now();
+    const fxComparison = comparisonRates(fx);
     const byRatePlan = new Map(rows.map(r => [r.rate_plan_id, r]));
     const eligibilityOf = new Map<string, ContractEligibility>();
     const offers = rows
@@ -333,10 +343,13 @@ app.post("/api/agency/searches", authenticate, roles("sub_agency"), requireAgenc
           ...(perRoom[i] ? { roomNetPrices: perRoom[i]!.map(v => chain(formatMinor(Math.round(v * 10 ** r.minor_units), r.minor_units))) } : {})
         }));
         if (r.source === "distribution_rule") candidate.markup = { type: "percent", value: "0" };
-        return [priceCandidate(candidate, occupancy, stay.checkIn, stay.checkOut, stay.rooms, comparisonRates(fx), nationalities)];
+        return [priceCandidate(candidate, occupancy, stay.checkIn, stay.checkOut, stay.rooms, fxComparison, nationalities)];
       });
     // Winner selection runs across the full candidate set; pagination only limits serialization.
+    timings.pricing = performance.now() - pricingStart;
+    const winnerStart = performance.now();
     const winners = chooseWinners(offers);
+    timings.winners = performance.now() - winnerStart;
     const locationRaw = req.body?.location ?? "";
     if (typeof locationRaw !== "string" || locationRaw.length > 100)
       return res.status(400).json({ error: "INVALID_LOCATION" });
@@ -353,6 +366,8 @@ app.post("/api/agency/searches", authenticate, roles("sub_agency"), requireAgenc
       return res.status(400).json({ error: "INVALID_PAGINATION" });
     const page = pageRaw as number, limit = limitRaw as number;
     const start = (page - 1) * limit;
+    const serializationStart = performance.now();
+    let signingMs = 0;
     const results = filteredWinners.slice(start, start + limit).map(w => {
       const row = byRatePlan.get(w.ratePlanId)!, digits = row.minor_units, contractFx = fx.get(w.currency)!;
       const pay = payment ?? { code: w.currency, minorUnits: digits };
@@ -360,13 +375,16 @@ app.post("/api/agency/searches", authenticate, roles("sub_agency"), requireAgenc
       const paymentAmountMinor = pay.code === w.currency ? w.totalMinor
         : convertMinor(w.totalMinor, digits, contractFx.eurPerUnit, pay.minorUnits, payFx.eurPerUnit);
       const matches = eligibilityOf.get(w.ratePlanId)!.matches;
-      return {
-        quoteId: signQuote({
+      const signStart = performance.now();
+      const quoteId = signQuote({
           agencyId, ratePlanId: w.ratePlanId, contractId: row.contract_id, ...stay, nationalities,
           ruleIds: matches.map(m => m.ruleId), totalMinor: w.totalMinor, currency: w.currency, minorUnits: digits,
           fxRateId: contractFx.historyId, paymentCurrency: pay.code, paymentMinorUnits: pay.minorUnits, paymentAmountMinor,
           paymentFxRateId: payFx.historyId
-        }, sessionSecret()),
+        }, sessionSecret());
+      signingMs += performance.now() - signStart;
+      return {
+        quoteId,
         hotel: { id: row.hotel_id, name: row.hotel_name, location: row.location, category: row.category },
         room: { name: row.room_name },
         board: row.board_name,
@@ -381,6 +399,10 @@ app.post("/api/agency/searches", authenticate, roles("sub_agency"), requireAgenc
                                              toEurPerUnit: payFx.eurPerUnit, validAt: [contractFx.validAt, payFx.validAt].filter(Boolean) } } : {})
       };
     });
+    timings.signQuote = signingMs;
+    timings.json = performance.now() - serializationStart - signingMs;
+    timings.total = performance.now() - profileStart;
+    if (profile) console.info("SEARCH_PROFILE", JSON.stringify({ ...timings, candidates: rows.length, winners: winners.length, returned: results.length }));
     res.json({ results, pagination: { page, limit, total: filteredWinners.length, hasMore: start + limit < filteredWinners.length } });
   } catch (error) { next(error); }
 });
