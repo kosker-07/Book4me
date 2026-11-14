@@ -21,6 +21,7 @@ import { dmcRouter } from "./dmc-routes";
 import { financeRouter } from "./finance-routes";
 import { reportRouter } from "./report-routes";
 import { mailRouter } from "./mail-routes";
+import { languageRouter } from "./language-routes";
 import { startMailWorker } from "./mail/worker";
 import { startAiWorker } from "./ai/jobs";
 import { registerPlatformApprovalHandlers } from "./ai/tools/handlers";
@@ -167,6 +168,7 @@ app.use(dmcRouter);
 app.use(financeRouter);
 app.use(reportRouter);
 app.use(mailRouter);
+app.use(languageRouter);
 
 // A sub-agency sees only hotels explicitly published to that agency.
 app.get("/api/agency/hotels", authenticate, roles("sub_agency"), requireAgency, async (req: AuthedRequest, res, next) => {
