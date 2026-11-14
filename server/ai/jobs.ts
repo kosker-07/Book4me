@@ -47,6 +47,14 @@ export async function renewAiJobLease(db: Db, jobId: string, token: string): Pro
   return updated.rows.length===1;
 }
 
+/** Model/provider errors worth retrying: rate limits, provider 5xx, network failures and timeouts. */
+export function isTransientAiError(message: string | null | undefined): boolean {
+  return !!message && /^AI_PROVIDER_(429|5\d\d)$|fetch failed|timeout|ETIMEDOUT|ECONNRESET|ECONNREFUSED|EAI_AGAIN/i.test(message);
+}
+/** Minutes to wait before attempt 2 and 3. */
+export const AI_JOB_BACKOFF_MINUTES = [1, 5, 30] as const;
+const MAX_AI_JOB_ATTEMPTS = 3;
+
 /** A worker owns its job while heartbeats succeed; the lease is a crash detector, not a deadline. */
 export async function processNextAiJob(db: Db, execute: typeof runPlatformAgent = runPlatformAgent): Promise<boolean> {
   const token=randomUUID();
@@ -58,10 +66,11 @@ export async function processNextAiJob(db: Db, execute: typeof runPlatformAgent 
       JOIN ai_agents a ON a.id=j2.agent_id
       WHERE a.enabled=true AND j2.attempts<3
         AND (j2.state='queued' OR (j2.state='running' AND j2.lease_expires_at<now()))
+        AND (j2.next_attempt_at IS NULL OR j2.next_attempt_at<=now())
       ORDER BY j2.created_at,j2.id LIMIT 1
     )
     AND (j.state='queued' OR (j.state='running' AND j.lease_expires_at<now()))
-    RETURNING j.id,j.agent_id,j.kind,j.ref_id`,[token])).rows[0];
+    RETURNING j.id,j.agent_id,j.kind,j.ref_id,j.attempts`,[token])).rows[0];
   if(!claimed)return false;
   let leaseHealthy=true;
   let renewing=false;
@@ -88,16 +97,37 @@ export async function processNextAiJob(db: Db, execute: typeof runPlatformAgent 
       }))}),names);
     const result=await execute(db,claimed.agent_id as PlatformAgentId,{trigger:"inbound_email",prompt});
     if(!leaseHealthy)throw new Error("AI_JOB_LEASE_LOST");
-    const state=result.status==="done"?"done":result.status==="disabled"?"queued":"failed";
-    await db.query("UPDATE ai_jobs SET state=$3,run_id=$4,last_error=$5,lease_token=NULL,lease_expires_at=NULL WHERE id=$1 AND lease_token=$2",
-      [claimed.id,token,state,result.runId,state==="failed"?result.status:null]);
+    if(result.status==="disabled"){
+      // The agent was switched off between claim and run: give the attempt back and wait.
+      await db.query(`UPDATE ai_jobs SET state='queued',attempts=GREATEST(attempts-1,0),lease_token=NULL,lease_expires_at=NULL
+        WHERE id=$1 AND lease_token=$2`,[claimed.id,token]);
+    }else if(result.status==="done"){
+      await db.query(`UPDATE ai_jobs SET state='done',run_id=$3,last_error=NULL,next_attempt_at=NULL,lease_token=NULL,lease_expires_at=NULL
+        WHERE id=$1 AND lease_token=$2`,[claimed.id,token,result.runId]);
+    }else{
+      const runError=result.runId?(await db.query("SELECT error FROM ai_runs WHERE id=$1",[result.runId])).rows[0]?.error as string|null|undefined:null;
+      await finishFailed(db,claimed,token,runError??result.status,result.runId);
+    }
   }catch(e){
-    await db.query("UPDATE ai_jobs SET state='failed',last_error=$3,lease_token=NULL,lease_expires_at=NULL WHERE id=$1 AND lease_token=$2",
-      [claimed.id,token,String((e as Error).message||e).slice(0,500)]);
+    await finishFailed(db,claimed,token,String((e as Error).message||e).slice(0,500),null);
   }finally{
     clearInterval(heartbeat);
   }
   return true;
+}
+
+/** Transient errors are retried with backoff until the attempt limit; everything else stays failed for a human. */
+async function finishFailed(db: Db, claimed: { id: string; attempts: number }, token: string, error: string, runId: string|null): Promise<void> {
+  const attempts=Number(claimed.attempts);
+  if(isTransientAiError(error)&&attempts<MAX_AI_JOB_ATTEMPTS){
+    const wait=AI_JOB_BACKOFF_MINUTES[Math.min(attempts,AI_JOB_BACKOFF_MINUTES.length)-1]??AI_JOB_BACKOFF_MINUTES[0];
+    await db.query(`UPDATE ai_jobs SET state='queued',run_id=COALESCE($4,run_id),last_error=$3,
+        next_attempt_at=now()+make_interval(mins=>$5::int),lease_token=NULL,lease_expires_at=NULL
+      WHERE id=$1 AND lease_token=$2`,[claimed.id,token,error.slice(0,500),runId,wait]);
+    return;
+  }
+  await db.query(`UPDATE ai_jobs SET state='failed',run_id=COALESCE($4,run_id),last_error=$3,lease_token=NULL,lease_expires_at=NULL
+    WHERE id=$1 AND lease_token=$2`,[claimed.id,token,error.slice(0,500),runId]);
 }
 
 let timer: NodeJS.Timeout|null=null;
@@ -108,7 +138,7 @@ export function startAiWorker(intervalMs=30000){
     void (async()=>{
       // One base worker, with up to two helpers when queued work accumulates.
       await failExhaustedAiJobs(pool);
-      const pending=(await pool.query("SELECT count(*)::int AS n FROM ai_jobs WHERE state='queued' OR (state='running' AND lease_expires_at<now() AND attempts<3)")).rows[0]?.n??0;
+      const pending=(await pool.query("SELECT count(*)::int AS n FROM ai_jobs WHERE (state='queued' AND (next_attempt_at IS NULL OR next_attempt_at<=now())) OR (state='running' AND lease_expires_at<now() AND attempts<3)")).rows[0]?.n??0;
       const target=pending>=10?3:pending>=4?2:1;
       while(activeWorkers<target){
         activeWorkers++;

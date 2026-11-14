@@ -9,6 +9,7 @@ CREATE TABLE IF NOT EXISTS ai_jobs (
   lease_token uuid,
   lease_expires_at timestamptz,
   last_error text,
+  next_attempt_at timestamptz,
   created_at timestamptz NOT NULL DEFAULT now(),
   run_id uuid REFERENCES ai_runs(id),
   UNIQUE (kind, ref_id)
