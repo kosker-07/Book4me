@@ -147,6 +147,12 @@ adminRouter.delete("/api/admin/hotels/:id", ...managers, h(async (req, res) => {
   const hasBookings = (await pool.query("SELECT 1 FROM bookings WHERE hotel_id = $1 LIMIT 1", [id])).rowCount;
   if (hasBookings) throw httpError(409, "HOTEL_HAS_BOOKINGS");
   await withTransaction(async client => {
+    // contract_rate_plans -> hotel_contracts is ON DELETE RESTRICT (deleting a contract must never
+    // silently unlink its rate plans). Hotel deletion cascades into hotel_contracts, so the links for
+    // this hotel's rate plans must be removed first or the RESTRICT fires.
+    await client.query(
+      `DELETE FROM contract_rate_plans WHERE rate_plan_id IN (
+         SELECT rp.id FROM rate_plans rp JOIN rooms r ON r.id = rp.room_id WHERE r.hotel_id = $1)`, [id]);
     await client.query("DELETE FROM hotels WHERE id = $1", [id]);
     await audit(client, req.auth!.sub, owner.owner_agency_id, "hotel.deleted", "hotel", id);
   });
