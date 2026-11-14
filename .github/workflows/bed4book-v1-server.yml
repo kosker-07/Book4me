@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - feature/bed4book-v1-server-foundation
+      - feature/nemotron/hotel-inventory-completion
       - "claude/**"
     paths:
       - "server/**"
