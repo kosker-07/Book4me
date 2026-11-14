@@ -5,6 +5,7 @@ export const dictionaries = {
     "login.subtitle": "BED4BOOK hotel wholesale platform", "login.email": "Email",
     "login.password": "Password", "login.submit": "Sign in",
     "top.logout": "Sign out", "top.menu": "Open menu",
+    "nav.search": "Hotel search", "nav.bookings": "Bookings", "nav.account": "My account", "nav.dashboard": "Dashboard", "nav.hotels": "Hotels", "nav.markets": "Markets", "nav.agencies": "Agencies and users", "nav.currencies": "Currencies and rates", "nav.reports": "Reports", "nav.contract-import": "Upload contract",
     "top.appearance": "Appearance", "top.system": "System", "top.day": "Day", "top.night": "Night"
   },
   tr: {
@@ -12,6 +13,7 @@ export const dictionaries = {
     "login.subtitle": "BED4BOOK otel toptan satış platformu", "login.email": "E-posta",
     "login.password": "Şifre", "login.submit": "Giriş yap",
     "top.logout": "Çıkış", "top.menu": "Menüyü aç",
+    "nav.search": "Otel arama", "nav.bookings": "Rezervasyonlar", "nav.account": "Hesabım", "nav.dashboard": "Panel", "nav.hotels": "Oteller", "nav.markets": "Pazarlar", "nav.agencies": "Acenteler ve kullanıcılar", "nav.currencies": "Para birimleri ve kurlar", "nav.reports": "Raporlar", "nav.contract-import": "Sözleşme yükle",
     "top.appearance": "Görünüm", "top.system": "Sistemle Aynı", "top.day": "Gündüz", "top.night": "Gece"
   }
 };
