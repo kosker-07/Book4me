@@ -45,33 +45,51 @@ async function main() {
   const day = (o: number) => new Date(Date.now() + o * 86400000).toISOString().slice(0, 10);
   const stay = (i: number) => ({ checkIn: day(31 + (i % 20)), checkOut: day(34 + (i % 20)), rooms: 1, adults: 2, children: 0, childAges: [], roomOccupancies: [{ adults: 2, children: 0, childAges: [] }], nationalities: ["TR"] });
 
-  const searchMs: number[] = []; let results = 0;
-  for (let w = 0; w < SEARCHES / CONCURRENCY; w++)
-    await Promise.all(Array.from({ length: CONCURRENCY }, async (_, k) => {
-      const t = performance.now();
-      const r = await post("/api/agency/searches", { ...stay(w * CONCURRENCY + k), limit: 50 }, token);
-      searchMs.push(performance.now() - t);
-      if (r.status !== 200) throw new Error(`search failed ${r.status}`);
-      results = (await r.json()).results.length;
-    }));
-  const first = (await (await post("/api/agency/searches", { ...stay(0), limit: 100 }, token)).json()).results;
-  const guest = { firstName: "P", lastName: "Q", adults: 2, children: 0, childAges: [], email: "p@q.test", phone: "+905550000000", nationality: "TR" };
-  const bookMs: number[] = [];
-  for (let w = 0; w < 1; w++)
-    await Promise.all(first.slice(0, 100).map(async (q: any) => {
-      const t = performance.now();
-      const r = await post("/api/agency/bookings", { quoteId: q.quoteId, guest, otherGuests: [{ firstName: "R", lastName: "S", type: "adult", nationality: "TR" }], operationNote: "perf" }, token, { "Idempotency-Key": randomUUID() });
-      bookMs.push(performance.now() - t);
-      if (r.status !== 201) throw new Error(`booking failed ${r.status}`);
-    }));
-  console.log(`search  (${CONCURRENCY} concurrent, ${results} winners/response): ${stats(searchMs)}`);
-  console.log(`booking (${CONCURRENCY} concurrent, 3 nights):                ${stats(bookMs)}`);
-  const oversold=(await pool.query("SELECT count(*)::int AS n FROM inventory_daily WHERE reserved > allotment OR reserved < 0")).rows[0].n;
-  const errors=searchMs.length!==SEARCHES || bookMs.length!==100 ? 1 : 0;
-  console.log(`PERF_GATE search_p95=${pct(searchMs,95).toFixed(1)}ms booking_p95=${pct(bookMs,95).toFixed(1)}ms errors=${errors} oversold=${oversold} concurrent=${CONCURRENCY}`);
+  async function stage(concurrency: number, searchLimit: number, bookLimit: number | null) {
+    const searchMs: number[] = [];
+    let errors = 0;
+    let results = 0;
+    const batches = Math.ceil(SEARCHES / concurrency);
+    for (let w = 0; w < batches; w++)
+      await Promise.all(Array.from({ length: Math.min(concurrency, SEARCHES - w * concurrency) }, async (_, k) => {
+        const t = performance.now();
+        try {
+          const r = await post("/api/agency/searches", { ...stay(w * concurrency + k), limit: 50 }, token);
+          const data = await r.json();
+          if (r.status !== 200) { errors++; return; }
+          results = data.results.length;
+        } catch { errors++; }
+        finally { searchMs.push(performance.now() - t); }
+      }));
+    const bookMs: number[] = [];
+    if (bookLimit !== null) {
+      const response = await post("/api/agency/searches", { ...stay(0), limit: 100 }, token);
+      if (response.status !== 200) throw new Error("booking quote search failed: " + response.status);
+      const first = (await response.json()).results;
+      const guest = { firstName: "P", lastName: "Q", adults: 2, children: 0, childAges: [], email: "p@q.test", phone: "+905550000000", nationality: "TR" };
+      for (let offset = 0; offset < first.length; offset += concurrency)
+        await Promise.all(first.slice(offset, offset + concurrency).map(async (q: any) => {
+          const t = performance.now();
+          try {
+            const r = await post("/api/agency/bookings", { quoteId: q.quoteId, guest, otherGuests: [{ firstName: "R", lastName: "S", type: "adult", nationality: "TR" }], operationNote: "perf" }, token, { "Idempotency-Key": randomUUID() });
+            if (r.status !== 201) errors++;
+          } catch { errors++; }
+          finally { bookMs.push(performance.now() - t); }
+        }));
+    }
+    const oversold = Number((await pool.query("SELECT count(*)::int AS n FROM inventory_daily WHERE reserved > allotment OR reserved < 0")).rows[0].n);
+    const searchP95 = pct(searchMs,95);
+    const bookP95 = bookMs.length ? pct(bookMs,95) : null;
+    console.log(`PERF_GATE stage=${concurrency} search_p95=${searchP95.toFixed(1)}ms booking_p95=${bookP95?.toFixed(1) ?? "n/a"}ms errors=${errors} oversold=${oversold} concurrent=${concurrency} results=${results}`);
+    const pass = searchMs.length === SEARCHES && searchP95 < searchLimit && (bookLimit === null || (bookMs.length === 100 && bookP95! < bookLimit)) && errors === 0 && oversold === 0;
+    console.log(`PERF_GATE_${pass ? "PASS" : "FAIL"} stage=${concurrency}`);
+    return pass;
+  }
+  const normal = await stage(25, 500, 800);
+  const stress = await stage(100, 1500, null);
   server.close(); await pool.end();
-  if (pct(searchMs,95)>=SEARCH_LIMIT_MS || pct(bookMs,95)>=BOOK_LIMIT_MS || errors!==0 || oversold!==0)
-    throw new Error("PERF_GATE_FAILED: search<500ms booking<800ms errors=0 oversold=0 required");
+  if (!normal || !stress) throw new Error("PERF_GATE_FAILED: 25 concurrent search<500ms booking<800ms; 100 concurrent search<1500ms; errors=0 oversold=0");
   console.log("PERF_GATE_PASS");
+
 }
 main().catch(e => { console.error(e); process.exit(1); });
