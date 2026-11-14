@@ -73,7 +73,13 @@ const M = [
   { id: "M23", what: "Rezervasyonda kontrat para birimi kur değişimini kontrol etme", expect: ["N12"], edits: [["server/app.ts",
     "  if (!contract || contract.historyId !== fxRateId) throw httpError(409, \"PRICE_CHANGED\", { reason: \"FX_RATE_CHANGED\" });", ""]] },
   { id: "M24", what: "Rezervasyonda ödeme para birimi kur değişimini kontrol etme", expect: ["N12"], edits: [["server/app.ts",
-    "  if (!payment || payment.historyId !== paymentFxRateId) throw httpError(409, \"PRICE_CHANGED\", { reason: \"FX_RATE_CHANGED\" });", ""]] }
+    "  if (!payment || payment.historyId !== paymentFxRateId) throw httpError(409, \"PRICE_CHANGED\", { reason: \"FX_RATE_CHANGED\" });", ""]] },
+  { id: "M32", what: "Owner notification failure aborts approval", expect: ["OW5"], edits: [["server/ai/store.ts",
+    '      } catch (error) {\n        console.error("owner notification failed after approval creation", error);\n      }',
+    '      } catch (error) {\n        throw error;\n      }']] },
+  { id: "M33", what: "Owner digest uses hardcoded AI Center fallback", expect: ["OW6"], edits: [["server/ai/owner-notify.ts",
+    'const centerUrl=process.env.AI_CENTER_URL?.trim();',
+    'const centerUrl=process.env.AI_CENTER_URL?.trim()||"https://aget.bed4book.com";']] }
 ];
 
 const args = process.argv.slice(2);
