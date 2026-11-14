@@ -14,7 +14,7 @@ Source scan of `server/` (including AI, mail, CLI) identified the following dire
 |---|---|---|
 | `DATABASE_URL` | PostgreSQL connection | Required; production DB only |
 | `DATABASE_SSL` | PG TLS configuration | Validate for hosting topology |
-| `DB_POOL_MAX` | PostgreSQL pool size | Code uses this name, **not** `PGPOOL_MAX` |
+| `PGPOOL_MAX` | PostgreSQL pool size | Was `DB_POOL_MAX` before PR #65; after #65 merges, `DB_POOL_MAX` is ignored. Default 20 |
 | `SESSION_SECRET` | Session signing | Required, unique per environment |
 | `NODE_ENV` | Runtime mode | production |
 | `PORT` | HTTP listening port | Railway-provided |
@@ -31,8 +31,11 @@ Source scan of `server/` (including AI, mail, CLI) identified the following dire
 | `FX_MAX_AGE_HOURS` | FX freshness threshold | Establish business policy |
 | `AI_WORKER` | AI background worker enablement | Budget and approval controls required |
 | `ANTHROPIC_API_KEY` | AI model access | Optional until AI capability enabled; secret |
+| `OWNER_EMAIL` | Owner notification destination | Added by PR #52; required for owner notifications after J9, no default |
+| `AI_CENTER_URL` | Owner-facing AI Center URL | Added by PR #52; required for owner notifications after J9, no default |
+| `SEARCH_PROFILE` | Search profiling diagnostics | Added by PR #65; debug only, **must remain unset in production** |
 
-**Requested planning names requiring source validation:** `AI_CENTER_URL`, `OWNER_EMAIL`, `PGPOOL_MAX`. These were not found as direct `process.env` references in the reviewed server modules; do **not** set them assuming they are supported. `DB_POOL_MAX` is the actual pool configuration key. Review indirect environment readers and deployment configuration before declaring the inventory exhaustive.
+**Version-aware inventory:** The current base uses `DB_POOL_MAX`; PR #65 changes the effective name to `PGPOOL_MAX` (default 20) and introduces `SEARCH_PROFILE`. PR #52 introduces `OWNER_EMAIL` and `AI_CENTER_URL` for owner notifications. These names are documented as pending PR changes, not claims that they already exist in the current base. **Re-scan `process.env` after every merge that touches `server/`.** Review indirect environment readers and deployment configuration before declaring the inventory exhaustive.
 
 ## 3. Backups and restore drill
 1. Enable daily PostgreSQL backups or verified `pg_dump` automation with independent storage. Proposed retention: **30 daily backups + 12 monthly backups**, subject to owner approval and storage/security requirements. Encrypt at rest and restrict restore access.
@@ -68,4 +71,4 @@ Source scan of `server/` (including AI, mail, CLI) identified the following dire
 Proforma must show the authorized **BED4BOOK issuing legal entity** (registered company name, registered address, tax office, tax number and any required contact fields), never the hidden supplier DMC. Review existing proforma generator (`server/proforma.ts`), issuance routes (`server/app.ts`) and underlying settings/configuration to identify the **actual entry point** before go-live. **Do not assume a settings UI exists.** If issuer data is missing, block release of legally incomplete proformas until a verified issuer configuration and validation flow exist. Check actual current fallback behavior in a disposable test environment; this is an open verification item, not a claim that the system currently blocks generation.
 
 ## 8. Current staging evidence (read-only snapshot, 14 Nov 2026)
-Railway project `BED4BOOK`, staging services `bed4book-api` and `Postgres`. PG volume `postgres-volume`: provisioned 5,000 MB; sampled disk usage ~0.180 GB. Staging API variable inventory lacks `ANTHROPIC_API_KEY`, `AI_WORKER`, `MAIL_WORKER`, `RESEND_WEBHOOK_SECRET`, `MAIL_FROM_ADDRESS`, `PUBLIC_BASE_URL`, `REMINDER_WORKER`, `DB_POOL_MAX` (defaults may apply). These are observations, **not instructions to set variables**. Backup enablement and exact PostgreSQL version require further verification.
+Railway project `BED4BOOK`, staging services `bed4book-api` and `Postgres`. PG volume `postgres-volume`: provisioned 5,000 MB; sampled disk usage ~0.180 GB. Staging API variable inventory lacks `ANTHROPIC_API_KEY`, `AI_WORKER`, `MAIL_WORKER`, `RESEND_WEBHOOK_SECRET`, `MAIL_FROM_ADDRESS`, `PUBLIC_BASE_URL`, `REMINDER_WORKER`, `PGPOOL_MAX` (after #65; current base still uses `DB_POOL_MAX`; defaults may apply). These are observations, **not instructions to set variables**. Backup enablement remains unverified and is a pre-live blocker; the staging Postgres image is version 16. The proforma issuer-data entry point is also unverified and a pre-live blocker.
