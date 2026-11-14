@@ -449,24 +449,62 @@ test("T12 idempotency: same key → one booking, no duplicate inventory", { skip
   assert.ok(conflict.status === 409 || conflict.status === 400 || conflict.status === 422, `conflicting idempotency must be rejected, got ${conflict.status}`);
 });
 
-// ================================================================ T13 — Delete authorization
-test("T13 delete authorization: platform admin, owning master, foreign master, sub-agency", { skip }, async () => {
-  const { t, M1, M2, SA, SB } = await setupTwoDMCs();
-  const hotelId = await createHotelViaApi(t.m1, "Del Otel", "Bursa");
-  const roomId = await createRoomViaApi(t.m1, hotelId);
-  const ratePlanId = await createRatePlanViaApi(t.m1, roomId);
+// ================================================================ T13 — Safe hotel delete (J2)
+test("T13 delete: authorization, empty-only guard, and 409 counts for every blocker", { skip }, async () => {
+  const { t, M2, SA } = await setupTwoDMCs();
 
-  // Sub-agency has no management access at all — rejected by the role gate before any lookup.
-  const subDel = await call("DELETE", `/api/admin/hotels/${hotelId}`, undefined, t.sa);
-  assert.equal(subDel.status, 403);
-  // Foreign master cannot delete — 404
-  const foreignDel = await call("DELETE", `/api/admin/hotels/${hotelId}`, undefined, t.m2);
-  assert.equal(foreignDel.status, 404);
-  // Owning master CAN delete
-  const ownDel = await call("DELETE", `/api/admin/hotels/${hotelId}`, undefined, t.m1);
-  assert.equal(ownDel.status, 200);
-  const dbGone = await count("SELECT count(*)::int AS c FROM hotels WHERE id=$1", [hotelId]);
-  assert.equal(dbGone, 0);
+  // --- authorization -------------------------------------------------------
+  const authHotel = await createHotelViaApi(t.m1, "Yetki Otel", "Bursa");
+  assert.equal((await call("DELETE", `/api/admin/hotels/${authHotel}`, undefined, t.sa)).status, 403, "sub-agency blocked by role gate");
+  assert.equal((await call("DELETE", `/api/admin/hotels/${authHotel}`, undefined, t.m2)).status, 404, "foreign master sees 404");
+
+  // --- empty draft hotel deletes, audited ---------------------------------
+  const auditMark = await count("SELECT coalesce(max(id),0)::int AS c FROM audit_logs");
+  assert.equal((await call("DELETE", `/api/admin/hotels/${authHotel}`, undefined, t.m1)).status, 200, "empty draft delete");
+  assert.equal(await count("SELECT count(*)::int AS c FROM hotels WHERE id=$1", [authHotel]), 0);
+  const audit = (await pool.query("SELECT action, entity_type FROM audit_logs WHERE id > $1 ORDER BY id", [auditMark])).rows;
+  assert.ok(audit.some((a: any) => a.action === "hotel.deleted" && a.entity_type === "hotel"), "hotel.deleted audited");
+
+  // --- active hotel is blocked -------------------------------------------
+  const activeHotel = await createHotelViaApi(t.m1, "Aktif Otel", "İzmir");
+  await call("PATCH", `/api/admin/hotels/${activeHotel}`, { status: "active" }, t.m1);
+  const activeDel = await call("DELETE", `/api/admin/hotels/${activeHotel}`, undefined, t.m1);
+  assert.equal(activeDel.status, 409, "active hotel must not be deleted");
+  assert.equal(activeDel.body.error, "HOTEL_NOT_EMPTY");
+  assert.equal(activeDel.body.status, "active");
+  assert.equal(await count("SELECT count(*)::int AS c FROM hotels WHERE id=$1", [activeHotel]), 1, "active hotel survives");
+
+  // --- hotel with a contract is blocked, the contract survives -----------
+  const contractHotel = await createHotelViaApi(t.m1, "Kontrat Otel", "Antalya");
+  const cRoom = await createRoomViaApi(t.m1, contractHotel);
+  const contract = await call("POST", `/api/admin/hotels/${contractHotel}/contracts`,
+    { code: "J2C" + Date.now(), name: "J2 Kontrat", currency: "EUR", sellerLegalName: "J2 Seller" }, t.m1);
+  assert.equal(contract.status, 201, JSON.stringify(contract.body));
+  const contractDel = await call("DELETE", `/api/admin/hotels/${contractHotel}`, undefined, t.m1);
+  assert.equal(contractDel.status, 409);
+  assert.equal(contractDel.body.error, "HOTEL_NOT_EMPTY");
+  assert.equal(contractDel.body.contracts, 1, "one contract reported");
+  assert.equal(await count("SELECT count(*)::int AS c FROM hotel_contracts WHERE hotel_id=$1", [contractHotel]), 1, "contract survives");
+
+  // --- hotel with calendar/allotment is blocked, inventory survives ------
+  const calHotel = await createHotelViaApi(t.m1, "Takvim Otel", "Bodrum");
+  const calRoom = await createRoomViaApi(t.m1, calHotel);
+  const calPlan = await createRatePlanViaApi(t.m1, calRoom);
+  await setCalendar(t.m1, calPlan, D1, D2, 100, 5);
+  const calDel = await call("DELETE", `/api/admin/hotels/${calHotel}`, undefined, t.m1);
+  assert.equal(calDel.status, 409);
+  assert.equal(calDel.body.error, "HOTEL_NOT_EMPTY");
+  assert.ok(calDel.body.inventoryDays >= 2, `inventory days reported, got ${calDel.body.inventoryDays}`);
+  assert.ok(await count("SELECT count(*)::int AS c FROM inventory_daily WHERE rate_plan_id=$1", [calPlan]) >= 2, "inventory survives");
+
+  // --- hotel with a publication is blocked ------------------------------
+  const pubHotel = await createHotelViaApi(t.m1, "Yayın Otel", "Kuşadası");
+  const pubRoom = await createRoomViaApi(t.m1, pubHotel);
+  const pubPlan = await createRatePlanViaApi(t.m1, pubRoom);
+  await createPublication(t.m1, pubPlan, SA, "percent", 15);
+  const pubDel = await call("DELETE", `/api/admin/hotels/${pubHotel}`, undefined, t.m1);
+  assert.equal(pubDel.status, 409);
+  assert.equal(pubDel.body.publications, 1, "one publication reported");
 });
 
 // ================================================================ T14 — Date boundaries

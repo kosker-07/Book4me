@@ -143,20 +143,40 @@ adminRouter.get("/api/admin/hotels/:id", ...managers, h(async (req, res) => {
 adminRouter.delete("/api/admin/hotels/:id", ...managers, h(async (req, res) => {
   const id = uuidParam(req);
   const owner = await ownedHotel(pool, req, HOTEL_SQL, id);
-  // Refuse if there are bookings referencing this hotel.
-  const hasBookings = (await pool.query("SELECT 1 FROM bookings WHERE hotel_id = $1 LIMIT 1", [id])).rowCount;
-  if (hasBookings) throw httpError(409, "HOTEL_HAS_BOOKINGS");
-  await withTransaction(async client => {
-    // contract_rate_plans -> hotel_contracts is ON DELETE RESTRICT (deleting a contract must never
-    // silently unlink its rate plans). Hotel deletion cascades into hotel_contracts, so the links for
-    // this hotel's rate plans must be removed first or the RESTRICT fires.
-    await client.query(
-      `DELETE FROM contract_rate_plans WHERE rate_plan_id IN (
-         SELECT rp.id FROM rate_plans rp JOIN rooms r ON r.id = rp.room_id WHERE r.hotel_id = $1)`, [id]);
-    await client.query("DELETE FROM hotels WHERE id = $1", [id]);
+  // A hotel is deletable only while it is empty and draft/inactive. Everything that would otherwise
+  // silently vanish (contracts, inventory, publications, bookings) blocks it. Guard and delete are a
+  // single statement, so two concurrent callers cannot both pass the check.
+  const result = await withTransaction(async client => {
+    const del = await client.query(
+      `DELETE FROM hotels h
+        WHERE h.id = $1
+          AND h.status IN ('draft','inactive')
+          AND NOT EXISTS (SELECT 1 FROM hotel_contracts hc WHERE hc.hotel_id = h.id)
+          AND NOT EXISTS (SELECT 1 FROM inventory_daily i
+                            JOIN rate_plans rp ON rp.id = i.rate_plan_id
+                            JOIN rooms r ON r.id = rp.room_id
+                           WHERE r.hotel_id = h.id)
+          AND NOT EXISTS (SELECT 1 FROM agency_hotel_sales s WHERE s.hotel_id = h.id)
+          AND NOT EXISTS (SELECT 1 FROM bookings b WHERE b.hotel_id = h.id)`, [id]);
+    if (del.rowCount !== 1) {
+      const b = (await client.query(
+        `SELECT h.status,
+                (SELECT count(*)::int FROM hotel_contracts hc WHERE hc.hotel_id = h.id) AS contracts,
+                (SELECT count(*)::int FROM inventory_daily i
+                   JOIN rate_plans rp ON rp.id = i.rate_plan_id JOIN rooms r ON r.id = rp.room_id
+                  WHERE r.hotel_id = h.id) AS inventory_days,
+                (SELECT count(*)::int FROM agency_hotel_sales s WHERE s.hotel_id = h.id) AS publications,
+                (SELECT count(*)::int FROM bookings bo WHERE bo.hotel_id = h.id) AS bookings
+           FROM hotels h WHERE h.id = $1`, [id])).rows[0];
+      throw httpError(409, "HOTEL_NOT_EMPTY", {
+        contracts: b?.contracts ?? 0, inventoryDays: b?.inventory_days ?? 0,
+        publications: b?.publications ?? 0, bookings: b?.bookings ?? 0, status: b?.status ?? null
+      });
+    }
     await audit(client, req.auth!.sub, owner.owner_agency_id, "hotel.deleted", "hotel", id);
+    return { ok: true, id };
   });
-  res.json({ ok: true, id });
+  res.json(result);
 }));
 
 adminRouter.patch("/api/admin/hotels/:id", ...managers, h(async (req, res) => {
