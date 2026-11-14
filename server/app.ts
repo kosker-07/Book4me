@@ -156,8 +156,12 @@ app.get("/api/auth/session", async (req, res, next) => {
   } catch (error) { next(error); }
 });
 
-app.get("/api/me", authenticate, (req: AuthedRequest, res) => {
-  res.json({ userId: req.auth!.sub, role: req.auth!.role, agencyId: req.auth!.agencyId });
+app.get("/api/me", authenticate, async (req: AuthedRequest, res, next) => {
+  try {
+    const result = await pool.query("SELECT language FROM users WHERE id = $1", [req.auth!.sub]);
+    if (!result.rowCount) return res.status(404).json({ error: "NOT_FOUND" });
+    res.json({ userId: req.auth!.sub, role: req.auth!.role, agencyId: req.auth!.agencyId, language: result.rows[0].language });
+  } catch (error) { next(error); }
 });
 
 app.use(adminRouter);
