@@ -1,7 +1,10 @@
 import {api,download,signIn,signOut,restoreSession,session,resetSession,errText} from './service.js';
+import {t, setLanguage} from './i18n.js';
 import {contractImport} from './contract-import.js';
 import {dmcSubagencies,dmcApprovals} from './dmc-panel.js';
 import {reports,integrations} from './reports.js';
+const applyLoginTranslations=()=>{for(const e of document.querySelectorAll('[data-i18n]'))e.textContent=t(e.dataset.i18n)};
+setLanguage();
 const $=id=>document.getElementById(id), node=(tag,text,cls)=>{const n=document.createElement(tag);if(text!==undefined)n.textContent=String(text);if(cls)n.className=cls;return n};
 const el=(tag,props={},children=[])=>{const n=node(tag,props.text,props.cls);for(const [k,v] of Object.entries(props)){if(k==='text'||k==='cls'||v===undefined)continue;if(k==='testid')n.dataset.testid=v;else if(k==='onClick')n.addEventListener('click',v);else if(k==='onChange')n.addEventListener('change',v);else n[k]=v}for(const c of children)n.append(c);return n};
 const btn=(label,fn,primary=false,testid)=>el('button',{text:label,cls:primary?'primary':'ghost',type:'button',testid,onClick:fn});
@@ -89,6 +92,7 @@ async function platformSettings(){
 }
 function soon(name){view().append(card(name,wrap(node('p','Bu modül için kullanılabilir API veya tamamlanmış arayüz henüz bulunmuyor.'),node('span','Yakında','chip'))))}
 $('menuToggle').onclick=()=>{const open=$('sidebar').classList.toggle('open');$('menuToggle').setAttribute('aria-expanded',String(open))};
+applyLoginTranslations();
 $('loginForm').onsubmit=async e=>{e.preventDefault();message('');const form=e.currentTarget,f=new FormData(form);try{await signIn(f.get('email'),f.get('password'));form.reset();setAuth(true);go(isAgency()?'search':'dashboard')}catch(err){message(errText(err))}};
 $('logout').onclick=async()=>{await signOut();setAuth(false);clear()};
 async function account(){const form=el('form',{},[field('Mevcut şifre','currentPassword','password'),field('Yeni şifre (en az 12 karakter)','newPassword','password'),el('button',{text:'Şifreyi değiştir',cls:'primary',type:'submit'})]);form.onsubmit=async e=>{e.preventDefault();const f=new FormData(form);if(String(f.get('newPassword')).length<12)return message('Yeni şifre en az 12 karakter olmalı.');try{await api('/api/auth/change-password',{method:'POST',body:Object.fromEntries(f)});await signOut();setAuth(false);message('Şifre değiştirildi. Yeniden giriş yapın.')}catch(err){fail(err)}};view().append(card('Hesap güvenliği',form))}
