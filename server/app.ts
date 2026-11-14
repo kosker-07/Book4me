@@ -9,7 +9,7 @@ import { bootstrapAdmin } from "./bootstrap-admin";
 import { BROWSER_SESSION_MAX_SECONDS, hashPassword, issueSession, verifyPassword } from "./security";
 import { Candidate, chooseWinners, convertMinor, formatMinor, Markup, nightlySellMinor, normalizeDecimal, parseMinor, priceCandidate, priceMarketplaceChain, platformFeeMinor } from "./pricing";
 import { ContractEligibility, evaluateContract, NationalityRule, rulesByContract } from "./eligibility";
-import { comparisonRates, FxRate, loadFreshRates } from "./fx";
+import { comparisonRates, FxRate, loadFreshRates, loadCachedFreshRates } from "./fx";
 import { FieldErrors, nightsBetween, validateGuest, validateNationalities, validateOccupancy, validateOtherGuests, validateStay } from "./validation";
 import { signQuote, verifyQuote } from "./quotes";
 import { audit, authenticate, AuthedRequest, clearSessionCookie, httpError, isPlatformWide, requireAgency, resolveSession, roles, sessionSecret, setSessionCookie, uuidParam } from "./http";
@@ -312,7 +312,7 @@ app.post("/api/agency/searches", authenticate, roles("sub_agency"), requireAgenc
     const profileStart = performance.now();
     const [rows, fx] = await Promise.all([
       (async () => { const t = performance.now(); const value = await loadCandidates(pool, agencyId, stay.checkIn, stay.checkOut, stay.rooms); timings.db = performance.now() - t; return value; })(),
-      (async () => { const t = performance.now(); const value = await loadFreshRates(pool); timings.fx = performance.now() - t; return value; })()
+      (async () => { const t = performance.now(); const value = await loadCachedFreshRates(pool); timings.fx = performance.now() - t; return value; })()
     ]);
     const payment = requestedPayment ? await activeCurrency(pool, requestedPayment) : null;
     if (payment && !fx.get(payment.code)) return res.status(409).json({ error: "FX_RATE_UNAVAILABLE", currency: payment.code });
