@@ -91,8 +91,10 @@ test("AG12: fake model request and audit never receive confidential seller field
   const fee = "6.41";
   const requests: Array<Parameters<ModelClient["complete"]>[0]> = [];
   const audits: unknown[] = [];
-  const db = { query: async () => ({
-    rows: [{ id, booking_no: "B4B-TEST", status: "confirmed", hotel_name: "Test Hotel",
+  const db = { query: async (sql: string) => ({
+    rows: sql.includes("booking_status_history") ? [] : [{ id, seller_dmc_name: secret,
+      owner_agency_id: "22222222-2222-4222-8222-222222222222",
+      net_price: netPrice, markup_percent: margin, platform_fee: fee, booking_no: "B4B-TEST", status: "confirmed", hotel_name: "Test Hotel",
       room_name: "Standard", total: "12000.00", currency: "EUR", agency_name: "Buyer Agency" }],
   }) };
   const tools = platformTools(db);
@@ -117,6 +119,7 @@ test("AG12: fake model request and audit never receive confidential seller field
     { tenantId: null, trigger: "confidentiality-test", prompt: "Review booking B4B-TEST" });
   assert.equal(result.status, "done");
   assert.equal(requests.length, 2);
+  assert.ok(JSON.stringify(requests[1]).includes("B4B-TEST"), "model must receive the booking");
   const observed = JSON.stringify({ requests, audits });
   for (const value of [secret, netPrice, margin, fee, "owner_agency_id", "platform_fee", "net_price"]) {
     assert.ok(!observed.includes(value), `Confidential value reached model or audit: ${value}`);
