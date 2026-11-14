@@ -14,6 +14,7 @@ import { FieldErrors, nightsBetween, validateGuest, validateNationalities, valid
 import { signQuote, verifyQuote } from "./quotes";
 import { audit, authenticate, AuthedRequest, clearSessionCookie, httpError, isPlatformWide, requireAgency, resolveSession, roles, sessionSecret, setSessionCookie, uuidParam } from "./http";
 import { adminRouter } from "./admin-routes";
+import { aiRouter } from "./ai-routes";
 import { contractRouter } from "./contract-routes";
 import { contractImportRouter } from "./contract-import-routes";
 import { distributionRouter } from "./distribution-routes";
@@ -159,6 +160,7 @@ app.get("/api/me", authenticate, (req: AuthedRequest, res) => {
 });
 
 app.use(adminRouter);
+app.use(aiRouter);
 app.use(contractRouter);
 app.use(contractImportRouter);
 app.use(distributionRouter);
