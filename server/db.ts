@@ -1,8 +1,11 @@
 import { Pool, PoolClient } from "pg";
 
+// Budget against the Railway PostgreSQL server's max_connections across ALL app replicas.
+const poolMax = Number(process.env.PGPOOL_MAX ?? 20);
+if (!Number.isInteger(poolMax) || poolMax < 1) throw new Error("PGPOOL_MAX must be a positive integer");
 export const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  max: Number(process.env.DB_POOL_MAX || 10),
+  max: poolMax,
   ssl: process.env.DATABASE_SSL === "true" ? { rejectUnauthorized: true } : undefined
 });
 

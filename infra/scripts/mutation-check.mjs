@@ -81,6 +81,14 @@ const M = [
     "  if (!payment || payment.historyId !== paymentFxRateId) throw httpError(409, \"PRICE_CHANGED\", { reason: \"FX_RATE_CHANGED\" });", ""]] }
 ];
 
+M.push({ id: "M37", what: "Location filtering after pagination hides matching hotel", expect: ["J13 pagination filters location before slicing and validates bounds"], edits: [["server/app.ts",
+  "const results = filteredWinners.slice(start, start + limit).map(w => {",
+  "const results = winners.slice(start, start + limit).filter(w => !locationQuery || (byRatePlan.get(w.ratePlanId)!.hotel_name + ' ' + byRatePlan.get(w.ratePlanId)!.location).toLocaleLowerCase('tr').includes(locationQuery)).map(w => {"]] });
+
+M.push({ id: "M38", what: "FX cache invalidation disabled", expect: ["J13 FX cache invalidates after rate update"], edits: [["server/fx.ts",
+  "export function invalidateFreshRatesCache(): void { cachedRates = null; inflightRates = null; }",
+  "export function invalidateFreshRatesCache(): void { /* stale cache */ }"]] });
+
 const args = process.argv.slice(2);
 const dryRun = args.includes("--dry-run"), unitOnly = args.includes("--unit-only");
 const onlyArg = args[args.indexOf("--only") + 1];
@@ -148,6 +156,7 @@ function runTests() {
     const name = m[1]; names.push(name);
     if (/no explicit row locks/.test(name)) failed.add("static");
     failed.add(name.split(/\s+/)[0]);
+    failed.add(name);
   }
   const total = /# tests (\d+)/.exec(out)?.[1], pass = /# pass (\d+)/.exec(out)?.[1], fail = /# fail (\d+)/.exec(out)?.[1];
   return { failed, names, summary: `tests=${total} pass=${pass} fail=${fail}`, code: r.status };

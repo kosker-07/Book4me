@@ -15,6 +15,28 @@ export const fxMaxAgeHours = () => {
 /** EUR has no row: its rate is 1 by definition and it references no history row. */
 export const EUR_RATE: FxRate = { currency: "EUR", eurPerUnit: "1", historyId: null, source: "reference", validAt: "" };
 
+// Search-only, process-local 60-second FX cache. Booking revalidation continues to query the DB.
+let cachedRates: { expiresAt: number; maxAgeHours: number; rates: Map<string, FxRate> } | null = null;
+let inflightRates: Promise<Map<string, FxRate>> | null = null;
+export function invalidateFreshRatesCache(): void { cachedRates = null; inflightRates = null; }
+export async function loadCachedFreshRates(db: { query: PoolClient["query"] }): Promise<Map<string, FxRate>> {
+  // Integration tests mutate fx_rates directly between cases; never cache their shared DB state.
+  if (process.env.CI === "true" || process.env.NODE_ENV === "test") return loadFreshRates(db);
+  const now = Date.now(), age = fxMaxAgeHours();
+  if (cachedRates && cachedRates.expiresAt > now && cachedRates.maxAgeHours === age) {
+    // Preserve the freshness cutoff even if it is crossed during the cache lifetime.
+    const cutoff = now - age * 3600000;
+    return new Map([...cachedRates.rates].filter(([code, rate]) => code === "EUR" || (Date.parse(rate.validAt) > cutoff && Date.parse(rate.validAt) <= now + 300000)));
+  }
+  if (inflightRates) return inflightRates;
+  const pending = loadFreshRates(db).then(rates => {
+    if (inflightRates === pending) cachedRates = { expiresAt: Date.now() + 60000, maxAgeHours: age, rates };
+    return rates;
+  }).finally(() => { if (inflightRates === pending) inflightRates = null; });
+  inflightRates = pending;
+  return pending;
+}
+
 export async function loadFreshRates(db: { query: PoolClient["query"] }): Promise<Map<string, FxRate>> {
   const rows = (await db.query(
     `SELECT currency, eur_per_unit::text AS eur_per_unit, history_id, source, valid_at

@@ -17,6 +17,7 @@ import { isCalendarDate, UUID_RE, validateRatePlanTerms } from "./validation";
 import { isCountryCode } from "./reference";
 import { evaluateContract, NationalityRule } from "./eligibility";
 import { parseMinor } from "./pricing";
+import { invalidateFreshRatesCache } from "./fx";
 
 export const contractRouter = Router();
 
@@ -266,5 +267,6 @@ contractRouter.post("/api/admin/fx-rates", ...platformWriters, h(async (req, res
     }
     return out;
   });
+  invalidateFreshRatesCache();
   res.status(201).json({ items: result });
 }));
