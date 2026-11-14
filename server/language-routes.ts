@@ -4,12 +4,15 @@ import { authenticate, AuthedRequest, audit } from "./http";
 
 export const languageRouter = Router();
 const SUPPORTED = new Set(["en", "tr", "ar", "ru"]);
+export function isSupportedLanguage(value: unknown): value is "en" | "tr" | "ar" | "ru" {
+  return typeof value === "string" && SUPPORTED.has(value);
+}
 
 /** User profile preference takes precedence over browser language; no IP-based lookup. */
 languageRouter.patch("/api/me/language", authenticate, async (req: AuthedRequest, res, next) => {
   try {
     const language: unknown = req.body?.language;
-    if (typeof language !== "string" || !SUPPORTED.has(language))
+    if (!isSupportedLanguage(language))
       return res.status(400).json({ error: "INVALID_LANGUAGE" });
     const result = await pool.query(
       "UPDATE users SET language = $1 WHERE id = $2 RETURNING language",
