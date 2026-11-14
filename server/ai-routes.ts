@@ -16,7 +16,15 @@ registerPlatformApprovalHandlers();
 export const aiRouter = Router();
 const aiAccess = [authenticate, roles("system_admin", "back_office", "master_agency")] as const;
 const store = pgRunStore({ query: (sql: string, params?: any[]) => pool.query(sql, params) });
-const anthropic = new AnthropicClient(process.env.ANTHROPIC_API_KEY || "");
+let anthropic: AnthropicClient | null = null;
+function getAnthropic(): AnthropicClient {
+  if (!anthropic) {
+    const key = process.env.ANTHROPIC_API_KEY;
+    if (!key) throw new Error("AI_NOT_CONFIGURED");
+    anthropic = new AnthropicClient(key);
+  }
+  return anthropic;
+}
 
 // Minimal in-memory agent registry for Phase 1 (bounded, auditable, tenant-scoped).
 const agents: Agent[] = [
@@ -77,7 +85,7 @@ aiRouter.post("/api/ai/agents/:id/run", ...aiAccess, h(async (req, res) => {
   if (typeof prompt !== "string" || !prompt.trim()) throw httpError(400, "PROMPT_REQUIRED");
   const agent = agents.find(a => a.id === agentId);
   if (!agent || !agent.enabled) throw httpError(404, "AGENT_NOT_FOUND");
-  const result = await runAgent({ store, model: anthropic }, agent, {
+  const result = await runAgent({ store, model: getAnthropic() }, agent, {
     tenantId: isPlatformWide(req.auth!.role) ? (tenantId ?? null) : req.auth!.agencyId,
     trigger: "operator",
     prompt: prompt.trim()
