@@ -81,6 +81,10 @@ const M = [
     "  if (!payment || payment.historyId !== paymentFxRateId) throw httpError(409, \"PRICE_CHANGED\", { reason: \"FX_RATE_CHANGED\" });", ""]] }
 ];
 
+M.push({ id: "M36", what: "Browser idle expiry not enforced", expect: ["SI4"], edits: [["server/security.ts",
+  "const exp = claims.max === undefined ? nowSec + TOKEN_TTL_SECONDS : Math.min(nowSec + IDLE_TTL_SECONDS, claims.max);",
+  "const exp = claims.max === undefined ? nowSec + TOKEN_TTL_SECONDS : claims.max;"]] });
+
 const args = process.argv.slice(2);
 const dryRun = args.includes("--dry-run"), unitOnly = args.includes("--unit-only");
 const onlyArg = args[args.indexOf("--only") + 1];
