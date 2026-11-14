@@ -3,6 +3,10 @@ import assert from "node:assert/strict";
 import { invalidateFreshRatesCache, loadCachedFreshRates } from "../../server/fx";
 
 test("J13 FX cache invalidates after rate update", async () => {
+  const oldCi = process.env.CI, oldNodeEnv = process.env.NODE_ENV;
+  delete process.env.CI;
+  delete process.env.NODE_ENV;
+  try {
   invalidateFreshRatesCache();
   let queries = 0;
   let rate = "0.91";
@@ -22,4 +26,8 @@ test("J13 FX cache invalidates after rate update", async () => {
   assert.equal(queries, 2);
   assert.equal(updated.get("USD")?.eurPerUnit, "0.95");
   invalidateFreshRatesCache();
+  } finally {
+    if (oldCi === undefined) delete process.env.CI; else process.env.CI = oldCi;
+    if (oldNodeEnv === undefined) delete process.env.NODE_ENV; else process.env.NODE_ENV = oldNodeEnv;
+  }
 });
