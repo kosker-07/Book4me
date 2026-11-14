@@ -156,6 +156,7 @@ function runTests() {
     const name = m[1]; names.push(name);
     if (/no explicit row locks/.test(name)) failed.add("static");
     failed.add(name.split(/\s+/)[0]);
+    failed.add(name);
   }
   const total = /# tests (\d+)/.exec(out)?.[1], pass = /# pass (\d+)/.exec(out)?.[1], fail = /# fail (\d+)/.exec(out)?.[1];
   return { failed, names, summary: `tests=${total} pass=${pass} fail=${fail}`, code: r.status };
