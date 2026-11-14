@@ -81,6 +81,10 @@ const M = [
     "  if (!payment || payment.historyId !== paymentFxRateId) throw httpError(409, \"PRICE_CHANGED\", { reason: \"FX_RATE_CHANGED\" });", ""]] }
 ];
 
+M.push({ id: "M37", what: "Location filtering after pagination hides matching hotel", expect: ["J13 pagination filters location before slicing"], edits: [["server/app.ts",
+  "const results = filteredWinners.slice(start, start + limit).map(w => {",
+  "const results = winners.slice(start, start + limit).filter(w => !locationQuery || (byRatePlan.get(w.ratePlanId)!.hotel_name + ' ' + byRatePlan.get(w.ratePlanId)!.location).toLocaleLowerCase('tr').includes(locationQuery)).map(w => {"]] });
+
 const args = process.argv.slice(2);
 const dryRun = args.includes("--dry-run"), unitOnly = args.includes("--unit-only");
 const onlyArg = args[args.indexOf("--only") + 1];
