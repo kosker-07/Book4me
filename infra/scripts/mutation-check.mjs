@@ -77,6 +77,8 @@ const M = [
     "            payment_currency, round(total * coalesce((SELECT f.eur_per_unit FROM fx_rates f WHERE f.currency = contract_currency), 1) / payment_eur_per_unit, 2)::text AS payment_amount, payment_eur_per_unit::text AS payment_eur_per_unit"]] },
   { id: "M23", what: "Rezervasyonda kontrat para birimi kur değişimini kontrol etme", expect: ["N12"], edits: [["server/app.ts",
     "  if (!contract || contract.historyId !== fxRateId) throw httpError(409, \"PRICE_CHANGED\", { reason: \"FX_RATE_CHANGED\" });", ""]] },
+  { id: "M40", what: "Remove DMC subagency ownership predicate", expect: ["J16 tenant foreign/missing identical: GET /api/dmc/subagencies/:id"], edits: [["server/dmc-routes.ts",
+    "WHERE id=$1 AND type='sub' AND parent_agency_id=$2", "WHERE id=$1 AND type='sub'"]] },
   { id: "M24", what: "Rezervasyonda ödeme para birimi kur değişimini kontrol etme", expect: ["N12"], edits: [["server/app.ts",
     "  if (!payment || payment.historyId !== paymentFxRateId) throw httpError(409, \"PRICE_CHANGED\", { reason: \"FX_RATE_CHANGED\" });", ""]] }
 ];
