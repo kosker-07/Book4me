@@ -282,7 +282,11 @@ adminRouter.patch("/api/admin/rate-plans/:id", ...managers, h(async (req, res) =
   const row = await withTransaction(async client => {
     const before = await rowJson(client, "rate_plans", id);
     const r = (await client.query(`UPDATE rate_plans SET ${sets} WHERE id = $1 RETURNING id, board_name, currency, active`, [id, ...values])).rows[0];
-    await audit(client, req.auth!.sub, owner.owner_agency_id, "rate_plan.updated", "rate_plan", id, { before, after: await rowJson(client, "rate_plans", id) });
+    // A stop-sale is the operationally significant event; record it as such instead of burying it
+    // in a generic update, mirroring hotel.status.*. Other edits stay "rate_plan.updated".
+    const activeChanged = b.active !== undefined && before.active !== r.active;
+    const action = activeChanged ? (r.active ? "rate_plan.reactivated" : "rate_plan.stop_sale") : "rate_plan.updated";
+    await audit(client, req.auth!.sub, owner.owner_agency_id, action, "rate_plan", id, { before, after: await rowJson(client, "rate_plans", id) });
     return r;
   });
   res.json(row);
