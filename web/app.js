@@ -128,6 +128,7 @@ const askInline=(title,action)=>{
 };
 async function hotels(){
  const data=await api('/api/admin/hotels'),items=data.items||[];
+ clear();
  const list=el('div',{cls:'scroll'}),table=el('table',{cls:'list'}),head=el('tr');
  for(const x of ['Otel','Konum','Durum','Odalar','Fiyat planları','Yayınlar','Sahip acente','İşlem'])head.append(node('th',x));
  table.append(head);
@@ -137,7 +138,7 @@ async function hotels(){
   const actions=el('td',{},[
    btn('Yönet',()=>hotelDetail(h.id),false,'hotel-manage-'+h.id),
    h.status!=='active'?btn('Etkinleştir',async()=>{await api('/api/admin/hotels/'+encodeURIComponent(h.id),{method:'PATCH',body:{status:'active'}});await hotels()},false,'hotel-activate-'+h.id):btn('Pasifleştir',async()=>{await api('/api/admin/hotels/'+encodeURIComponent(h.id),{method:'PATCH',body:{status:'inactive'}});await hotels()},false,'hotel-deactivate-'+h.id),
-   btn('Sil',async()=>{if(await askInline('Otel silinsin mi? Bu işlem geri alınamaz.')){try{await api('/api/admin/hotels/'+encodeURIComponent(h.id),{method:'DELETE'});await hotels()}catch(e){fail(e)}}},false,'hotel-delete-'+h.id)
+   btn('Sil',()=>askInline('Otel silinsin mi? Bu işlem geri alınamaz.',async()=>{await api('/api/admin/hotels/'+encodeURIComponent(h.id),{method:'DELETE'});await hotels()}),false,'hotel-delete-'+h.id)
   ]);
   tr.append(actions);table.append(tr);
  }
@@ -167,7 +168,7 @@ async function hotelDetail(id){
     ['Çocuk kapasitesi','maxChildren','number',room.max_children]
    ],()=>hotelDetail(id),numKeys('maxAdults','maxChildren')))},false,'room-edit-'+room.id),
    btn(room.active?'Pasif':'Aktif',async()=>{await api('/api/admin/rooms/'+encodeURIComponent(room.id),{method:'PATCH',body:{active:!room.active}});await hotelDetail(id)},false,'room-toggle-'+room.id),
-   btn('Sil',async()=>{if(await askInline('Oda silinsin mi? Tüm fiyat planları da silinecek.')){try{await api('/api/admin/rooms/'+encodeURIComponent(room.id),{method:'DELETE'});await hotelDetail(id)}catch(e){fail(e)}}},false,'room-delete-'+room.id)
+   btn('Sil',()=>askInline('Oda silinsin mi? Tüm fiyat planları da silinecek.',async()=>{await api('/api/admin/rooms/'+encodeURIComponent(room.id),{method:'DELETE'});await hotelDetail(id)}),false,'room-delete-'+room.id)
   ]);
   section.append(roomActions);
   section.append(btn('Fiyat planı ekle',()=>ratePlanCreate(id,room),false,'room-rate-add-'+room.id));
@@ -178,7 +179,7 @@ async function hotelDetail(id){
     btn('Takvim',()=>rateCalendar(id,plan),false,'plan-calendar-'+plan.id),
     btn('Yayınlar',()=>publicationEditor(id,plan,publications),false,'plan-pubs-'+plan.id),
     btn('Düzenle',()=>ratePlanEdit(id,plan),false,'plan-edit-'+plan.id),
-    btn('Sil',async()=>{if(await askInline('Fiyat planı silinsin mi? Tüm tarih bazlı fiyat ve kontenjanlar silinecek.')){try{await api('/api/admin/rate-plans/'+encodeURIComponent(plan.id),{method:'DELETE'});await hotelDetail(id)}catch(e){fail(e)}}},false,'plan-delete-'+plan.id)
+    btn('Sil',()=>askInline('Fiyat planı silinsin mi? Tüm tarih bazlı fiyat ve kontenjanlar silinecek.',async()=>{await api('/api/admin/rate-plans/'+encodeURIComponent(plan.id),{method:'DELETE'});await hotelDetail(id)}),false,'plan-delete-'+plan.id)
    ]);
    view().append(card('Fiyat planı · '+plan.board_name,planRow));
   }
@@ -255,7 +256,7 @@ async function publicationEditor(hotelId,plan,publications){
     await api('/api/admin/publications/'+pub.id,{method:'PATCH',body:{active:!pub.active}});
     await hotelDetail(hotelId);
    })),
-   btn('Sil',async()=>{if(await askInline('Yayın silinsin mi?')){try{await api('/api/admin/publications/'+encodeURIComponent(pub.id),{method:'DELETE'});await hotelDetail(hotelId)}catch(e){fail(e)}}},false,'pub-delete-'+pub.id)
+   btn('Sil',()=>askInline('Yayın silinsin mi?',async()=>{await api('/api/admin/publications/'+encodeURIComponent(pub.id),{method:'DELETE'});await hotelDetail(hotelId)}),false,'pub-delete-'+pub.id)
   ])));
  }
  const agencies=(await api('/api/admin/publication-agencies?ratePlanId='+encodeURIComponent(plan.id))).items;
