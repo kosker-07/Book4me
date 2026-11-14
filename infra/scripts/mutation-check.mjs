@@ -85,6 +85,10 @@ M.push({ id: "M37", what: "Location filtering after pagination hides matching ho
   "const results = filteredWinners.slice(start, start + limit).map(w => {",
   "const results = winners.slice(start, start + limit).filter(w => !locationQuery || (byRatePlan.get(w.ratePlanId)!.hotel_name + ' ' + byRatePlan.get(w.ratePlanId)!.location).toLocaleLowerCase('tr').includes(locationQuery)).map(w => {"]] });
 
+M.push({ id: "M38", what: "FX cache invalidation disabled", expect: ["J13 FX cache invalidates after rate update"], edits: [["server/fx.ts",
+  "export function invalidateFreshRatesCache(): void { cachedRates = null; inflightRates = null; }",
+  "export function invalidateFreshRatesCache(): void { /* stale cache */ }"]] });
+
 const args = process.argv.slice(2);
 const dryRun = args.includes("--dry-run"), unitOnly = args.includes("--unit-only");
 const onlyArg = args[args.indexOf("--only") + 1];
