@@ -1002,7 +1002,7 @@ async function issueProforma(bookingId: string, actorId: string, scopeSql: strin
   if (!snap) throw httpError(409, "PROFORMA_REQUIRES_PRICE_SNAPSHOT");
   const contractCurrency = String(snap.contract_currency).trim(), paymentCurrency = String(snap.payment_currency).trim();
   try {
-    return await withTransaction(async client => {
+    const issued = await withTransaction(async client => {
       const settings = (await client.query("SELECT legal_name,address,tax_office,tax_number,phone,email FROM platform_settings WHERE id=1")).rows[0] || {};
       const platformSeller = settings.legal_name || "BED4BOOK";
       const year = new Date().getUTCFullYear();
@@ -1026,16 +1026,21 @@ async function issueProforma(bookingId: string, actorId: string, scopeSql: strin
       });
       const sha256 = createHash("sha256").update(pdf).digest("hex");
       const id = randomUUID();
-      await client.query(
+      const inserted = await client.query(
         `INSERT INTO proformas(id, booking_id, number, year, seq, version, supersedes, reason, booking_status, payment_currency, payment_amount,
                                contract_currency, contract_amount, seller_legal_name, issued_by, issued_at, pdf, sha256, seller_settings)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19::jsonb)`,
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19::jsonb)` ON CONFLICT (booking_id, version) DO NOTHING RETURNING id,
         [id, bookingId, number, year, seq, version, latest?.id ?? null, reason ?? "", b.status, paymentCurrency, snap.payment_amount,
          contractCurrency, snap.total, platformSeller, actorId, issuedAt.toISOString(), pdf, sha256, JSON.stringify({legal_name:platformSeller,address:settings.address??null,tax_office:settings.tax_office??null,tax_number:settings.tax_number??null,phone:settings.phone??null,email:settings.email??null})]);
+      if (!inserted.rows[0]) return null; // Concurrent first issuance already committed; return its document below.
       await audit(client, actorId, b.agency_id, version === 1 ? "proforma.issued" : "proforma.reissued", "booking", bookingId,
         { targetAgencyId: b.agency_id, after: { number, version, supersedes: latest?.number ?? null, reason, paymentCurrency, paymentAmount: snap.payment_amount, sha256 } });
       return { pdf, sha256, number, created: true };
     });
+    if (issued) return issued;
+    const winner = (await pool.query("SELECT number, pdf, sha256 FROM proformas WHERE booking_id = $1 ORDER BY version DESC LIMIT 1", [bookingId])).rows[0];
+    if (winner) return { pdf: winner.pdf as Buffer, sha256: winner.sha256 as string, number: winner.number as string, created: false };
+    throw httpError(409, "PROFORMA_CONCURRENT_ISSUE");
   } catch (error: any) {
     // Two first requests for the same booking at once: the loser of the (booking_id, version) race returns the winner's document.
     if (error?.code === "23505" && reason === null) {
