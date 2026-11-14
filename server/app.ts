@@ -21,6 +21,7 @@ import { dmcRouter } from "./dmc-routes";
 import { financeRouter } from "./finance-routes";
 import { reportRouter } from "./report-routes";
 import { mailRouter } from "./mail-routes";
+import { languageRouter } from "./language-routes";
 import { startMailWorker } from "./mail/worker";
 import { startAiWorker } from "./ai/jobs";
 import { registerPlatformApprovalHandlers } from "./ai/tools/handlers";
@@ -155,8 +156,12 @@ app.get("/api/auth/session", async (req, res, next) => {
   } catch (error) { next(error); }
 });
 
-app.get("/api/me", authenticate, (req: AuthedRequest, res) => {
-  res.json({ userId: req.auth!.sub, role: req.auth!.role, agencyId: req.auth!.agencyId });
+app.get("/api/me", authenticate, async (req: AuthedRequest, res, next) => {
+  try {
+    const result = await pool.query("SELECT language FROM users WHERE id = $1", [req.auth!.sub]);
+    if (!result.rowCount) return res.status(404).json({ error: "NOT_FOUND" });
+    res.json({ userId: req.auth!.sub, role: req.auth!.role, agencyId: req.auth!.agencyId, language: result.rows[0].language });
+  } catch (error) { next(error); }
 });
 
 app.use(adminRouter);
@@ -167,6 +172,7 @@ app.use(dmcRouter);
 app.use(financeRouter);
 app.use(reportRouter);
 app.use(mailRouter);
+app.use(languageRouter);
 
 // A sub-agency sees only hotels explicitly published to that agency.
 app.get("/api/agency/hotels", authenticate, roles("sub_agency"), requireAgency, async (req: AuthedRequest, res, next) => {
