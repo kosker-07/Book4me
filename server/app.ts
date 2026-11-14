@@ -23,6 +23,7 @@ import { aiCenterRouter } from "./ai/center-routes";
 import { reportRouter } from "./report-routes";
 import { mailRouter } from "./mail-routes";
 import { startMailWorker } from "./mail/worker";
+import { startAiWorker } from "./ai/jobs";
 import { registerPlatformApprovalHandlers } from "./ai/tools/handlers";
 import { markRead, startReminderWorker } from "./booking-reminders";
 import { renderVoucher } from "./voucher";
@@ -1106,6 +1107,7 @@ if (require.main === module) {
   }).finally(() => {
     app.listen(port, () => console.log(`BED4BOOK API listening on :${port}`));
     startMailWorker();
+    startAiWorker();
     startReminderWorker(pool);
   });
 }

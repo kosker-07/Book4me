@@ -66,6 +66,8 @@ const M = [
   { id: "M30", what: "seller DMC identity reaches the AI model", expect: ["AG11"], edits: [["server/ai/tools/platform.ts",
     "    b.total, b.currency, h.name AS hotel_name, r.name AS room_name, a.name AS agency_name`;",
     "    b.total, b.currency, h.name AS hotel_name, h.owner_agency_id, r.name AS room_name, a.name AS agency_name`;"]] },
+  { id: "M32", what: "transient AI provider error is never retried (mail lost)", expect: ["IN11:"], edits: [["server/ai/jobs.ts",
+    "  if(isTransientAiError(error)&&attempts<MAX_AI_JOB_ATTEMPTS){", "  if(false&&attempts<MAX_AI_JOB_ATTEMPTS){"]] },
   { id: "M31", what: "quote token readable", expect: ["quotes:"], unit: ["quotes: encrypted q3"], edits: [["server/quotes.ts",
     '  return `q3.${iv.toString("base64url")}.${encrypted.toString("base64url")}.${cipher.getAuthTag().toString("base64url")}`;',
     '  return `q2.${Buffer.from(JSON.stringify(payload)).toString("base64url")}.plain`;']] },
