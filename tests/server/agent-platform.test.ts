@@ -65,7 +65,7 @@ test("AG4: disabled agents do not call a model", async () => {
 // prices, markups, the platform fee and the contract behind a booking never leave the database through a tool.
 test("AG11 read tools never select seller identity, net prices, markups, platform fee or contract data", async () => {
   const sql: string[] = [];
-  const db = { query: async (text: string) => { sql.push(text.toLowerCase()); return { rows: [] }; } };
+  const db = { query: async (text: string) => { sql.push(text.toLowerCase()); return { rows: [{}] }; } };
   const tools = platformTools(db);
   const call = async (name: string, input: unknown) => {
     const tool = tools.find(t => t.name === name);
