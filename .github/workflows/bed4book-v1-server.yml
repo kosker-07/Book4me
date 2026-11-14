@@ -102,6 +102,12 @@ jobs:
           psql "$BASE/bed4book_test" -c "CREATE DATABASE bed4book_perf"
           DATABASE_URL="$BASE/bed4book_perf" npm run db:migrate
           DATABASE_URL="$BASE/bed4book_perf" npx tsx infra/scripts/perf-smoke.ts
+      - name: J6 100-concurrent search and booking p95 gate (PostgreSQL 16)
+        run: |
+          BASE="postgres://bed4book:bed4book@localhost:5432"
+          psql "$BASE/bed4book_test" -c "CREATE DATABASE bed4book_perf100"
+          DATABASE_URL="$BASE/bed4book_perf100" npm run db:migrate
+          DATABASE_URL="$BASE/bed4book_perf100" npx tsx infra/scripts/perf-booking-p95.ts
 
   # M1–M24: each mutation must turn its expected test red; files are restored and verified with git diff.
   mutation:
