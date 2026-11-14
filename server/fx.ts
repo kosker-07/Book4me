@@ -20,6 +20,8 @@ let cachedRates: { expiresAt: number; maxAgeHours: number; rates: Map<string, Fx
 let inflightRates: Promise<Map<string, FxRate>> | null = null;
 export function invalidateFreshRatesCache(): void { cachedRates = null; inflightRates = null; }
 export async function loadCachedFreshRates(db: { query: PoolClient["query"] }): Promise<Map<string, FxRate>> {
+  // Integration tests mutate fx_rates directly between cases; never cache their shared DB state.
+  if (process.env.CI === "true" || process.env.NODE_ENV === "test") return loadFreshRates(db);
   const now = Date.now(), age = fxMaxAgeHours();
   if (cachedRates && cachedRates.expiresAt > now && cachedRates.maxAgeHours === age) {
     // Preserve the freshness cutoff even if it is crossed during the cache lifetime.
