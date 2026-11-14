@@ -7,7 +7,7 @@ import { pool } from "../../server/db";
 async function main() {
   const [agencyId, checkIn, checkOut, roomsArg] = process.argv.slice(2);
   const rooms = Number(roomsArg);
-  if (!agencyId || !/^\\d{4}-\\d{2}-\\d{2}$/.test(checkIn ?? "") || !/^\\d{4}-\\d{2}-\\d{2}$/.test(checkOut ?? "")
+  if (!agencyId || !/^\d{4}-\d{2}-\d{2}$/.test(checkIn ?? "") || !/^\d{4}-\d{2}-\d{2}$/.test(checkOut ?? "")
       || !Number.isInteger(rooms) || rooms < 1) {
     throw new Error("Usage: explain-candidates.ts <agency-uuid> <YYYY-MM-DD> <YYYY-MM-DD> <rooms>");
   }
@@ -17,10 +17,10 @@ async function main() {
   const start = source.indexOf("async function loadCandidates(");
   const end = source.indexOf("/** Nationality rules", start);
   const section = source.slice(start, end);
-  const match = /db\\.query\\(\\s*`([\\s\\S]*?)`\\s*,\\s*\\[agencyId, checkIn, checkOut, rooms, nights\\]/.exec(section);
+  const match = /db\.query\(\s*`([\s\S]*?)`\s*,\s*\[agencyId, checkIn, checkOut, rooms, nights\]/.exec(section);
   if (!match) throw new Error("loadCandidates query changed: update this diagnostic before profiling");
   const plan = await pool.query("EXPLAIN (ANALYZE, BUFFERS, VERBOSE, FORMAT TEXT) " + match[1], [agencyId, checkIn, checkOut, rooms, nights]);
-  console.log(plan.rows.map((r: { "QUERY PLAN": string }) => r["QUERY PLAN"]).join("\\n"));
+  console.log(plan.rows.map((r: { "QUERY PLAN": string }) => r["QUERY PLAN"]).join("\n"));
 }
 main().then(() => pool.end()).catch(async e => {
   console.error(e);
